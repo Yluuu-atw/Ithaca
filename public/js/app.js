@@ -236,6 +236,15 @@ window.App = (() => {
         render();
         break;
 
+      case 'identity-pick':
+        Store.setIdentity(Number(el.dataset.idx));
+        closeModal();
+        break;
+
+      case 'switch-identity':
+        openModal('选择身份', Render.identityPicker(members()));
+        break;
+
       default:
         break;
     }
@@ -488,7 +497,7 @@ window.App = (() => {
   function buildMap() {
     map = L.map('map', { zoomControl: true });
     if (currentTileSource === 'amap') {
-      L.tileLayer('https://wprd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}', {
+      L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
         subdomains: ['1', '2', '3', '4'],
         maxZoom: 18,
         attribution: '© 高德地图',
@@ -687,10 +696,21 @@ window.App = (() => {
 
     render();
     Store.load()
-      .then(() => setStatus(true, '已连接'))
+      .then(() => {
+        setStatus(true, '已连接');
+        maybeAskIdentity();
+      })
       .catch((e) => { setStatus(false, '连接失败'); toast(e.message, 'error'); });
 
     Store.connect();
+  }
+
+  // 首次访问（未选择身份）时，弹出「你是谁」选择器
+  function maybeAskIdentity() {
+    if (Store.getIdentity() != null) return;
+    const ms = members();
+    if (!ms || ms.length < 2) return;
+    openModal('选择身份', Render.identityPicker(ms));
   }
 
   return { init };

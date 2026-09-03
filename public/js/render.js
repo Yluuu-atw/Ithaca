@@ -32,6 +32,23 @@ window.Render = (() => {
     return sym + v.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
+  // 成员名显示：本设备自己的成员显示「我」，对方显示实际称呼
+  function dispName(members, name) {
+    const idx = Store.getIdentity();
+    if (idx != null && name === members[idx]) return '我';
+    return name || '';
+  }
+
+  // 表单里的成员下拉：自己显示「我」并默认选中
+  function memberOptions(members) {
+    const idx = Store.getIdentity();
+    return (members || []).map((m, i) => {
+      const label = (idx != null && i === idx) ? '我' : m;
+      const sel = (idx != null && i === idx) ? ' selected' : '';
+      return `<option value="${esc(m)}"${sel}>${esc(label)}</option>`;
+    }).join('');
+  }
+
   function pad(n) { return String(n).padStart(2, '0'); }
 
   function today() {
@@ -154,7 +171,7 @@ window.Render = (() => {
       else if (b < -0.005) { txt = '应补 ' + money(-b, m.currency); cls = 'neg'; }
       else { txt = '持平'; cls = 'zero'; }
       return `<div class="settle-item">
-        <div class="settle-name">${esc(name)}</div>
+        <div class="settle-name">${esc(dispName(m.members || [], name))}</div>
         <div class="settle-line">垫付 ${money(exp.advanced[name] || 0, m.currency)} · 应付 ${money(exp.shouldPay[name] || 0, m.currency)}</div>
         <div class="settle-bal ${cls}">${txt}</div>
       </div>`;
@@ -316,7 +333,7 @@ window.Render = (() => {
       else if (b < -0.005) { txt = '应补 ' + money(-b, s.meta.currency); cls = 'neg'; }
       else { txt = '持平'; cls = 'zero'; }
       return `<div class="settle-item">
-        <div class="settle-name">${esc(name)}</div>
+        <div class="settle-name">${esc(dispName(s.meta.members || [], name))}</div>
         <div class="settle-line">垫付 ${money(exp.advanced[name] || 0, s.meta.currency)} · 应付 ${money(exp.shouldPay[name] || 0, s.meta.currency)}</div>
         <div class="settle-bal ${cls}">${txt}</div>
       </div>`;
@@ -347,7 +364,7 @@ window.Render = (() => {
         <div class="exp-meta">
           <span class="badge">${esc(e.category || '其他')}</span>
           ${e.time ? `<span class="exp-time">${esc(e.time)}</span>` : ''}
-          <span class="tag">${esc(e.payer || '')} 付</span>
+          <span class="tag">${esc(dispName(s.meta.members || [], e.payer || ''))} 付</span>
           <span class="tag">${splitTag}</span>
         </div>
       </div>
@@ -397,7 +414,7 @@ window.Render = (() => {
         <span class="chk-name">${esc(c.name)}</span>
       </label>
       <div class="chk-side">
-        ${c.owner ? `<span class="tag">${esc(c.owner)}</span>` : ''}
+        ${c.owner ? `<span class="tag">${esc(dispName(s.meta.members || [], c.owner))}</span>` : ''}
         <button class="icon-btn danger" data-action="checklist-del" data-id="${esc(c.id)}" title="删除">✕</button>
       </div>
     </li>`;
@@ -472,7 +489,7 @@ window.Render = (() => {
       <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal"></label>
       <div class="form-row">
         <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label>谁付的<select name="payer">${members.map(m => `<option>${esc(m)}</option>`).join('')}</select></label>
+        <label>谁付的<select name="payer">${memberOptions(members)}</select></label>
       </div>
       <label>分摊<select name="split">${splits.map(sp => `<option>${sp}</option>`).join('')}</select></label>
       <label>备注<input name="note" placeholder="如：晚饭 · 烤肉"></label>
@@ -486,7 +503,7 @@ window.Render = (() => {
       <label>物品<input name="name" required placeholder="如：护照"></label>
       <div class="form-row">
         <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label>谁带<select name="owner">${members.map(m => `<option>${esc(m)}</option>`).join('')}</select></label>
+        <label>谁带<select name="owner">${memberOptions(members)}</select></label>
       </div>
       <div class="form-actions"><button class="btn btn-primary" type="submit">添加</button></div>
     </form>`;
@@ -775,7 +792,7 @@ window.Render = (() => {
   function formBooking(members) {
     const types = Store.CONST.bookingTypes;
     const sts = Store.CONST.bookingStatus;
-    const memberOpts = (members || []).map(m => `<option>${esc(m)}</option>`).join('');
+    const memberOpts = memberOptions(members);
     return `<form data-form="booking">
       <div class="form-row">
         <label>票种<select name="type">${types.map(t => `<option value="${t.id}">${t.icon} ${t.label}</option>`).join('')}</select></label>
@@ -811,11 +828,27 @@ window.Render = (() => {
     </form>`;
   }
 
+  // ---------------- 身份选择器 ----------------
+  function identityPicker(members) {
+    const idx = Store.getIdentity();
+    const btns = (members || []).map((m, i) => {
+      const active = idx === i;
+      return `<button class="btn ${active ? 'btn-primary' : 'btn-ghost'} identity-btn" data-action="identity-pick" data-idx="${i}">
+        <span class="identity-icon">${i === 0 ? '👨' : '👩'}</span>
+        <span>我是 ${esc(m)}</span>
+      </button>`;
+    }).join('');
+    return `<div class="identity-picker">
+      <p class="identity-hint">你是谁？之后记账、清单、票据会默认记在你名下</p>
+      <div class="identity-options">${btns}</div>
+    </div>`;
+  }
+
   return {
     TABS,
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
     formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
-    renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail,
+    renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
   };
 })();

@@ -40,6 +40,8 @@ window.Store = (() => {
   const listeners = new Set();
   let statusHandler = null;
   let es = null;
+  let whoami = null; // 本设备的成员索引（0=男方, 1=女方），存 localStorage
+  try { const w = localStorage.getItem('journey.whoami'); if (w != null) whoami = Number(w); } catch (_) {}
 
   const notify = () => { for (const fn of listeners) fn(state); };
 
@@ -114,6 +116,13 @@ window.Store = (() => {
   function setStatusHandler(fn) { statusHandler = fn; }
   function getState() { return state; }
 
+  function getIdentity() { return whoami; }
+  function setIdentity(i) {
+    whoami = i;
+    try { localStorage.setItem('journey.whoami', String(i)); } catch (_) {}
+    notify();
+  }
+
   // 上传照片，返回服务端生成的 URL
   async function uploadPhoto(blob) {
     const res = await fetch('/api/photos', {
@@ -129,5 +138,5 @@ window.Store = (() => {
     return data.url;
   }
 
-  return { CONST, deepClone, uid, load, mutate, connect, subscribe, setStatusHandler, getState, uploadPhoto };
+  return { CONST, deepClone, uid, load, mutate, connect, subscribe, setStatusHandler, getState, getIdentity, setIdentity, uploadPhoto };
 })();

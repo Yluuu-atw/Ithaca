@@ -37,6 +37,8 @@ html, body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 button { font-family: inherit; }
@@ -731,6 +733,18 @@ textarea { resize: vertical; min-height: 60px; }
 
 .chip-sm { padding: 4px 12px; font-size: 12px; }
 
+/* ---------------- 身份选择器 ---------------- */
+.identity-picker { display: flex; flex-direction: column; gap: 16px; }
+.identity-hint { margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
+.identity-options { display: flex; flex-direction: column; gap: 10px; }
+.identity-btn {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  font-size: 15px;
+}
+.identity-icon { font-size: 22px; }
+
 /* ---------------- 底部标签栏（手机） ---------------- */
 .tabbar {
   display: none;
@@ -777,6 +791,10 @@ textarea { resize: vertical; min-height: 60px; }
   .topbar-actions .btn { padding: 7px 12px; font-size: 13px; }
 
   .content { padding: 16px 14px 96px; }
+
+  /* iOS Safari：输入框字号 <16px 会触发聚焦自动缩放，这里固定 16px 并禁用双击缩放 */
+  input, select, textarea { font-size: 16px; }
+  button, .chip, .day-simple, .booking-card, .place-card { touch-action: manipulation; }
 
   .card { padding: 16px; }
   .grid-form { grid-template-columns: 1fr; }

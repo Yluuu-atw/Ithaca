@@ -85,6 +85,11 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.heic': 'image/heic',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
@@ -92,8 +97,11 @@ const MIME = {
 
 function serveStatic(req, res, pathname) {
   const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-  const filePath = path.resolve(PUBLIC_DIR, rel);
-  if (!filePath.startsWith(PUBLIC_DIR + path.sep)) {
+  const isUpload = rel.startsWith('uploads/');
+  const base = isUpload ? UPLOAD_DIR : PUBLIC_DIR;
+  const inner = isUpload ? rel.slice('uploads/'.length) : rel;
+  const filePath = path.resolve(base, inner);
+  if (!filePath.startsWith(base + path.sep) && filePath !== base) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Forbidden');
     return;
