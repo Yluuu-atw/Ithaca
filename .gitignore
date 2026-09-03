@@ -1,0 +1,7 @@
+# 运行时数据（每对情侣的私有数据，不纳入版本管理）
+data/db.json
+data/db.json.tmp
+data/uploads/
+
+node_modules/
+.DS_Store

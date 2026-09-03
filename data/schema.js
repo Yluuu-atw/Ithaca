@@ -1,0 +1,88 @@
+'use strict';
+
+/**
+ * 数据模型定义 —— 唯一的"数据层"真相源（服务端使用）。
+ *
+ * 后续要新增/修改字段时，只需改这里 + 前端 store.js 里对应的常量，
+ * 呈现层（render.js / app.js）会自动跟随数据结构渲染。
+ *
+ * 文档结构：
+ *   meta        行程元信息（名称/目的地/日期/币种/成员/版本号）
+ *   itinerary   行程：按天分组，每天若干"安排"
+ *   expenses    记账：一条支出
+ *   checklist   打包清单：一件要带的物品
+ *   wishlist    心愿单：一个想去的地方/想做的事
+ *   tracks      足迹：GPX 导入的轨迹（若干坐标点连成的路线）
+ *   photos      照片：旅行照片（手帐墙）
+ */
+
+const CATEGORIES = {
+  itinerary: ['交通', '景点', '餐饮', '住宿', '购物', '其他'],
+  expense: ['餐饮', '交通', '住宿', '门票', '购物', '娱乐', '其他'],
+  checklist: ['证件', '衣物', '洗漱', '电子', '药品', '其他'],
+};
+
+const SPLIT_OPTIONS = ['均摊', '单方'];
+const PRIORITIES = ['高', '中', '低'];
+const WISH_STATUS = ['想去', '排入行程', '已完成'];
+const CURRENCY_SYMBOL = {
+  CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
+  KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
+};
+
+function uid(prefix) {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function defaultDoc() {
+  return {
+    meta: {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      tripName: '我们的旅行',
+      destination: '',
+      startDate: '',
+      endDate: '',
+      currency: 'CNY',
+      members: ['我', '她'],
+    },
+    itinerary: [], // [{ id, date, items: [{ id, time, endTime, title, location, lat, lng, note, category, estimatedCost }] }]
+    expenses: [],  // [{ id, date, time, amount, category, payer, split, note }]
+    checklist: [], // [{ id, name, category, checked, owner }]
+    wishlist: [],  // [{ id, name, location, note, priority, status }]
+    tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
+    photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
+  };
+}
+
+// 归一化：保证任何来源的数据都符合结构，缺的字段补默认值
+function normalize(doc) {
+  const d = defaultDoc();
+  if (!doc || typeof doc !== 'object') return d;
+
+  d.meta = Object.assign(d.meta, doc.meta || {});
+  d.meta.version = Number(doc.meta && doc.meta.version) || 1;
+  d.meta.updatedAt = (doc.meta && doc.meta.updatedAt) || d.meta.updatedAt;
+  if (!Array.isArray(d.meta.members) || d.meta.members.length === 0) {
+    d.meta.members = ['我', '她'];
+  }
+
+  d.itinerary = Array.isArray(doc.itinerary) ? doc.itinerary : [];
+  d.expenses = Array.isArray(doc.expenses) ? doc.expenses : [];
+  d.checklist = Array.isArray(doc.checklist) ? doc.checklist : [];
+  d.wishlist = Array.isArray(doc.wishlist) ? doc.wishlist : [];
+  d.tracks = Array.isArray(doc.tracks) ? doc.tracks : [];
+  d.photos = Array.isArray(doc.photos) ? doc.photos : [];
+  return d;
+}
+
+module.exports = {
+  CATEGORIES,
+  SPLIT_OPTIONS,
+  PRIORITIES,
+  WISH_STATUS,
+  CURRENCY_SYMBOL,
+  uid,
+  defaultDoc,
+  normalize,
+};
