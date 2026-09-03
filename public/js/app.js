@@ -40,8 +40,16 @@ window.App = (() => {
     $('#tabbar').innerHTML = Render.renderTabbar(current.tab);
     $('#pageTitle').textContent = Render.tabTitle(current.tab);
     $('#brandName').textContent = data.meta.tripName || 'Journey';
+
+    // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
+    if (current.tab === 'map') {
+      if (map && $('#map')) { refreshMap(data); return; }
+      $('#content').innerHTML = Render.renderPage(data, current.tab);
+      setTimeout(() => initMap(data), 0);
+      return;
+    }
+
     $('#content').innerHTML = Render.renderPage(data, current.tab);
-    if (current.tab === 'map') setTimeout(() => initMap(data), 0);
   }
 
   // ---------------- 弹窗 ----------------
@@ -320,19 +328,16 @@ window.App = (() => {
   let mapLayer = null;
   let mapTrackLayers = [];
 
-  function initMap(data) {
-    const el = $('#map');
-    if (!el || typeof L === 'undefined') return;
+  function buildMap() {
+    map = L.map('map', { zoomControl: true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
+    mapLayer = L.layerGroup().addTo(map);
+  }
 
-    if (!map) {
-      map = L.map('map', { zoomControl: true });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors',
-      }).addTo(map);
-      mapLayer = L.layerGroup().addTo(map);
-    }
-
+  function drawMapLayers(data) {
     mapLayer.clearLayers();
     mapTrackLayers.forEach(l => map.removeLayer(l));
     mapTrackLayers = [];
@@ -374,6 +379,26 @@ window.App = (() => {
 
     fitMapToAll();
     renderMapLegend(data, colorByDate);
+  }
+
+  function initMap(data) {
+    const el = $('#map');
+    if (!el || typeof L === 'undefined') return;
+    if (!map) buildMap();
+    drawMapLayers(data);
+    setTimeout(() => map.invalidateSize(), 60);
+  }
+
+  function refreshMap(data) {
+    const el = $('#map');
+    if (!el || typeof L === 'undefined') return;
+    // 容器若已被其它渲染替换，则重建地图
+    if (!map || map._container !== el) {
+      if (map) { try { map.remove(); } catch (_) {} map = null; mapLayer = null; mapTrackLayers = []; }
+      buildMap();
+    }
+    drawMapLayers(data);
+    setTimeout(() => map.invalidateSize(), 60);
   }
 
   function fitMapToAll() {
@@ -476,6 +501,8 @@ window.App = (() => {
       }
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
+    // 窗口尺寸变化时重算地图尺寸，避免瓦片错位
+    window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
 
     Store.setStatusHandler((st) => {
       if (st === 'connected') setStatus(true, '已连接');
