@@ -27,6 +27,8 @@ const PRIORITIES = ['高', '中', '低'];
 const WISH_STATUS = ['想去', '排入行程', '已完成'];
 const PLACE_CATEGORIES = ['住宿', '餐饮', '景点', '交通', '购物', '娱乐', '其他'];
 const PLACE_STATUS = ['想去', '待订', '已订'];
+const BOOKING_TYPES = ['flight', 'train', 'bus', 'hotel', 'other'];
+const BOOKING_STATUS = ['待订', '已订', '已完成', '已取消'];
 const CURRENCY_SYMBOL = {
   CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
   KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
@@ -55,6 +57,7 @@ function defaultDoc() {
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
     photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
     places: [],    // [{ id, name, category, location, lat, lng, date, note, status, cost, link }]
+    bookings: [],  // [{ id, type, title, status, date, time, endDate, endTime, from, to, carrier, seat, refNo, price, payer, link, note }]
   };
 }
 
@@ -77,6 +80,7 @@ function normalize(doc) {
   d.tracks = Array.isArray(doc.tracks) ? doc.tracks : [];
   d.photos = Array.isArray(doc.photos) ? doc.photos : [];
   d.places = Array.isArray(doc.places) ? doc.places : [];
+  d.bookings = Array.isArray(doc.bookings) ? doc.bookings : [];
   return d;
 }
 
@@ -87,6 +91,8 @@ module.exports = {
   WISH_STATUS,
   PLACE_CATEGORIES,
   PLACE_STATUS,
+  BOOKING_TYPES,
+  BOOKING_STATUS,
   CURRENCY_SYMBOL,
   uid,
   defaultDoc,

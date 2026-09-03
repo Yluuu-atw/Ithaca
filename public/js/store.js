@@ -20,6 +20,14 @@ window.Store = (() => {
     wishStatus: ['想去', '排入行程', '已完成'],
     placeCategories: ['住宿', '餐饮', '景点', '交通', '购物', '娱乐', '其他'],
     placeStatus: ['想去', '待订', '已订'],
+    bookingTypes: [
+      { id: 'flight', label: '机票', icon: '✈️' },
+      { id: 'train', label: '火车票', icon: '🚄' },
+      { id: 'bus', label: '大巴票', icon: '🚌' },
+      { id: 'hotel', label: '酒店', icon: '🏨' },
+      { id: 'other', label: '其他', icon: '🎫' },
+    ],
+    bookingStatus: ['待订', '已订', '已完成', '已取消'],
     currencySymbol: {
       CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
       KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',

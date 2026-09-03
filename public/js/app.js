@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' } };
+  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' } };
   const $ = (sel) => document.querySelector(sel);
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
@@ -53,6 +53,7 @@ window.App = (() => {
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
       itineraryMode: current.itineraryMode,
       placeFilter: current.placeFilter,
+      bookingFilter: current.bookingFilter,
     });
     // 搜索框重绘后恢复焦点，保证连续输入
     if (hadSearchFocus && current.tab === 'places') {
@@ -212,6 +213,29 @@ window.App = (() => {
         render();
         break;
 
+      case 'booking-add':
+        openModal('添加票据', Render.formBooking(members()));
+        break;
+
+      case 'booking-detail':
+        openModal('票据详情', Render.bookingDetail(Store.getState(), el.dataset.id));
+        break;
+
+      case 'booking-del':
+        if (!confirm('删除这张票据？')) return;
+        doMutate(d => { d.bookings = (d.bookings || []).filter(x => x.id !== el.dataset.id); }, '已删除');
+        break;
+
+      case 'booking-filter-type':
+        current.bookingFilter.type = el.dataset.type;
+        render();
+        break;
+
+      case 'booking-filter-status':
+        current.bookingFilter.status = el.dataset.status;
+        render();
+        break;
+
       default:
         break;
     }
@@ -338,6 +362,31 @@ window.App = (() => {
         note: fd.get('note') || '',
       };
       doMutate(d => { d.places = d.places || []; d.places.push(place); }, '已保存');
+      closeModal();
+      return;
+    }
+
+    if (kind === 'booking') {
+      const booking = {
+        id: Store.uid('bk'),
+        type: fd.get('type') || 'other',
+        title: fd.get('title') || '',
+        status: fd.get('status') || '待订',
+        from: fd.get('from') || '',
+        to: fd.get('to') || '',
+        date: fd.get('date') || '',
+        time: fd.get('time') || '',
+        endDate: fd.get('endDate') || '',
+        endTime: fd.get('endTime') || '',
+        carrier: fd.get('carrier') || '',
+        seat: fd.get('seat') || '',
+        refNo: fd.get('refNo') || '',
+        price: Number(fd.get('price')) || 0,
+        payer: fd.get('payer') || '',
+        link: fd.get('link') || '',
+        note: fd.get('note') || '',
+      };
+      doMutate(d => { d.bookings = d.bookings || []; d.bookings.push(booking); }, '已保存票据');
       closeModal();
       return;
     }

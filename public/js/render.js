@@ -11,6 +11,7 @@ window.Render = (() => {
     { id: 'overview', label: '概览', icon: '🏠' },
     { id: 'itinerary', label: '行程', icon: '🗺️' },
     { id: 'places', label: '攻略', icon: '📌' },
+    { id: 'bookings', label: '票据', icon: '🎫' },
     { id: 'expenses', label: '记账', icon: '💰' },
     { id: 'checklist', label: '清单', icon: '🎒' },
     { id: 'wishlist', label: '心愿单', icon: '⭐' },
@@ -126,6 +127,7 @@ window.Render = (() => {
     switch (tab) {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'places': return renderPlaces(state, opts.placeFilter);
+      case 'bookings': return renderBookings(state, opts.bookingFilter);
       case 'map': return renderMap(state, opts.tileSource);
       case 'expenses': return renderExpenses(state);
       case 'checklist': return renderChecklist(state);
@@ -680,11 +682,140 @@ window.Render = (() => {
     </form>`;
   }
 
+  // ---------------- 票据 / 预订凭证 ----------------
+  const bkType = (id) => Store.CONST.bookingTypes.find(x => x.id === id) || { icon: '🎫', label: '其他' };
+  const bkStatusCls = (st) => ({ 待订: 'want', 已订: 'booked', 已完成: 'done', 已取消: 'cancel' }[st] || 'want');
+
+  function renderBookings(s, filter) {
+    const bookings = s.bookings || [];
+    filter = filter || {};
+    const activeType = filter.type || '全部';
+    const activeStatus = filter.status || '全部';
+
+    let list = bookings;
+    if (activeType !== '全部') list = list.filter(b => b.type === activeType);
+    if (activeStatus !== '全部') list = list.filter(b => (b.status || '待订') === activeStatus);
+    list = [...list].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    const head = `<div class="list-head">
+      <span>共 ${bookings.length} 张票据</span>
+      <button class="btn btn-primary" data-action="booking-add">＋ 添加票据</button>
+    </div>`;
+
+    const typeChips = ['全部', ...Store.CONST.bookingTypes.map(t => t.id)].map(c => {
+      const label = c === '全部' ? '全部' : bkType(c).label;
+      return `<button class="chip ${c === activeType ? 'active' : ''}" data-action="booking-filter-type" data-type="${esc(c)}">${label}</button>`;
+    }).join('');
+    const statusChips = ['全部', ...Store.CONST.bookingStatus].map(c =>
+      `<button class="chip chip-sm ${c === activeStatus ? 'active' : ''}" data-action="booking-filter-status" data-status="${esc(c)}">${c}</button>`).join('');
+
+    const tools = `<div class="card place-tools">
+      <div class="chips">${typeChips}</div>
+      <div class="chips">${statusChips}</div>
+    </div>`;
+
+    if (!bookings.length) {
+      return head + tools + `<div class="card"><div class="empty">
+        <p>还没有票据</p><p class="empty-hint">把订好的机票、火车票、大巴票、酒店凭证记进来 🎫</p>
+      </div></div>`;
+    }
+
+    const listHtml = list.length
+      ? `<div class="booking-list">${list.map(b => renderBookingCard(s, b)).join('')}</div>`
+      : `<div class="card"><div class="empty"><p>没有匹配的票据</p></div></div>`;
+
+    return head + tools + listHtml;
+  }
+
+  function renderBookingCard(s, b) {
+    const t = bkType(b.type);
+    const route = [b.from, b.to].filter(Boolean).join(' → ');
+    const sub = [route, b.date ? fmtDate(b.date) : '', b.time || '', b.carrier || '', b.refNo ? `#${b.refNo}` : ''].filter(Boolean).join(' · ');
+    return `<div class="booking-card" data-action="booking-detail" data-id="${esc(b.id)}" role="button" tabindex="0">
+      <div class="bk-icon">${t.icon}</div>
+      <div class="bk-main">
+        <div class="bk-title">${esc(b.title || route || t.label)}</div>
+        ${sub ? `<div class="bk-sub">${esc(sub)}</div>` : ''}
+      </div>
+      <div class="bk-side">
+        <span class="bk-status st-${bkStatusCls(b.status)}">${esc(b.status || '待订')}</span>
+        ${b.price ? `<span class="bk-price">${money(b.price, s.meta.currency)}</span>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function bookingDetail(s, id) {
+    const b = (s.bookings || []).find(x => x.id === id);
+    if (!b) return '<p class="empty small">找不到这张票据</p>';
+    const t = bkType(b.type);
+    const route = [b.from, b.to].filter(Boolean).join(' → ');
+    const when = [b.date, b.time].filter(Boolean).join(' ');
+    const when2 = [b.endDate, b.endTime].filter(Boolean).join(' ');
+    return `<div class="detail">
+      <div class="detail-head">
+        <h3>${t.icon} ${esc(b.title || route || t.label)}</h3>
+        <button class="icon-btn danger" data-action="booking-del" data-id="${esc(b.id)}" title="删除">✕</button>
+      </div>
+      <div class="detail-tags">
+        <span class="badge">${t.label}</span>
+        <span class="bk-status st-${bkStatusCls(b.status)}">${esc(b.status || '待订')}</span>
+      </div>
+      ${route ? `<div class="detail-row">🛣 ${esc(route)}</div>` : ''}
+      ${when ? `<div class="detail-row">🕐 ${esc(when)}${when2 ? ' → ' + esc(when2) : ''}</div>` : ''}
+      ${b.carrier ? `<div class="detail-row">🚩 承运/航司/车次：${esc(b.carrier)}</div>` : ''}
+      ${b.seat ? `<div class="detail-row">💺 座位/舱位/房型：${esc(b.seat)}</div>` : ''}
+      ${b.refNo ? `<div class="detail-row">🧾 订单号：${esc(b.refNo)}</div>` : ''}
+      ${b.price ? `<div class="detail-row">💰 金额：${money(b.price, s.meta.currency)}</div>` : ''}
+      ${b.payer ? `<div class="detail-row">👤 付款人：${esc(b.payer)}</div>` : ''}
+      ${b.link ? `<div class="detail-row">🔗 <a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.link)}</a></div>` : ''}
+      ${b.note ? `<div class="detail-note">${esc(b.note)}</div>` : ''}
+    </div>`;
+  }
+
+  function formBooking(members) {
+    const types = Store.CONST.bookingTypes;
+    const sts = Store.CONST.bookingStatus;
+    const memberOpts = (members || []).map(m => `<option>${esc(m)}</option>`).join('');
+    return `<form data-form="booking">
+      <div class="form-row">
+        <label>票种<select name="type">${types.map(t => `<option value="${t.id}">${t.icon} ${t.label}</option>`).join('')}</select></label>
+        <label>状态<select name="status">${sts.map(st => `<option>${st}</option>`).join('')}</select></label>
+      </div>
+      <label>标题<input name="title" required placeholder="如：CZ3xxx 航班 / G6xx 车次 / 酒店名"></label>
+      <div class="form-row">
+        <label>出发地/起点<input name="from" placeholder="如：北京"></label>
+        <label>到达地/终点<input name="to" placeholder="如：珠海"></label>
+      </div>
+      <div class="form-row">
+        <label>日期<input type="date" name="date"></label>
+        <label>时间<input type="time" name="time"></label>
+      </div>
+      <div class="form-row">
+        <label>结束日期<input type="date" name="endDate"></label>
+        <label>结束时间<input type="time" name="endTime"></label>
+      </div>
+      <div class="form-row">
+        <label>承运/航司/车次<input name="carrier" placeholder="如：南方航空"></label>
+        <label>座位/舱位/房型<input name="seat" placeholder="如：经济舱 / 大床房"></label>
+      </div>
+      <div class="form-row">
+        <label>订单号<input name="refNo" placeholder="如：ABC123"></label>
+        <label>金额<input type="number" name="price" min="0" step="0.01" placeholder="0" inputmode="decimal"></label>
+      </div>
+      <div class="form-row">
+        <label>谁付的<select name="payer">${memberOpts}</select></label>
+        <label>链接<input name="link" placeholder="电子票链接（可选）"></label>
+      </div>
+      <label>备注<textarea name="note" rows="2" placeholder="取票码、行李、退改规则等"></textarea></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存票据</button></div>
+    </form>`;
+  }
+
   return {
     TABS,
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
-    formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace,
-    renderPlaces, placeDetail, dayDetail,
+    formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
+    renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail,
   };
 })();

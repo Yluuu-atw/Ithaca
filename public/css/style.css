@@ -686,6 +686,51 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 
 textarea { resize: vertical; min-height: 60px; }
 
+/* ---------------- 票据 / 预订凭证 ---------------- */
+.booking-list { display: flex; flex-direction: column; gap: 12px; }
+.booking-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .05s ease;
+}
+.booking-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.booking-card:active { transform: scale(.98); }
+.bk-icon {
+  flex: 0 0 auto;
+  width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+.bk-main { flex: 1; min-width: 0; }
+.bk-title { font-weight: 600; font-size: 15px; }
+.bk-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bk-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.bk-price { font-weight: 700; font-size: 15px; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.bk-status { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.st-want { background: var(--accent-soft); color: var(--accent); }
+.st-pending { background: var(--primary-soft); color: var(--primary-600); }
+.st-booked { background: #e6f4ea; color: #3f9d6d; }
+.st-done { background: var(--surface-2); color: var(--muted); }
+.st-cancel { background: var(--danger-soft); color: var(--danger); }
+
+.chip-sm { padding: 4px 12px; font-size: 12px; }
+
 /* ---------------- 底部标签栏（手机） ---------------- */
 .tabbar {
   display: none;
