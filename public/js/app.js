@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { tab: 'overview' };
+  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' } };
   const $ = (sel) => document.querySelector(sel);
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
@@ -49,7 +49,16 @@ window.App = (() => {
       return;
     }
 
-    $('#content').innerHTML = Render.renderPage(data, current.tab);
+    const hadSearchFocus = document.activeElement && document.activeElement.id === 'placeSearch';
+    $('#content').innerHTML = Render.renderPage(data, current.tab, {
+      itineraryMode: current.itineraryMode,
+      placeFilter: current.placeFilter,
+    });
+    // 搜索框重绘后恢复焦点，保证连续输入
+    if (hadSearchFocus && current.tab === 'places') {
+      const el = $('#placeSearch');
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
   }
 
   // ---------------- 弹窗 ----------------
@@ -167,6 +176,33 @@ window.App = (() => {
         doMutate(d => { d.photos = (d.photos || []).filter(x => x.id !== el.dataset.id); }, '已删除');
         break;
 
+      case 'itinerary-toggle-mode':
+        current.itineraryMode = current.itineraryMode === 'detail' ? 'simple' : 'detail';
+        render();
+        break;
+
+      case 'day-detail':
+        openModal('行程详情', Render.dayDetail(Store.getState(), el.dataset.day));
+        break;
+
+      case 'place-add':
+        openModal('添加地点', Render.formPlace());
+        break;
+
+      case 'place-detail':
+        openModal('地点详情', Render.placeDetail(Store.getState(), el.dataset.id));
+        break;
+
+      case 'place-del':
+        if (!confirm('删除这个地点？')) return;
+        doMutate(d => { d.places = (d.places || []).filter(x => x.id !== el.dataset.id); }, '已删除');
+        break;
+
+      case 'place-filter':
+        current.placeFilter.category = el.dataset.cat;
+        render();
+        break;
+
       default:
         break;
     }
@@ -276,6 +312,23 @@ window.App = (() => {
       const caption = fd.get('caption') || '';
       const location = fd.get('location') || '';
       uploadPhotos(files, date, caption, location);
+      closeModal();
+      return;
+    }
+
+    if (kind === 'place') {
+      const place = {
+        id: Store.uid('plc'),
+        name: fd.get('name') || '',
+        category: fd.get('category') || '其他',
+        status: fd.get('status') || '想去',
+        location: fd.get('location') || '',
+        date: fd.get('date') || '',
+        cost: Number(fd.get('cost')) || 0,
+        link: fd.get('link') || '',
+        note: fd.get('note') || '',
+      };
+      doMutate(d => { d.places = d.places || []; d.places.push(place); }, '已保存');
       closeModal();
       return;
     }
@@ -498,6 +551,17 @@ window.App = (() => {
         const file = e.target.files[0];
         if (file) importGpx(file);
         e.target.value = '';
+      }
+    });
+    // 攻略搜索：实时检索（防抖 250ms）
+    let searchTimer = null;
+    document.addEventListener('input', (e) => {
+      if (e.target && e.target.id === 'placeSearch') {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          current.placeFilter.keyword = e.target.value;
+          render();
+        }, 250);
       }
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });

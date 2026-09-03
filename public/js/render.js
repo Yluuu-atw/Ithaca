@@ -10,10 +10,11 @@ window.Render = (() => {
   const TABS = [
     { id: 'overview', label: '概览', icon: '🏠' },
     { id: 'itinerary', label: '行程', icon: '🗺️' },
-    { id: 'map', label: '地图', icon: '📍' },
+    { id: 'places', label: '攻略', icon: '📌' },
     { id: 'expenses', label: '记账', icon: '💰' },
     { id: 'checklist', label: '清单', icon: '🎒' },
     { id: 'wishlist', label: '心愿单', icon: '⭐' },
+    { id: 'map', label: '地图', icon: '📍' },
     { id: 'photos', label: '照片', icon: '📷' },
   ];
 
@@ -120,9 +121,11 @@ window.Render = (() => {
   }
 
   // ---------------- 页面分发 ----------------
-  function renderPage(state, tab) {
+  function renderPage(state, tab, opts) {
+    opts = opts || {};
     switch (tab) {
-      case 'itinerary': return renderItinerary(state);
+      case 'itinerary': return renderItinerary(state, opts.itineraryMode);
+      case 'places': return renderPlaces(state, opts.placeFilter);
       case 'map': return renderMap(state);
       case 'expenses': return renderExpenses(state);
       case 'checklist': return renderChecklist(state);
@@ -195,12 +198,16 @@ window.Render = (() => {
   }
 
   // ---------------- 行程 ----------------
-  function renderItinerary(s) {
+  function renderItinerary(s, mode) {
+    const isDetail = mode === 'detail';
     const days = [...s.itinerary].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const estTotal = s.itinerary.reduce((a, d) => a + (d.items || []).reduce((x, i) => x + (Number(i.estimatedCost) || 0), 0), 0);
     const head = `<div class="list-head">
       <span>共 ${days.length} 天 · 预估 ${money(estTotal, s.meta.currency)}</span>
-      <button class="btn btn-primary" data-action="itinerary-add-day">＋ 新建一天</button>
+      <div class="head-actions">
+        <button class="btn btn-ghost btn-sm" data-action="itinerary-toggle-mode">${isDetail ? '简洁模式' : '详细模式'}</button>
+        <button class="btn btn-primary" data-action="itinerary-add-day">＋ 新建一天</button>
+      </div>
     </div>`;
 
     if (!days.length) {
@@ -208,7 +215,46 @@ window.Render = (() => {
         <p>还没有行程安排</p><p class="empty-hint">先新建一天，再把想去的地方排进去 ✨</p>
       </div></div>`;
     }
-    return head + `<div class="day-list">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
+    if (isDetail) {
+      return head + `<div class="day-list">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
+    }
+    return head + `<div class="day-list">${days.map((d, i) => renderDaySimple(s, d, i)).join('')}</div>`;
+  }
+
+  function renderDaySimple(s, d, idx) {
+    const items = d.items || [];
+    const dayTotal = items.reduce((x, i) => x + (Number(i.estimatedCost) || 0), 0);
+    const date = d.date || '';
+    const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
+      ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
+    const firstTitles = items.slice(0, 3).map(i => esc(i.title)).join(' · ');
+    return `<button class="day-simple" data-action="day-detail" data-day="${esc(d.id)}">
+      <div class="day-simple-num">Day ${dayNo}</div>
+      <div class="day-simple-main">
+        <div class="day-simple-date">${fmtDate(date)} ${weekday(date)}</div>
+        <div class="day-simple-titles">${items.length ? firstTitles + (items.length > 3 ? ' …' : '') : '（暂无安排）'}</div>
+      </div>
+      <div class="day-simple-side">
+        <span class="day-simple-count">${items.length} 项</span>
+        ${dayTotal ? `<span class="iti-cost">${money(dayTotal, s.meta.currency)}</span>` : ''}
+        <span class="chevron">›</span>
+      </div>
+    </button>`;
+  }
+
+  function dayDetail(s, dayId) {
+    const day = s.itinerary.find(d => d.id === dayId);
+    if (!day) return '<p class="empty small">找不到这一天</p>';
+    const items = [...(day.items || [])].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    return `<div class="detail">
+      <div class="detail-head">
+        <h3>${fmtDate(day.date)} ${weekday(day.date)}</h3>
+        <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 安排</button>
+      </div>
+      ${items.length
+        ? `<ul class="iti-list detail-list">${items.map(i => renderItiItem(s, day.id, i)).join('')}</ul>`
+        : '<p class="empty small">这天还没有安排</p>'}
+    </div>`;
   }
 
   function renderDay(s, d, idx) {
@@ -529,10 +575,111 @@ window.Render = (() => {
     </form>`;
   }
 
+  // ---------------- 攻略 / 预订 ----------------
+  function renderPlaces(s, filter) {
+    const places = s.places || [];
+    const cats = Store.CONST.placeCategories;
+    filter = filter || {};
+    const activeCat = filter.category || '全部';
+    const keyword = (filter.keyword || '').trim().toLowerCase();
+
+    let list = places;
+    if (activeCat !== '全部') list = list.filter(p => (p.category || '其他') === activeCat);
+    if (keyword) {
+      list = list.filter(p =>
+        (p.name || '').toLowerCase().includes(keyword) ||
+        (p.location || '').toLowerCase().includes(keyword) ||
+        (p.note || '').toLowerCase().includes(keyword));
+    }
+
+    const head = `<div class="list-head">
+      <span>共 ${places.length} 个地点</span>
+      <button class="btn btn-primary" data-action="place-add">＋ 添加</button>
+    </div>`;
+
+    const chips = ['全部', ...cats].map(c =>
+      `<button class="chip ${c === activeCat ? 'active' : ''}" data-action="place-filter" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+
+    const tools = `<div class="card place-tools">
+      <div class="search-bar"><input type="search" id="placeSearch" placeholder="搜索地点 / 关键词…" value="${esc(filter.keyword || '')}"></div>
+      <div class="chips">${chips}</div>
+    </div>`;
+
+    if (!places.length) {
+      return head + tools + `<div class="card"><div class="empty">
+        <p>还没有收藏的地点</p><p class="empty-hint">把要订的酒店、想去的餐厅加进来 📌</p>
+      </div></div>`;
+    }
+
+    const grid = list.length
+      ? `<div class="place-grid">${list.map(p => renderPlaceCard(s, p)).join('')}</div>`
+      : `<div class="card"><div class="empty"><p>没有匹配的结果</p></div></div>`;
+
+    return head + tools + grid;
+  }
+
+  function renderPlaceCard(s, p) {
+    const stCls = { 想去: 'want', 待订: 'pending', 已订: 'booked' }[p.status] || 'want';
+    return `<div class="place-card" data-action="place-detail" data-id="${esc(p.id)}" role="button" tabindex="0">
+      <div class="place-top">
+        <span class="badge">${esc(p.category || '其他')}</span>
+        <span class="place-status st-${stCls}">${esc(p.status || '想去')}</span>
+      </div>
+      <h3 class="place-name">${esc(p.name || '（未命名）')}</h3>
+      ${p.location ? `<div class="place-loc">📍 ${esc(p.location)}</div>` : ''}
+      ${p.note ? `<div class="place-note">${esc(p.note)}</div>` : ''}
+      <div class="place-foot">
+        ${p.cost ? `<span class="iti-cost">${money(p.cost, s.meta.currency)}</span>` : '<span></span>'}
+        ${p.date ? `<span class="tag">${esc(p.date)}</span>` : '<span></span>'}
+      </div>
+    </div>`;
+  }
+
+  function placeDetail(s, id) {
+    const p = (s.places || []).find(x => x.id === id);
+    if (!p) return '<p class="empty small">找不到这个地点</p>';
+    return `<div class="detail">
+      <div class="detail-head">
+        <h3>${esc(p.name || '')}</h3>
+        <button class="icon-btn danger" data-action="place-del" data-id="${esc(p.id)}" title="删除">✕</button>
+      </div>
+      <div class="detail-tags">
+        <span class="badge">${esc(p.category || '其他')}</span>
+        <span class="place-status st-${({想去:'want',待订:'pending',已订:'booked'}[p.status] || 'want')}">${esc(p.status || '想去')}</span>
+      </div>
+      ${p.location ? `<div class="detail-row">📍 ${esc(p.location)}</div>` : ''}
+      ${p.date ? `<div class="detail-row">📅 ${esc(p.date)}</div>` : ''}
+      ${p.cost ? `<div class="detail-row">💰 ${money(p.cost, s.meta.currency)}</div>` : ''}
+      ${p.link ? `<div class="detail-row">🔗 <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></div>` : ''}
+      ${p.note ? `<div class="detail-note">${esc(p.note)}</div>` : ''}
+    </div>`;
+  }
+
+  function formPlace() {
+    const cats = Store.CONST.placeCategories;
+    const sts = Store.CONST.placeStatus;
+    return `<form data-form="place">
+      <label>名称<input name="name" required placeholder="如：尖沙咀某酒店"></label>
+      <div class="form-row">
+        <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
+        <label>状态<select name="status">${sts.map(st => `<option>${st}</option>`).join('')}</select></label>
+      </div>
+      <label>地点<input name="location" placeholder="如：香港尖沙咀"></label>
+      <div class="form-row">
+        <label>日期<input type="date" name="date"></label>
+        <label>预算/价格<input type="number" name="cost" min="0" step="0.01" placeholder="0" inputmode="decimal"></label>
+      </div>
+      <label>链接<input name="link" placeholder="预订链接（可选）"></label>
+      <label>备注<textarea name="note" rows="2" placeholder="房型、预订号、推荐菜等"></textarea></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
+    </form>`;
+  }
+
   return {
     TABS,
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
-    formDay, formItem, formExpense, formChecklist, formWish, formPhoto,
+    formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace,
+    renderPlaces, placeDetail, dayDetail,
   };
 })();

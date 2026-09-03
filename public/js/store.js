@@ -18,6 +18,8 @@ window.Store = (() => {
     splitOptions: ['均摊', '单方'],
     priorities: ['高', '中', '低'],
     wishStatus: ['想去', '排入行程', '已完成'],
+    placeCategories: ['住宿', '餐饮', '景点', '交通', '购物', '娱乐', '其他'],
+    placeStatus: ['想去', '待订', '已订'],
     currencySymbol: {
       CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
       KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',

@@ -25,6 +25,8 @@ const CATEGORIES = {
 const SPLIT_OPTIONS = ['均摊', '单方'];
 const PRIORITIES = ['高', '中', '低'];
 const WISH_STATUS = ['想去', '排入行程', '已完成'];
+const PLACE_CATEGORIES = ['住宿', '餐饮', '景点', '交通', '购物', '娱乐', '其他'];
+const PLACE_STATUS = ['想去', '待订', '已订'];
 const CURRENCY_SYMBOL = {
   CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
   KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
@@ -52,6 +54,7 @@ function defaultDoc() {
     wishlist: [],  // [{ id, name, location, note, priority, status }]
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
     photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
+    places: [],    // [{ id, name, category, location, lat, lng, date, note, status, cost, link }]
   };
 }
 
@@ -73,6 +76,7 @@ function normalize(doc) {
   d.wishlist = Array.isArray(doc.wishlist) ? doc.wishlist : [];
   d.tracks = Array.isArray(doc.tracks) ? doc.tracks : [];
   d.photos = Array.isArray(doc.photos) ? doc.photos : [];
+  d.places = Array.isArray(doc.places) ? doc.places : [];
   return d;
 }
 
@@ -81,6 +85,8 @@ module.exports = {
   SPLIT_OPTIONS,
   PRIORITIES,
   WISH_STATUS,
+  PLACE_CATEGORIES,
+  PLACE_STATUS,
   CURRENCY_SYMBOL,
   uid,
   defaultDoc,
