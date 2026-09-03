@@ -126,7 +126,7 @@ window.Render = (() => {
     switch (tab) {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'places': return renderPlaces(state, opts.placeFilter);
-      case 'map': return renderMap(state);
+      case 'map': return renderMap(state, opts.tileSource);
       case 'expenses': return renderExpenses(state);
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
@@ -502,21 +502,26 @@ window.Render = (() => {
   }
 
   // ---------------- 地图 ----------------
-  function renderMap(s) {
+  function renderMap(s, tileSource) {
     const pointCount = s.itinerary.reduce((a, d) => a + (d.items || []).filter(i => i.lat != null && i.lng != null).length, 0);
     const trackCount = (s.tracks || []).length;
+    const ts = tileSource || 'amap';
+    const tileBtn = (val, label) => `<button class="btn btn-sm ${ts === val ? 'btn-primary' : 'btn-ghost'}" data-action="tile-source" data-tile="${val}">${label}</button>`;
     return `
       <div class="map-layout">
         <div class="map-toolbar">
           <div class="map-legend" id="mapLegend"></div>
           <div class="map-actions">
-            <button class="btn btn-ghost btn-sm" data-action="gpx-import">⬆ 导入 GPX 足迹</button>
+            ${tileBtn('amap', '高德')}
+            ${tileBtn('osm', 'OSM')}
+            <button class="btn btn-ghost btn-sm" data-action="gpx-import">⬆ 导入 GPX</button>
             <button class="btn btn-ghost btn-sm" data-action="map-fit">⤢ 全部</button>
           </div>
         </div>
         <div id="map" class="map-container"></div>
         <div class="map-hint">
           已标注 ${pointCount} 个行程点 · ${trackCount} 条足迹轨迹
+          · 高德为国内底图(已纠偏)，OSM 为全球底图(港澳更精确)
         </div>
       </div>
       <input type="file" id="gpxFile" accept=".gpx,.xml" hidden>`;

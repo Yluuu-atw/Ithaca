@@ -44,7 +44,7 @@ window.App = (() => {
     // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
     if (current.tab === 'map') {
       if (map && $('#map')) { refreshMap(data); return; }
-      $('#content').innerHTML = Render.renderPage(data, current.tab);
+      $('#content').innerHTML = Render.renderPage(data, current.tab, { tileSource: currentTileSource });
       setTimeout(() => initMap(data), 0);
       return;
     }
@@ -165,6 +165,15 @@ window.App = (() => {
 
       case 'map-fit':
         fitMapToAll();
+        break;
+
+      case 'tile-source':
+        if (currentTileSource !== el.dataset.tile) {
+          currentTileSource = el.dataset.tile;
+          // 销毁旧地图，重建并切换瓦片源
+          if (map) { try { map.remove(); } catch (_) {} map = null; mapLayer = null; mapTrackLayers = []; }
+          render();
+        }
         break;
 
       case 'photo-add':
@@ -380,13 +389,67 @@ window.App = (() => {
   let map = null;
   let mapLayer = null;
   let mapTrackLayers = [];
+  let currentTileSource = 'amap'; // 'amap'(高德/GCJ02) | 'osm'(WGS84)
+
+  // ---- WGS84 → GCJ02 坐标转换（高德瓦片是 GCJ-02，需纠偏）----
+  const GCJ_A = 6378245.0;
+  const GCJ_EE = 0.00669342162296594323;
+  function outOfChina(lng, lat) { return (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271); }
+  // 港澳不受测绘法限制，地图按 WGS84 对齐，无需纠偏
+  function isHkMacau(lng, lat) {
+    if (lng >= 113.75 && lng <= 114.6 && lat >= 22.05 && lat <= 22.65) return true; // 香港
+    if (lng >= 113.45 && lng <= 113.7 && lat >= 22.05 && lat <= 22.25) return true;  // 澳门
+    return false;
+  }
+  function transformLat(x, y) {
+    let r = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+    r += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+    r += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+    r += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320.0 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+    return r;
+  }
+  function transformLng(x, y) {
+    let r = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+    r += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+    r += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+    r += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+    return r;
+  }
+  function wgs84ToGcj02(lng, lat) {
+    if (outOfChina(lng, lat)) return [lng, lat];
+    let dLat = transformLat(lng - 105.0, lat - 35.0);
+    let dLng = transformLng(lng - 105.0, lat - 35.0);
+    const radLat = lat / 180.0 * Math.PI;
+    let magic = Math.sin(radLat);
+    magic = 1 - GCJ_EE * magic * magic;
+    const sqrtMagic = Math.sqrt(magic);
+    dLat = (dLat * 180.0) / ((GCJ_A * (1 - GCJ_EE)) / (magic * sqrtMagic) * Math.PI);
+    dLng = (dLng * 180.0) / (GCJ_A / sqrtMagic * Math.cos(radLat) * Math.PI);
+    return [lng + dLng, lat + dLat];
+  }
+  // 把 WGS84 坐标投影到当前瓦片源的坐标（返回 Leaflet 的 [lat, lng]）
+  function project(lat, lng) {
+    if (currentTileSource === 'amap' && !isHkMacau(lng, lat)) {
+      const [lng2, lat2] = wgs84ToGcj02(lng, lat);
+      return [lat2, lng2];
+    }
+    return [lat, lng];
+  }
 
   function buildMap() {
     map = L.map('map', { zoomControl: true });
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    }).addTo(map);
+    if (currentTileSource === 'amap') {
+      L.tileLayer('https://wprd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}', {
+        subdomains: ['1', '2', '3', '4'],
+        maxZoom: 18,
+        attribution: '© 高德地图',
+      }).addTo(map);
+    } else {
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors',
+      }).addTo(map);
+    }
     mapLayer = L.layerGroup().addTo(map);
   }
 
@@ -418,12 +481,12 @@ window.App = (() => {
       const popup = `<b>${Render.esc(item.title || '')}</b>` +
         (item.location ? `<br>📍 ${Render.esc(item.location)}` : '') +
         `<br><span style="color:#999">${day.date} ${item.time || ''}</span>`;
-      L.marker([item.lat, item.lng], { icon }).addTo(mapLayer).bindPopup(popup);
+      L.marker(project(item.lat, item.lng), { icon }).addTo(mapLayer).bindPopup(popup);
     }
 
     for (const [i, track] of (data.tracks || []).entries()) {
       const color = track.color || Store.CONST.trackColors[i % Store.CONST.trackColors.length];
-      const coords = (track.points || []).filter(p => p.lat != null && p.lng != null).map(p => [p.lat, p.lng]);
+      const coords = (track.points || []).filter(p => p.lat != null && p.lng != null).map(p => project(p.lat, p.lng));
       if (coords.length >= 2) {
         const line = L.polyline(coords, { color, weight: 3, opacity: 0.8 }).addTo(map);
         mapTrackLayers.push(line);
