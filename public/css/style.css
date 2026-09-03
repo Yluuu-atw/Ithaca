@@ -745,6 +745,12 @@ textarea { resize: vertical; min-height: 60px; }
   .exp-item { padding: 12px 16px; }
   .chk-item { padding: 10px 16px; }
 
+  .day-simple { padding: 14px 16px; gap: 10px; }
+  .day-simple-num { font-size: 12px; padding: 4px 8px; }
+  .day-simple-count { display: none; }
+  .place-grid { grid-template-columns: 1fr; }
+  .place-tools { padding: 14px 16px; }
+
   .modal-card { border-radius: 18px 18px 0 0; padding: 18px 18px 24px; }
   .toast { bottom: 96px; }
 }
