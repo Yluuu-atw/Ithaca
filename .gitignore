@@ -5,3 +5,6 @@ data/uploads/
 
 node_modules/
 .DS_Store
+
+# local mkcert TLS pairs
+*.pem
