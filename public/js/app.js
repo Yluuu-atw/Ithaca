@@ -401,6 +401,42 @@ window.App = (() => {
         openModal('编辑成员', Render.formMember(Store.getState(), Number(el.dataset.idx)));
         break;
 
+      case 'member-add': {
+        const prev = Store.getState();
+        const n = (prev.meta.members || []).length;
+        const defaults = Store.CONST.avatarChoices[n % Store.CONST.avatarChoices.length];
+        const color = Store.CONST.colorChoices[n % Store.CONST.colorChoices.length];
+        doMutate(d => {
+          d.meta.members.push(`成员${n + 1}`);
+          d.meta.avatars = d.meta.avatars || [];
+          d.meta.avatars.push(defaults);
+          d.meta.colors = d.meta.colors || [];
+          d.meta.colors.push(color);
+        }, '已添加');
+        // 加完直接进编辑，省得再点一次
+        openModal('编辑成员', Render.formMember(Store.getState(), n));
+        break;
+      }
+
+      case 'member-del': {
+        const i = Number(el.dataset.idx);
+        const t = Store.getState();
+        const name = (t.meta.members || [])[i];
+        if (!name) return;
+        const used = (t.expenses || []).some(e => e.payer === name)
+          || (t.bookings || []).some(b => b.payer === name)
+          || (t.checklist || []).some(c => c.owner === name);
+        if (used) { toast('这名成员名下还有记录，先处理掉再删', 'error'); return; }
+        if (!confirm(`删除成员「${name}」？`)) return;
+        doMutate(d => {
+          d.meta.members.splice(i, 1);
+          if (d.meta.avatars) d.meta.avatars.splice(i, 1);
+          if (d.meta.colors) d.meta.colors.splice(i, 1);
+        }, '已删除');
+        openModal('选择身份', Render.identityPicker(Store.getState()));
+        break;
+      }
+
       case 'avatar-pick': {
         // 单选结果塞进隐藏域，表单提交时才有 avatar 字段可取
         el.closest('.avatar-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
@@ -430,17 +466,9 @@ window.App = (() => {
     const fd = new FormData(form);
 
     if (kind === 'meta') {
-      const membersStr = (fd.get('members') || '').trim();
-      const memberList = membersStr
-        ? membersStr.split(/[,，、\s]+/).map(s => s.trim()).filter(Boolean)
-        : [];
+      // 目的地与起止日期改由行程推算，币种在花费区单独改，成员走身份弹窗
       doMutate(d => {
-        d.meta.tripName = fd.get('tripName') || '我们的旅行';
-        d.meta.destination = fd.get('destination') || '';
-        d.meta.startDate = fd.get('startDate') || '';
-        d.meta.endDate = fd.get('endDate') || '';
-        d.meta.currency = fd.get('currency') || 'CNY';
-        if (memberList.length) d.meta.members = memberList;
+        d.meta.tripName = (fd.get('tripName') || '').trim() || '我们的旅行';
       }, '行程信息已保存');
       current.editMeta = false;
       render();
@@ -707,6 +735,8 @@ window.App = (() => {
         const w = d.wishlist.find(x => x.id === id);
         if (w) w.status = status;
       });
+    } else if (action === 'currency-change') {
+      doMutate(d => { d.meta.currency = el.value; }, '币种已更新');
     }
   }
 

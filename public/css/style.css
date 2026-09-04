@@ -209,6 +209,7 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--te
 .cat-val { font-size: 13px; color: var(--muted); text-align: right; }
 .cat-bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
 .cat-fill {
+  width: var(--pct, 0%);
   height: 100%;
   background: linear-gradient(90deg, var(--primary), #8fbfae);
   border-radius: 999px;
@@ -343,6 +344,7 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--te
 .progress-wrap { margin-bottom: 18px; }
 .progress { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
 .progress-fill {
+  width: var(--pct, 0%);
   height: 100%;
   background: linear-gradient(90deg, var(--primary), #8fbfae);
   border-radius: 999px;
@@ -734,10 +736,21 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .board-more:hover { color: var(--primary-600); }
 .board-empty { margin: 0; padding: 8px 4px; font-size: 12px; color: var(--muted); }
 
-/* ---------------- 行程信息只读态 ---------------- */
-/* 与 input 同内边距同字号，文字落在原位，只是没有边框 */
-.grid-ro .ro-val { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-height: 21px; padding: 10px 12px; font-size: 15px; color: var(--text); line-height: 1.35; }
-.grid-ro .ro-empty { color: #c4c0b6; }
+/* ---------------- 行程信息摘要 ---------------- */
+.trip-summary { display: flex; flex-direction: column; gap: 8px; }
+.trip-summary-name { font-size: 19px; font-weight: 700; line-height: 1.35; }
+.trip-summary-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+.trip-summary-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* ---------------- 成员面板 ---------------- */
+.member-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.member-tile { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 8px; border: 1px solid var(--border); border-left: 4px solid var(--mc, var(--border)); border-radius: 999px; background: var(--surface-2); }
+.member-tile-ava { font-size: 20px; line-height: 1; }
+.member-tile-name { font-size: 14px; font-weight: 600; }
+
+.identity-add { align-self: flex-start; }
+.currency-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.currency-pick select { padding: 5px 8px; font-size: 13px; }
 
 /* ---------------- 旅行列表 ---------------- */
 .trip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }

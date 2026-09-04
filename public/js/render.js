@@ -367,19 +367,55 @@ window.Render = (() => {
   }
 
   // ---------------- 概览 ----------------
-  // 沿用表单的两列网格与内边距，只把输入框换成纯文字，免得切换时版式跳动
-  function metaSummary(m) {
-    const val = (v) => v
-      ? `<span class="ro-val">${v}</span>`
-      : '<span class="ro-val ro-empty">—</span>';
-    return `<div class="grid-form grid-ro">
-      <label>旅行名称${val(esc(m.tripName || ''))}</label>
-      <label>目的地${val(m.destination ? esc(m.destination) : '')}</label>
-      <label>开始日期${val(esc(m.startDate || ''))}</label>
-      <label>结束日期${val(esc(m.endDate || ''))}</label>
-      <label>币种${val(m.currency ? `${esc(m.currency)} ${esc(Store.CONST.currencySymbol[m.currency] || '')}` : '')}</label>
-      <label>成员${val((m.members || []).map((name, i) => memberChip(m, name)).join(''))}</label>
+  // 起止日期与目的地都从行程推算，省得手填两遍还容易跟行程对不上
+  function tripDates(s) {
+    const dates = (s.itinerary || []).map(d => d.date).filter(Boolean).sort();
+    return dates.length ? { start: dates[0], end: dates[dates.length - 1] } : { start: '', end: '' };
+  }
+
+  // 行程里存的是「北京大兴」这类具体地名，推不出城市，所以只取首尾
+  function tripEndpoints(s) {
+    const days = [...(s.itinerary || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const locs = [];
+    days.forEach(d => (d.items || []).forEach(i => { if (i.location) locs.push(i.location.trim()); }));
+    if (!locs.length) return '';
+    const first = locs[0], last = locs[locs.length - 1];
+    return first === last ? first : `${first} → ${last}`;
+  }
+
+  // 填完就该像「已完成」，不该一直挂着表单框
+  function metaSummary(s) {
+    const m = s.meta;
+    const d = tripDates(s);
+    const dest = tripEndpoints(s);
+    const days = (d.start && d.end) ? diffDays(d.start, d.end) + 1 : 0;
+    const dateTxt = d.start
+      ? `${fmtDate(d.start)} – ${fmtDate(d.end)}${days > 0 ? ` · ${days} 天` : ''}`
+      : '';
+    return `<div class="trip-summary">
+      <div class="trip-summary-name">${esc(m.tripName || '未命名旅行')}</div>
+      ${dest ? `<div class="trip-summary-row">${emo('📍')} <span>${esc(dest)}</span></div>` : ''}
+      ${dateTxt ? `<div class="trip-summary-row">${emo('🗓')} <span>${esc(dateTxt)}</span></div>` : ''}
+      ${(!dest && !dateTxt) ? '<p class="trip-summary-hint">去「行程」页排几天，日期和目的地会自动带出来</p>' : ''}
     </div>`;
+  }
+
+  // 成员面板：只读展示，增删改在右上角身份弹窗里
+  function renderMembers(s) {
+    const m = s.meta;
+    const members = m.members || [];
+    const chips = members.map((name, i) => `
+      <span class="member-tile" style="--mc:${esc(colorOf(m, i) || 'var(--border)')}">
+        <span class="member-tile-ava">${avatarImg(m, i)}</span>
+        <span class="member-tile-name">${esc(dispName(members, name))}</span>
+      </span>`).join('');
+    return `<section class="card">
+      <div class="card-head">
+        <h2>${emo('👥')} 成员</h2>
+        <button class="btn btn-ghost btn-sm" data-action="switch-identity">管理</button>
+      </div>
+      <div class="member-tiles">${chips || '<p class="empty small">还没有成员</p>'}</div>
+    </section>`;
   }
 
   function renderOverview(s, editMeta) {
@@ -409,7 +445,7 @@ window.Render = (() => {
     const catBars = catEntries.map(([c, v]) => `
       <div class="cat-row">
         <span class="cat-name">${esc(c)}</span>
-        <div class="cat-bar"><div class="cat-fill" style="width:${(v / maxCat * 100).toFixed(0)}%"></div></div>
+        <div class="cat-bar"><div class="cat-fill" style="--pct:${(v / maxCat * 100).toFixed(0)}%"></div></div>
         <span class="cat-val">${money(v, m.currency)}</span>
       </div>`).join('') || '<p class="empty">还没有记账记录</p>';
 
@@ -425,27 +461,30 @@ window.Render = (() => {
           ${editMeta ? `
           <form class="grid-form" data-form="meta">
             <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
-            <label>目的地<input name="destination" value="${esc(m.destination)}" placeholder="如：日本 · 关西"></label>
-            <label>开始日期<input type="date" name="startDate" value="${esc(m.startDate)}"></label>
-            <label>结束日期<input type="date" name="endDate" value="${esc(m.endDate)}"></label>
-            <label>币种<select name="currency">${currencyOpts}</select></label>
-            <label>成员（逗号分隔）<input name="members" value="${esc((m.members || []).join(','))}" placeholder="我,她"></label>
             <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
-          </form>` : metaSummary(m)}
+          </form>` : metaSummary(s)}
         </section>
 
-        <section class="stat-grid">
-          <div class="stat-card"><div class="stat-value">${money(exp.grand, m.currency)}</div><div class="stat-label">总花费</div></div>
-          <div class="stat-card"><div class="stat-value">${s.itinerary.length}</div><div class="stat-label">行程天数</div></div>
-          <div class="stat-card"><div class="stat-value">${checklistDone}/${checklistTotal}</div><div class="stat-label">清单完成</div></div>
-          <div class="stat-card"><div class="stat-value">${s.wishlist.length}</div><div class="stat-label">心愿单</div></div>
+        ${renderMembers(s)}
+
+        <section class="card">
+          <div class="card-head"><h2>${emo('📊')} 统计</h2></div>
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-value">${money(exp.grand, m.currency)}</div><div class="stat-label">总花费</div></div>
+            <div class="stat-card"><div class="stat-value">${s.itinerary.length}</div><div class="stat-label">行程天数</div></div>
+            <div class="stat-card"><div class="stat-value">${checklistDone}/${checklistTotal}</div><div class="stat-label">清单完成</div></div>
+            <div class="stat-card"><div class="stat-value">${s.wishlist.length}</div><div class="stat-label">心愿单</div></div>
+          </div>
         </section>
 
         <section class="card">
           <div class="card-head">
             <h2>${emo('💸')} 花费与结算</h2>
-            ${exp.bookingTotal ? `<span class="spend-note">记账 ${money(exp.total, m.currency)} ＋ 已订票据 ${money(exp.bookingTotal, m.currency)}</span>` : ''}
+            <label class="currency-pick">币种
+              <select data-action="currency-change">${currencyOpts}</select>
+            </label>
           </div>
+          ${exp.bookingTotal ? `<p class="spend-note">记账 ${money(exp.total, m.currency)} ＋ 已订票据 ${money(exp.bookingTotal, m.currency)}</p>` : ''}
           <div class="settle-grid">${settle}</div>
           <div class="cat-list">${catBars}</div>
         </section>
@@ -628,7 +667,7 @@ window.Render = (() => {
     }
 
     const progress = `<div class="card progress-wrap">
-      <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress"><div class="progress-fill" style="--pct:${pct}%"></div></div>
       <div class="progress-hint">${pct}% · ${done}/${total}</div>
     </div>`;
 
@@ -1205,19 +1244,26 @@ window.Render = (() => {
     const meta = (trip && trip.meta) || {};
     const members = meta.members || [];
     const idx = Store.getIdentity();
-    const btns = members.map((m, i) => {
+    // 有账目/负责记录的成员不允许删，否则历史会指向不存在的人
+    const usedBy = (name) => (trip.expenses || []).some(e => e.payer === name)
+      || (trip.bookings || []).some(b => b.payer === name)
+      || (trip.checklist || []).some(c => c.owner === name);
+    const rows = members.map((m, i) => {
       const active = idx === i;
+      const used = usedBy(m);
       return `<div class="identity-row ${active ? 'is-active' : ''}">
         <button class="identity-main" data-action="identity-pick" data-idx="${i}">
           <span class="identity-ava">${avatarImg(meta, i)}</span>
           <span class="identity-name">${esc(m)}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
         </button>
-        <button class="icon-btn" data-action="member-edit" data-idx="${i}" title="改昵称/头像">✎</button>
+        <button class="icon-btn" data-action="member-edit" data-idx="${i}" title="改昵称/头像/颜色">✎</button>
+        <button class="icon-btn danger" data-action="member-del" data-idx="${i}" title="${used ? '名下还有记录，不能删除' : '删除'}" ${used ? 'disabled' : ''}>✕</button>
       </div>`;
     }).join('');
     return `<div class="identity-picker">
       <p class="identity-hint">你是谁？记账、清单、票据会默认记在你名下</p>
-      <div class="identity-options">${btns}</div>
+      <div class="identity-options">${rows}</div>
+      <button class="btn btn-ghost identity-add" data-action="member-add">＋ 添加成员</button>
     </div>`;
   }
 
