@@ -55,6 +55,7 @@ function defaultTrip() {
       endDate: '',
       currency: 'CNY',
       members: ['我', '她'],
+      avatars: ['😎', '🥰'],   // 与 members 一一对应
       archived: false,
     },
     itinerary: [], // [{ id, date, items: [{ id, time, endTime, title, location, lat, lng, note, category, estimatedCost }] }]
@@ -94,6 +95,10 @@ function normalizeTrip(raw) {
   if (!Array.isArray(t.meta.members) || t.meta.members.length === 0) {
     t.meta.members = ['我', '她'];
   }
+  // 头像必须与成员一一对应：缺的补默认，多的截掉
+  const DEFAULT_AVATARS = ['😎', '🥰', '🐻', '🐱'];
+  const av = Array.isArray(t.meta.avatars) ? t.meta.avatars : [];
+  t.meta.avatars = t.meta.members.map((_, i) => (av[i] ? String(av[i]) : DEFAULT_AVATARS[i % DEFAULT_AVATARS.length]));
   t.meta.archived = !!t.meta.archived;
 
   for (const k of TRIP_LISTS) t[k] = Array.isArray(src[k]) ? src[k] : [];

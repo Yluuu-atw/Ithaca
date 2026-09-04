@@ -377,8 +377,20 @@ window.App = (() => {
         break;
 
       case 'switch-identity':
-        openModal('选择身份', Render.identityPicker(members()));
+        openModal('选择身份', Render.identityPicker(Store.getState()));
         break;
+
+      case 'member-edit':
+        openModal('编辑成员', Render.formMember(Store.getState(), Number(el.dataset.idx)));
+        break;
+
+      case 'avatar-pick': {
+        // 单选结果塞进隐藏域，表单提交时才有 avatar 字段可取
+        el.closest('.avatar-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        el.closest('form').querySelector('[name=avatar]').value = el.dataset.avatar;
+        break;
+      }
 
       default:
         break;
@@ -577,6 +589,29 @@ window.App = (() => {
         doMutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); }, '已保存票据');
       }
       closeModal();
+      return;
+    }
+
+    if (kind === 'member') {
+      const idx = Number(fd.get('idx'));
+      const newName = (fd.get('name') || '').trim();
+      const avatar = fd.get('avatar') || '';
+      if (!newName) return;
+      doMutate(d => {
+        const m = d.meta.members;
+        if (!m || idx < 0 || idx >= m.length) return;
+        const old = m[idx];
+        m[idx] = newName;
+        d.meta.avatars = d.meta.avatars || [];
+        d.meta.avatars[idx] = avatar;
+        // 这三处按名字引用成员，不同步就会指向一个已不存在的人
+        if (old && old !== newName) {
+          (d.expenses || []).forEach(e => { if (e.payer === old) e.payer = newName; });
+          (d.checklist || []).forEach(c => { if (c.owner === old) c.owner = newName; });
+          (d.bookings || []).forEach(b => { if (b.payer === old) b.payer = newName; });
+        }
+      }, '已保存');
+      openModal('选择身份', Render.identityPicker(Store.getState()));
       return;
     }
 
@@ -951,7 +986,7 @@ window.App = (() => {
     if (Store.getIdentity() != null) return;
     const ms = members();
     if (!ms || ms.length < 2) return;
-    openModal('选择身份', Render.identityPicker(ms));
+    openModal('选择身份', Render.identityPicker(Store.getState()));
   }
 
   return { init };

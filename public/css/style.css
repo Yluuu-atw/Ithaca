@@ -784,13 +784,21 @@ textarea { resize: vertical; min-height: 60px; }
 .identity-picker { display: flex; flex-direction: column; gap: 16px; }
 .identity-hint { margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
 .identity-options { display: flex; flex-direction: column; gap: 10px; }
-.identity-btn {
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 14px 18px;
-  font-size: 15px;
-}
-.identity-icon { font-size: 22px; }
+.identity-row { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 8px 6px 6px; transition: border-color .15s ease, background .15s ease; }
+.identity-row.is-active { border-color: var(--primary); background: var(--primary-soft); }
+.identity-main { flex: 1; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 10px; min-width: 0; }
+.identity-ava { font-size: 26px; line-height: 1; }
+.identity-name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.identity-now { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--primary); color: #fff; }
+
+/* 成员头像标识 */
+.member-chip { display: inline-flex; align-items: center; gap: 4px; }
+.member-ava { font-size: 14px; line-height: 1; }
+
+/* 头像选择 */
+.avatar-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 6px; }
+.avatar-opt { justify-content: center; font-size: 19px; padding: 6px 0; line-height: 1.2; }
+.avatar-opt.active { border-color: var(--primary); background: var(--primary-soft); }
 
 /* ---------------- 底部标签栏（手机） ---------------- */
 .tabbar {

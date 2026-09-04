@@ -49,21 +49,35 @@ window.Render = (() => {
     return sym + v.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
-  // 成员名显示：本设备自己的成员显示「我」，对方显示实际称呼
+  // 越界兜底：成员数与头像数理论上已由 normalize 对齐，防御外部数据
+  function avatarOf(meta, i) {
+    const av = (meta && meta.avatars) || [];
+    return av[i] || '🙂';
+  }
+
+  // 成员显示名：本设备自己显示「我」，对方显示实际昵称
   function dispName(members, name) {
     const idx = Store.getIdentity();
     if (idx != null && name === members[idx]) return '我';
     return name || '';
   }
 
+  function memberChip(meta, name) {
+    const members = (meta && meta.members) || [];
+    const i = members.indexOf(name);
+    if (i < 0) return esc(name || '');
+    return `<span class="member-chip"><span class="member-ava">${avatarOf(meta, i)}</span>${esc(dispName(members, name))}</span>`;
+  }
+
   // 表单里的成员下拉：默认选中自己；显式传 selected 时以它为准（编辑态）
-  function memberOptions(members, selected) {
+  function memberOptions(members, selected, meta) {
     const idx = Store.getIdentity();
     const hasSel = selected != null && selected !== '';
     return (members || []).map((m, i) => {
       const label = (idx != null && i === idx) ? '我' : m;
       const on = hasSel ? (m === selected) : (idx != null && i === idx);
-      return `<option value="${esc(m)}"${on ? ' selected' : ''}>${esc(label)}</option>`;
+      const ava = meta ? avatarOf(meta, i) + ' ' : '';
+      return `<option value="${esc(m)}"${on ? ' selected' : ''}>${esc(ava + label)}</option>`;
     }).join('');
   }
 
@@ -246,7 +260,7 @@ window.Render = (() => {
       else if (b < -0.005) { txt = '应补 ' + money(-b, m.currency); cls = 'neg'; }
       else { txt = '持平'; cls = 'zero'; }
       return `<div class="settle-item">
-        <div class="settle-name">${esc(dispName(m.members || [], name))}</div>
+        <div class="settle-name">${memberChip(m, name)}</div>
         <div class="settle-line">垫付 ${money(exp.advanced[name] || 0, m.currency)} · 应付 ${money(exp.shouldPay[name] || 0, m.currency)}</div>
         <div class="settle-bal ${cls}">${txt}</div>
       </div>`;
@@ -409,7 +423,7 @@ window.Render = (() => {
       else if (b < -0.005) { txt = '应补 ' + money(-b, s.meta.currency); cls = 'neg'; }
       else { txt = '持平'; cls = 'zero'; }
       return `<div class="settle-item">
-        <div class="settle-name">${esc(dispName(s.meta.members || [], name))}</div>
+        <div class="settle-name">${memberChip(s.meta, name)}</div>
         <div class="settle-line">垫付 ${money(exp.advanced[name] || 0, s.meta.currency)} · 应付 ${money(exp.shouldPay[name] || 0, s.meta.currency)}</div>
         <div class="settle-bal ${cls}">${txt}</div>
       </div>`;
@@ -440,7 +454,7 @@ window.Render = (() => {
         <div class="exp-meta">
           <span class="badge">${esc(e.category || '其他')}</span>
           ${e.time ? `<span class="exp-time">${esc(e.time)}</span>` : ''}
-          <span class="tag">${esc(dispName(s.meta.members || [], e.payer || ''))} 付</span>
+          <span class="tag">${memberChip(s.meta, e.payer || '')} 付</span>
           <span class="tag">${splitTag}</span>
         </div>
       </div>
@@ -491,7 +505,7 @@ window.Render = (() => {
         <span class="chk-name">${esc(c.name)}</span>
       </label>
       <div class="chk-side">
-        ${c.owner ? `<span class="tag">${esc(dispName(s.meta.members || [], c.owner))}</span>` : ''}
+        ${c.owner ? `<span class="tag">${memberChip(s.meta, c.owner)}</span>` : ''}
         <button class="icon-btn" data-action="checklist-edit" data-id="${esc(c.id)}" title="编辑">✎</button>
         <button class="icon-btn danger" data-action="checklist-del" data-id="${esc(c.id)}" title="删除">✕</button>
       </div>
@@ -574,7 +588,7 @@ window.Render = (() => {
       <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
       <div class="form-row">
         <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>谁付的<select name="payer">${memberOptions(members, item ? v.payer : undefined)}</select></label>
+        <label>谁付的<select name="payer">${memberOptions(members, item ? v.payer : undefined, Store.getState().meta)}</select></label>
       </div>
       <label>分摊<select name="split">${splits.map(sp => `<option ${item && sp === (v.split || '均摊') ? 'selected' : ''}>${sp}</option>`).join('')}</select></label>
       <label>备注<input name="note" placeholder="如：晚饭 · 烤肉" value="${esc(v.note || '')}"></label>
@@ -590,7 +604,7 @@ window.Render = (() => {
       <label>物品<input name="name" required placeholder="如：护照" value="${esc(v.name || '')}"></label>
       <div class="form-row">
         <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>谁带<select name="owner">${memberOptions(members, item ? v.owner : undefined)}</select></label>
+        <label>谁带<select name="owner">${memberOptions(members, item ? v.owner : undefined, Store.getState().meta)}</select></label>
       </div>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
@@ -980,7 +994,7 @@ window.Render = (() => {
     const types = Store.CONST.bookingTypes;
     const sts = Store.CONST.bookingStatus;
     const v = item || {};
-    const memberOpts = memberOptions(members, item ? v.payer : undefined);
+    const memberOpts = memberOptions(members, item ? v.payer : undefined, Store.getState().meta);
     return `<form data-form="booking">
       ${item ? `<input type="hidden" name="bookingId" value="${esc(item.id)}">` : ''}
       <div class="form-row">
@@ -1037,19 +1051,39 @@ window.Render = (() => {
   }
 
   // ---------------- 身份选择器 ----------------
-  function identityPicker(members) {
+  function identityPicker(trip) {
+    const meta = (trip && trip.meta) || {};
+    const members = meta.members || [];
     const idx = Store.getIdentity();
-    const btns = (members || []).map((m, i) => {
+    const btns = members.map((m, i) => {
       const active = idx === i;
-      return `<button class="btn ${active ? 'btn-primary' : 'btn-ghost'} identity-btn" data-action="identity-pick" data-idx="${i}">
-        <span class="identity-icon">${i === 0 ? '👨' : '👩'}</span>
-        <span>我是 ${esc(m)}</span>
-      </button>`;
+      return `<div class="identity-row ${active ? 'is-active' : ''}">
+        <button class="identity-main" data-action="identity-pick" data-idx="${i}">
+          <span class="identity-ava">${avatarOf(meta, i)}</span>
+          <span class="identity-name">${esc(m)}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
+        </button>
+        <button class="icon-btn" data-action="member-edit" data-idx="${i}" title="改昵称/头像">✎</button>
+      </div>`;
     }).join('');
     return `<div class="identity-picker">
-      <p class="identity-hint">你是谁？之后记账、清单、票据会默认记在你名下</p>
+      <p class="identity-hint">你是谁？记账、清单、票据会默认记在你名下</p>
       <div class="identity-options">${btns}</div>
     </div>`;
+  }
+
+  function formMember(trip, idx) {
+    const meta = (trip && trip.meta) || {};
+    const members = meta.members || [];
+    const cur = avatarOf(meta, idx);
+    const opts = Store.CONST.avatarChoices.map(a =>
+      `<button type="button" class="chip avatar-opt ${a === cur ? 'active' : ''}" data-action="avatar-pick" data-avatar="${a}">${a}</button>`).join('');
+    return `<form data-form="member">
+      <input type="hidden" name="idx" value="${idx}">
+      <input type="hidden" name="avatar" value="${esc(cur)}">
+      <label>昵称<input name="name" required value="${esc(members[idx] || '')}" placeholder="如：小树"></label>
+      <label>头像<div class="avatar-grid">${opts}</div></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
+    </form>`;
   }
 
   return {
@@ -1061,5 +1095,6 @@ window.Render = (() => {
     formGuide,
     extractUrl, extractTitle,
     tripPicker,
+    formMember,
   };
 })();
