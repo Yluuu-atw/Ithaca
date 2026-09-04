@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' } };
+  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false };
   const $ = (sel) => document.querySelector(sel);
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
@@ -57,6 +57,7 @@ window.App = (() => {
       placeFilter: current.placeFilter,
       bookingFilter: current.bookingFilter,
       guideFilter: current.guideFilter,
+      showArchived: current.showArchived,
     });
     // 搜索框重绘后恢复焦点，保证连续输入
     if (hadSearchFocus && current.tab === 'places') {
@@ -89,6 +90,17 @@ window.App = (() => {
   async function doMutate(fn, successMsg) {
     try {
       await Store.mutate(fn);
+      if (successMsg) toast(successMsg, 'success');
+    } catch (e) {
+      toast(e.message || '操作失败', 'error');
+    }
+  }
+
+  // 旅行的新建/删除/归档要动 trips 数组，Store 侧已自行提交，
+  // 这里只做错误提示，不能再套 doMutate（会重复 PUT）。
+  async function doDocOp(fn, successMsg) {
+    try {
+      await fn();
       if (successMsg) toast(successMsg, 'success');
     } catch (e) {
       toast(e.message || '操作失败', 'error');
@@ -147,6 +159,39 @@ window.App = (() => {
       case 'itinerary-del-day':
         if (!confirm('删除这一天及其所有安排？')) return;
         doMutate(d => { d.itinerary = d.itinerary.filter(x => x.id !== el.dataset.day); }, '已删除');
+        break;
+
+      case 'trip-create':
+        doDocOp(() => Store.createTrip()).then(() => {
+          current.tab = 'overview';
+          render();
+          toast('已新建旅行，去概览改个名字吧', 'success');
+        });
+        break;
+
+      case 'trip-open':
+        Store.setActiveTrip(el.dataset.id);
+        current.tab = 'overview';
+        render();
+        break;
+
+      case 'trip-archive': {
+        const id = el.dataset.id;
+        const to = el.dataset.arch === '1';
+        doDocOp(() => Store.setTripArchived(id, to), to ? '已归档' : '已取消归档');
+        break;
+      }
+
+      case 'trip-delete': {
+        const t = Store.listTrips().find(x => x.id === el.dataset.id);
+        if (!confirm(`删除「${t && t.meta ? t.meta.tripName : '这趟旅行'}」？里面的行程、账目、照片都会一起没掉，不可恢复。`)) return;
+        doDocOp(() => Store.deleteTrip(el.dataset.id), '已删除');
+        break;
+      }
+
+      case 'trip-toggle-archived':
+        current.showArchived = !current.showArchived;
+        render();
         break;
 
       case 'expense-add':
@@ -313,6 +358,22 @@ window.App = (() => {
       case 'identity-pick':
         Store.setIdentity(Number(el.dataset.idx));
         closeModal();
+        break;
+
+      case 'switch-trip':
+        openModal('切换旅行', Render.tripPicker());
+        break;
+
+      case 'trip-pick':
+        Store.setActiveTrip(el.dataset.id);
+        closeModal();
+        render();
+        break;
+
+      case 'trip-goto-list':
+        closeModal();
+        current.tab = 'trips';
+        render();
         break;
 
       case 'switch-identity':

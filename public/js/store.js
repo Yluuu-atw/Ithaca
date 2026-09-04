@@ -36,7 +36,7 @@ window.Store = (() => {
     trackColors: ['#e6a877', '#6f9e8f', '#7c9fd9', '#c98bb8', '#8fb6a0', '#d9a577'],
   };
 
-  let state = null;
+  let state = null;          // 整份文档 { meta, trips }
   let version = 0;
   const listeners = new Set();
   let statusHandler = null;
@@ -44,12 +44,30 @@ window.Store = (() => {
   let whoami = null; // 本设备的成员索引（0=男方, 1=女方），存 localStorage
   try { const w = localStorage.getItem('journey.whoami'); if (w != null) whoami = Number(w); } catch (_) {}
 
-  const notify = () => { for (const fn of listeners) fn(state); };
+  // 本设备当前看的是哪趟旅行。存在 localStorage 而不是文档里，
+  // 两人可以同时看不同的旅行而互不干扰。
+  let activeTrip = null;
+  try { activeTrip = localStorage.getItem('journey.activeTrip'); } catch (_) {}
+
+  const notify = () => { for (const fn of listeners) fn(getState()); };
 
   function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
   function uid(prefix) {
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  // 当前旅行 id：优先用本设备记住的，已删除/不存在则退到第一趟未归档的
+  function currentTripId() {
+    const trips = (state && state.trips) || [];
+    if (!trips.length) return null;
+    if (activeTrip && trips.some(t => t.id === activeTrip)) return activeTrip;
+    const live = trips.find(t => !(t.meta && t.meta.archived));
+    return (live || trips[0]).id;
+  }
+
+  function tripById(id) {
+    return ((state && state.trips) || []).find(t => t.id === id) || null;
   }
 
   async function load() {
@@ -62,15 +80,20 @@ window.Store = (() => {
   }
 
   /**
-   * 以纯函数方式修改数据：fn 直接修改传入的克隆对象。
-   * 内部做乐观并发控制——若版本冲突（他人已改），自动拉取最新并重放本次修改。
+   * 以纯函数方式修改当前旅行：fn 收到的是「当前旅行」的克隆，形状与旧版一致，
+   * 所以调用方照旧写 d.expenses.push(...) 即可。内部再映射回整份文档保存。
+   *
+   * 乐观并发控制：若版本冲突（对方已改），自动拉取最新并重放本次修改。
    */
   async function mutate(fn) {
     if (!state) await load();
     for (let attempt = 0; attempt < 6; attempt++) {
       const base = version;
       const next = deepClone(state);
-      fn(next);
+      const id = currentTripId();
+      const trip = next.trips.find(t => t.id === id);
+      if (!trip) throw new Error('当前旅行不存在，请刷新');
+      fn(trip);
       next.meta.updatedAt = new Date().toISOString();
 
       const res = await fetch('/api/data', {
@@ -93,7 +116,7 @@ window.Store = (() => {
       state = saved.data;
       version = saved.version;
       notify();
-      return state;
+      return getState();
     }
     throw new Error('保存冲突次数过多，请稍后重试');
   }
@@ -115,7 +138,102 @@ window.Store = (() => {
 
   function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
   function setStatusHandler(fn) { statusHandler = fn; }
-  function getState() { return state; }
+
+  // 返回当前旅行对象，形状与多旅行版之前完全一致（meta + 各集合），
+  // 因此 render.js / app.js 里读 s.meta、d.expenses 的代码一行都不用改。
+  // 加载完成前返回空趟，调用方无需到处判空。
+  const EMPTY_TRIP = {
+    id: '', meta: { tripName: '', destination: '', startDate: '', endDate: '', currency: 'CNY', members: [], archived: false },
+    itinerary: [], expenses: [], checklist: [], wishlist: [],
+    tracks: [], photos: [], places: [], bookings: [], guides: [],
+  };
+  function getState() { return tripById(currentTripId()) || EMPTY_TRIP; }
+
+  // ---------------- 旅行列表 ----------------
+  function listTrips() { return ((state && state.trips) || []).slice(); }
+  function getActiveTripId() { return currentTripId(); }
+
+  function setActiveTrip(id) {
+    if (!tripById(id)) return;
+    activeTrip = id;
+    try { localStorage.setItem('journey.activeTrip', id); } catch (_) {}
+    notify();
+  }
+
+  // 新建一趟旅行，自动带上一趟的成员名单，省得每次重填
+  async function createTrip() {
+    const prev = getState();
+    let newId = null;
+    await mutateDoc((doc) => {
+      const t = {
+        id: uid('trip'),
+        meta: {
+          tripName: '新的旅行',
+          destination: '',
+          startDate: '',
+          endDate: '',
+          currency: (prev && prev.meta && prev.meta.currency) || 'CNY',
+          members: (prev && prev.meta && prev.meta.members) ? prev.meta.members.slice() : ['我', '她'],
+          archived: false,
+        },
+        itinerary: [], expenses: [], checklist: [], wishlist: [],
+        tracks: [], photos: [], places: [], bookings: [], guides: [],
+      };
+      doc.trips.push(t);
+      newId = t.id;
+    });
+    if (newId) setActiveTrip(newId);
+    return getState();
+  }
+
+  // mutate 只能改当前旅行；新建/删除这类要动 trips 数组的操作走这条通道
+  async function mutateDoc(fn) {
+    if (!state) await load();
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const base = version;
+      const next = deepClone(state);
+      fn(next);
+      next.meta.updatedAt = new Date().toISOString();
+      const res = await fetch('/api/data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseVersion: base, data: next }),
+      });
+      if (res.status === 409) {
+        const latest = await (await fetch('/api/data')).json();
+        state = latest;
+        version = (latest.meta && latest.meta.version) || 0;
+        continue;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || '保存失败');
+      }
+      const saved = await res.json();
+      state = saved.data;
+      version = saved.version;
+      notify();
+      return getState();
+    }
+    throw new Error('保存冲突次数过多，请稍后重试');
+  }
+
+  function deleteTrip(id) {
+    return mutateDoc((doc) => {
+      doc.trips = doc.trips.filter(t => t.id !== id);
+      if (!doc.trips.length) doc.trips.push({ id: uid('trip'), meta: { tripName: '我们的旅行', members: ['我', '她'], archived: false }, itinerary: [], expenses: [], checklist: [], wishlist: [], tracks: [], photos: [], places: [], bookings: [], guides: [] });
+    }).then((r) => {
+      if (activeTrip === id) { activeTrip = null; try { localStorage.removeItem('journey.activeTrip'); } catch (_) {} }
+      return r;
+    });
+  }
+
+  function setTripArchived(id, archived) {
+    return mutateDoc((doc) => {
+      const t = doc.trips.find(x => x.id === id);
+      if (t) { t.meta = t.meta || {}; t.meta.archived = !!archived; }
+    });
+  }
 
   function getIdentity() { return whoami; }
   function setIdentity(i) {
@@ -139,5 +257,9 @@ window.Store = (() => {
     return data.url;
   }
 
-  return { CONST, deepClone, uid, load, mutate, connect, subscribe, setStatusHandler, getState, getIdentity, setIdentity, uploadPhoto };
+  return {
+    CONST, deepClone, uid, load, mutate, connect, subscribe, setStatusHandler,
+    getState, getIdentity, setIdentity, uploadPhoto,
+    listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
+  };
 })();

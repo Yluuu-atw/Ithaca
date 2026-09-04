@@ -9,6 +9,7 @@
 window.Render = (() => {
   const TABS = [
     { id: 'overview', label: '概览', icon: '🏠' },
+    { id: 'trips', label: '旅行', icon: '🧳' },
     { id: 'itinerary', label: '行程', icon: '🗺️' },
     { id: 'places', label: '攻略', icon: '📌' },
     { id: 'guides', label: '收藏', icon: '📕' },
@@ -160,6 +161,7 @@ window.Render = (() => {
     opts = opts || {};
     switch (tab) {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
+      case 'trips': return renderTrips(opts.showArchived);
       case 'places': return renderPlaces(state, opts.placeFilter);
       case 'guides': return renderGuides(state, opts.guideFilter);
       case 'bookings': return renderBookings(state, opts.bookingFilter);
@@ -170,6 +172,61 @@ window.Render = (() => {
       case 'photos': return renderPhotos(state);
       default: return renderOverview(state);
     }
+  }
+
+  // ---------------- 旅行列表 ----------------
+  function renderTrips(showArchived) {
+    const all = Store.listTrips();
+    const activeId = Store.getActiveTripId();
+    const archivedCount = all.filter(t => t.meta && t.meta.archived).length;
+    const list = showArchived ? all : all.filter(t => !(t.meta && t.meta.archived));
+
+    const head = `<div class="list-head">
+      <span>共 ${all.length} 趟旅行${archivedCount ? `（${archivedCount} 趟已归档）` : ''}</span>
+      <button class="btn btn-primary" data-action="trip-create">＋ 新建旅行</button>
+    </div>`;
+
+    const bar = archivedCount
+      ? `<div class="card trip-bar">
+           <button class="chip ${showArchived ? 'active' : ''}" data-action="trip-toggle-archived">
+             ${showArchived ? '隐藏已归档' : `显示已归档（${archivedCount}）`}
+           </button>
+         </div>` : '';
+
+    const cards = list.map(t => {
+      const m = t.meta || {};
+      const days = (t.itinerary || []).length;
+      const expTotal = (t.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
+      const photoN = (t.photos || []).length;
+      const guideN = (t.guides || []).length;
+      const isArchived = !!m.archived;
+      const isActive = t.id === activeId;
+      const stats = [
+        days ? `${days} 天行程` : '',
+        expTotal ? `花费 ${money(expTotal, m.currency || 'CNY')}` : '',
+        photoN ? `${photoN} 张照片` : '',
+        guideN ? `${guideN} 篇收藏` : '',
+      ].filter(Boolean).join(' · ') || '还没有内容';
+
+      return `<div class="card trip-card ${isActive ? 'is-active' : ''} ${isArchived ? 'is-archived' : ''}" data-action="trip-open" data-id="${esc(t.id)}">
+        <div class="trip-top">
+          <h3>${esc(m.tripName || '未命名旅行')}${isActive ? '<span class="trip-now">当前</span>' : ''}${isArchived ? '<span class="trip-arch">已归档</span>' : ''}</h3>
+        </div>
+        ${m.destination ? `<div class="trip-dest">📍 ${esc(m.destination)}</div>` : ''}
+        ${(m.startDate || m.endDate) ? `<div class="trip-date">🗓 ${esc(fmtDate(m.startDate) || '?')} – ${esc(fmtDate(m.endDate) || '?')}</div>` : ''}
+        <div class="trip-stats">${esc(stats)}</div>
+        <div class="trip-foot">
+          <button class="icon-btn" data-action="trip-archive" data-id="${esc(t.id)}" data-arch="${isArchived ? '0' : '1'}" title="${isArchived ? '取消归档' : '归档'}">${isArchived ? '↩' : '📦'}</button>
+          <button class="icon-btn danger" data-action="trip-delete" data-id="${esc(t.id)}" title="删除">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    const grid = list.length
+      ? `<div class="trip-grid">${cards}</div>`
+      : `<div class="card"><div class="empty"><p>${showArchived ? '没有已归档的旅行' : '还没有旅行'}</p><p class="empty-hint">新建一趟，把想去的地方、要订的票、花的钱都放进去 🧳</p></div></div>`;
+
+    return head + bar + grid;
   }
 
   // ---------------- 概览 ----------------
@@ -960,6 +1017,25 @@ window.Render = (() => {
     </form>`;
   }
 
+  // ---------------- 旅行切换器（侧栏快切用） ----------------
+  function tripPicker() {
+    const all = Store.listTrips();
+    const activeId = Store.getActiveTripId();
+    const btns = all.map(t => {
+      const m = t.meta || {};
+      const active = t.id === activeId;
+      const arch = m.archived ? '<span class="trip-arch">已归档</span>' : '';
+      return `<button class="btn ${active ? 'btn-primary' : 'btn-ghost'} trip-pick-btn" data-action="trip-pick" data-id="${esc(t.id)}">
+        <span class="trip-pick-name">${esc(m.tripName || '未命名旅行')}${arch}</span>
+        ${m.destination ? `<span class="trip-pick-dest">${esc(m.destination)}</span>` : ''}
+      </button>`;
+    }).join('');
+    return `<div class="trip-pick">
+      ${btns || '<p class="empty small">还没有旅行</p>'}
+      <div class="form-actions"><button class="btn btn-ghost" data-action="trip-goto-list">管理旅行</button></div>
+    </div>`;
+  }
+
   // ---------------- 身份选择器 ----------------
   function identityPicker(members) {
     const idx = Store.getIdentity();
@@ -984,5 +1060,6 @@ window.Render = (() => {
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
     formGuide,
     extractUrl, extractTitle,
+    tripPicker,
   };
 })();
