@@ -396,6 +396,88 @@ window.Render = (() => {
     return stops;
   }
 
+  // 每日花费：记账按日期 + 已订票据按日期，摊到行程的每一天上
+  function dailySpend(s) {
+    const days = [...(s.itinerary || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const byDate = {};
+    (s.expenses || []).forEach(e => {
+      if (!e.date) return;
+      byDate[e.date] = (byDate[e.date] || 0) + (Number(e.amount) || 0);
+    });
+    (s.bookings || []).forEach(b => {
+      if (!['已订', '已完成'].includes(b.status) || !b.date) return;
+      byDate[b.date] = (byDate[b.date] || 0) + (Number(b.price) || 0);
+    });
+    const list = days.map(d => ({ date: d.date, amount: byDate[d.date] || 0 }));
+    // 行程外的日期也别丢
+    Object.keys(byDate).sort().forEach(dt => {
+      if (!list.some(x => x.date === dt)) list.push({ date: dt, amount: byDate[dt] });
+    });
+    list.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    return list;
+  }
+
+  function barChart(s, data) {
+    const max = Math.max(1, ...data.map(d => d.amount));
+    if (!data.length) return '<p class="chart-empty">排好行程后，这里会按天显示花费</p>';
+    const bars = data.map(d => {
+      const h = d.amount ? Math.max(4, d.amount / max * 100) : 0;
+      return `<div class="bar-col ${d.amount ? 'has-value' : ''}" title="${esc(d.date)} ${money(d.amount, s.meta.currency)}">
+        <span class="bar-val">${d.amount ? money(d.amount, s.meta.currency) : ''}</span>
+        <div class="bar-track"><div class="bar-fill" style="--h:${h.toFixed(1)}%"></div></div>
+        <span class="bar-label">${esc(d.date ? fmtDate(d.date) : '')}</span>
+      </div>`;
+    }).join('');
+    const anyValue = data.some(d => d.amount > 0);
+    return anyValue ? `<div class="chart-bars">${bars}</div>`
+      : `<div class="chart-bars">${bars}</div><p class="chart-empty" style="height:auto;padding:6px 0 0">还没有花费记录</p>`;
+  }
+
+  function donutChart(s, byCategory) {
+    const entries = Object.entries(byCategory || {}).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const total = entries.reduce((a, [, v]) => a + v, 0);
+    if (!entries.length) {
+      return `<div class="donut-wrap"><div class="donut"><svg viewBox="0 0 42 42">
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--surface-2)" stroke-width="5.2"/></svg>
+        <div class="donut-center"><span class="donut-total">—</span><span class="donut-cap">暂无</span></div></div>
+        <div class="donut-legend"><p class="empty small" style="margin:0">记一笔或订张票，这里就有占比了</p></div></div>`;
+    }
+    const C = 2 * Math.PI * 15.9;
+    let acc = 0;
+    const segs = entries.map(([, v], i) => {
+      const len = v / total * C;
+      const seg = `<circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--chart-${(i % 6) + 1})" stroke-width="5.2"
+        stroke-dasharray="${len.toFixed(3)} ${(C - len).toFixed(3)}" stroke-dashoffset="${(-acc).toFixed(3)}"/>`;
+      acc += len;
+      return seg;
+    }).join('');
+    const legend = entries.map(([k, v], i) => `
+      <div class="legend-row">
+        <span class="legend-dot" style="--c:var(--chart-${(i % 6) + 1})"></span>
+        <span class="legend-name">${esc(k)}</span>
+        <span class="legend-val">${money(v, s.meta.currency)}</span>
+      </div>`).join('');
+    return `<div class="donut-wrap">
+      <div class="donut"><svg viewBox="0 0 42 42">
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--surface-2)" stroke-width="5.2"/>${segs}
+      </svg><div class="donut-center"><span class="donut-total">${money(total, s.meta.currency)}</span><span class="donut-cap">总花费</span></div></div>
+      <div class="donut-legend">${legend}</div>
+    </div>`;
+  }
+
+  function ringChart(done, total, note) {
+    const pct = total ? Math.round(done / total * 100) : 0;
+    const C = 2 * Math.PI * 42;
+    const off = C * (1 - pct / 100);
+    return `<div class="ring-wrap">
+      <div class="ring"><svg viewBox="0 0 100 100">
+        <circle class="ring-bg" cx="50" cy="50" r="42"/>
+        <circle class="ring-fg" cx="50" cy="50" r="42" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}"/>
+      </svg><div class="ring-center"><span class="ring-pct">${pct}%</span><span class="ring-cap">${done}/${total}</span></div></div>
+      <p class="ring-note">${note}</p>
+    </div>`;
+  }
+
   // 填完就该像「已完成」，不该一直挂着表单框
   function metaSummary(s) {
     const m = s.meta;
@@ -424,7 +506,7 @@ window.Render = (() => {
         <span class="member-tile-ava">${avatarImg(m, i)}</span>
         <span class="member-tile-name">${esc(dispName(members, name))}</span>
       </span>`).join('');
-    return `<section class="card">
+    return `<section class="card span-4">
       <div class="card-head">
         <h2>${emo('👥')} 成员</h2>
         <button class="btn btn-ghost btn-sm" data-action="switch-identity">管理</button>
@@ -464,9 +546,15 @@ window.Render = (() => {
         <span class="cat-val">${money(v, m.currency)}</span>
       </div>`).join('') || '<p class="empty">还没有记账记录</p>';
 
+    const daily = dailySpend(s);
+    const photoN = (s.photos || []).length;
+    const guideN = (s.guides || []).length;
+    const placeN = (s.places || []).length;
+    const bookingN = (s.bookings || []).length;
+
     return `
-      <div class="page-stack">
-        <section class="card">
+      <div class="dash-grid">
+        <section class="card span-8">
           <div class="card-head">
             <h2>${emo('🧳')} 行程信息</h2>
             ${editMeta
@@ -482,17 +570,44 @@ window.Render = (() => {
 
         ${renderMembers(s)}
 
-        <section class="card">
+        <section class="card span-7">
+          <div class="card-head"><h2>${emo('📅')} 每日花费</h2></div>
+          ${barChart(s, daily)}
+        </section>
+
+        <section class="card span-5">
+          <div class="card-head"><h2>${emo('🍩')} 分类占比</h2></div>
+          ${donutChart(s, exp.byCategory)}
+        </section>
+
+        <section class="card span-4">
           <div class="card-head"><h2>${emo('📊')} 统计</h2></div>
-          <div class="stat-grid">
+          <div class="stat-grid stat-grid-2">
             <div class="stat-card"><div class="stat-value">${money(exp.grand, m.currency)}</div><div class="stat-label">总花费</div></div>
             <div class="stat-card"><div class="stat-value">${s.itinerary.length}</div><div class="stat-label">行程天数</div></div>
-            <div class="stat-card"><div class="stat-value">${checklistDone}/${checklistTotal}</div><div class="stat-label">清单完成</div></div>
+            <div class="stat-card"><div class="stat-value">${bookingN}</div><div class="stat-label">票据</div></div>
             <div class="stat-card"><div class="stat-value">${s.wishlist.length}</div><div class="stat-label">心愿单</div></div>
           </div>
         </section>
 
-        <section class="card">
+        <section class="card span-4">
+          <div class="card-head"><h2>${emo('🎒')} 打包进度</h2></div>
+          ${ringChart(checklistDone, checklistTotal, checklistTotal
+            ? `还有 ${checklistTotal - checklistDone} 件没装进行李箱`
+            : '去清单页加几样要带的东西')}
+        </section>
+
+        <section class="card span-4">
+          <div class="card-head"><h2>${emo('📷')} 旅行收藏</h2></div>
+          <div class="stat-grid stat-grid-2">
+            <div class="stat-card"><div class="stat-value">${photoN}</div><div class="stat-label">照片</div></div>
+            <div class="stat-card"><div class="stat-value">${placeN}</div><div class="stat-label">攻略</div></div>
+            <div class="stat-card"><div class="stat-value">${guideN}</div><div class="stat-label">笔记</div></div>
+            <div class="stat-card"><div class="stat-value">${(s.tracks || []).length}</div><div class="stat-label">足迹</div></div>
+          </div>
+        </section>
+
+        <section class="card span-12">
           <div class="card-head">
             <h2>${emo('💸')} 花费与结算</h2>
             <label class="currency-pick">币种

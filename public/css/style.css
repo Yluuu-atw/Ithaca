@@ -17,6 +17,13 @@
   --accent-soft: #fbeedd;
   --danger: #c43939;
   --danger-soft: #fbeaea;
+  /* 图表调色板，与 store.js 的 trackColors 同源，保证地图/票据/图表一致 */
+  --chart-1: #6f9e8f;
+  --chart-2: #e6a877;
+  --chart-3: #7c9fd9;
+  --chart-4: #c98bb8;
+  --chart-5: #8fb6a0;
+  --chart-6: #d9a577;
   --shadow: 0 1px 2px rgba(60, 60, 50, .04), 0 10px 30px rgba(60, 60, 50, .06);
   --shadow-sm: 0 1px 2px rgba(60, 60, 50, .05);
   --radius: 16px;
@@ -136,7 +143,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .content {
   padding: 26px 32px 56px;
   width: 100%;
-  max-width: 1080px;
+  max-width: 1240px;
   margin: 0 auto;
 }
 
@@ -153,6 +160,16 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .spend-note { font-size: 15.5px; color: var(--muted); }
 
 .page-stack { display: flex; flex-direction: column; gap: 18px; }
+/* 概览仪表盘：12 列网格，卡片按需跨列，形成横竖错落 */
+.dash-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
+/* grid item 默认 min-width:auto，柱状图的 nowrap 日期标签会撑破网格区域，
+   导致移动端横向溢出，所以这里必须 min-width:0 */
+.dash-grid > .card { display: flex; flex-direction: column; min-width: 0; }
+.dash-grid > .span-4 { grid-column: span 4; }
+.dash-grid > .span-5 { grid-column: span 5; }
+.dash-grid > .span-7 { grid-column: span 7; }
+.dash-grid > .span-8 { grid-column: span 8; }
+.dash-grid > .span-12 { grid-column: span 12; }
 .day-list { display: flex; flex-direction: column; gap: 18px; }
 .wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 
@@ -173,6 +190,8 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
+/* 卡片跨列变窄时用 2 列，避免四个数字挤成一条 */
+.stat-grid-2 { grid-template-columns: repeat(2, 1fr); }
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -215,6 +234,41 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   border-radius: 999px;
   transition: width .4s ease;
 }
+/* ---------------- 仪表盘图表 ---------------- */
+/* 每日花费柱状图 */
+.chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 168px; padding: 8px 0 0; }
+.bar-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.bar-track { width: 100%; max-width: 34px; flex: 1; display: flex; align-items: flex-end; background: linear-gradient(to top, var(--surface-2), transparent); border-radius: 6px 6px 0 0; }
+.bar-fill { width: 100%; height: var(--h, 0%); min-height: 3px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--chart-2), var(--chart-1)); transition: height .5s ease; }
+.bar-col.has-value .bar-fill { box-shadow: var(--shadow-sm); }
+.bar-val { font-size: 12px; color: var(--muted); height: 15px; }
+.bar-label { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.chart-empty { display: flex; align-items: center; justify-content: center; height: 168px; color: var(--muted); font-size: 14px; }
+
+/* 环形图（分类占比） */
+.donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.donut { position: relative; flex: 0 0 auto; width: 132px; height: 132px; }
+.donut svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.donut-total { font-size: 19px; font-weight: 700; }
+.donut-cap { font-size: 11.5px; color: var(--muted); }
+.donut-legend { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 7px; }
+.legend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.legend-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 3px; background: var(--c, var(--border)); }
+.legend-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-val { color: var(--muted); }
+
+/* 进度环 */
+.ring-wrap { display: flex; align-items: center; gap: 18px; }
+.ring { position: relative; flex: 0 0 auto; width: 104px; height: 104px; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: var(--surface-2); stroke-width: 9; }
+.ring-fg { fill: none; stroke: var(--chart-1); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-pct { font-size: 21px; font-weight: 700; }
+.ring-cap { font-size: 11px; color: var(--muted); }
+.ring-note { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+
 
 /* ---------------- 按钮 ---------------- */
 .btn {
@@ -899,6 +953,15 @@ textarea { resize: vertical; min-height: 60px; }
   .topbar-actions .btn { padding: 7px 12px; font-size: 16.5px; }
 
   .content { padding: 16px 14px 96px; }
+  .dash-grid { grid-template-columns: 1fr; gap: 14px; }
+  .dash-grid > .span-4,
+  .dash-grid > .span-5,
+  .dash-grid > .span-7,
+  .dash-grid > .span-8,
+  .dash-grid > .span-12 { grid-column: span 1; }
+  .chart-bars { height: 132px; }
+  .donut { width: 108px; height: 108px; }
+  .ring { width: 88px; height: 88px; }
 
   /* iOS Safari：输入框字号 <16px 会触发聚焦自动缩放，这里固定 16px 并禁用双击缩放 */
   input, select, textarea { font-size: 20px; }
