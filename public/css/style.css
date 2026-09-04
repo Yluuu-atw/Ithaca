@@ -687,8 +687,12 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .st-booked { background: #e6f4ea; color: #3f9d6d; }
 
 /* ---------------- 攻略笔记收藏 ---------------- */
-.guide-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.guide-card { display: flex; flex-direction: column; gap: 8px; padding: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .guide-card h3 { margin: 0; font-size: 15.5px; font-weight: 700; }
+.guide-cover { display: block; aspect-ratio: 3 / 2; background: var(--surface-2); overflow: hidden; }
+.guide-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s ease; }
+.guide-cover:hover img { transform: scale(1.03); }
+.guide-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; flex: 1; }
 .guide-link { display: block; text-decoration: none; color: inherit; border-radius: 8px; }
 .guide-link:hover h3 { color: var(--primary-600); }
 .guide-host { font-size: 12.5px; color: var(--primary-600); margin-top: 3px; }

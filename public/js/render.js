@@ -773,10 +773,9 @@ window.Render = (() => {
   }
 
   function renderGuideCard(s, g) {
-    const url = safeUrl(g.link);
+    const url = safeUrl(extractUrl(g.link || ''));
     const tags = (g.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-    return `<div class="card guide-card">
-      ${url
+    const body = `${url
         ? `<a class="guide-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
              <h3>${esc(g.title || '（未命名）')}</h3>
              <div class="guide-host">↗ ${esc(hostOf(url))}</div>
@@ -787,12 +786,28 @@ window.Render = (() => {
       <div class="guide-foot">
         <button class="icon-btn" data-action="guide-edit" data-id="${esc(g.id)}" title="编辑">✎</button>
         <button class="icon-btn danger" data-action="guide-del" data-id="${esc(g.id)}" title="删除">✕</button>
-      </div>
+      </div>`;
+    return `<div class="card guide-card">
+      ${g.cover ? `<a class="guide-cover" href="${esc(url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(g.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"></a>` : ''}
+      <div class="guide-body">${body}</div>
     </div>`;
   }
 
   function hostOf(url) {
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return url; }
+  }
+
+  // 从分享文案里抽出纯链接。小红书 App 分享出来的是整段文字（标题+表情+链接+推广语），
+  // 直接存会让 safeUrl 判为非法。
+  function extractUrl(text) {
+    const m = String(text == null ? '' : text).match(/https?:\/\/[^\s【】，。！？、"'）)】]+/i);
+    return m ? m[0] : String(text == null ? '' : text).trim();
+  }
+
+  // 分享文案的【】里通常就是笔记标题
+  function extractTitle(text) {
+    const m = String(text == null ? '' : text).match(/【([^】]{2,})】/);
+    return m ? m[1].trim() : '';
   }
 
   function formGuide(item) {
@@ -802,7 +817,7 @@ window.Render = (() => {
     return `<form data-form="guide">
       ${item ? `<input type="hidden" name="guideId" value="${esc(item.id)}">` : ''}
       <label>标题<input name="title" required placeholder="如：香港三天两夜保姆级攻略" value="${esc(v.title || '')}"></label>
-      <label>链接<input name="link" placeholder="粘贴小红书分享链接（可选）" value="${esc(v.link || '')}"></label>
+      <label>链接<input name="link" placeholder="粘贴分享链接或整段分享文字，自动识别" value="${esc(v.link || '')}"></label>
       <label>标签<div class="chips guide-tag-pick">${tags.map(t =>
         `<button type="button" class="chip ${picked.includes(t) ? 'active' : ''}" data-action="guide-tag-toggle" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div></label>
       <input type="hidden" name="tags" value="${esc(picked.join(','))}">
@@ -968,5 +983,6 @@ window.Render = (() => {
     formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
     formGuide,
+    extractUrl, extractTitle,
   };
 })();

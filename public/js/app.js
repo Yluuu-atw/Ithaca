@@ -325,7 +325,7 @@ window.App = (() => {
   }
 
   // ---------------- 表单提交委托 ----------------
-  function onSubmit(e) {
+  async function onSubmit(e) {
     const form = e.target.closest('form[data-form]');
     if (!form) return;
     e.preventDefault();
@@ -527,16 +527,37 @@ window.App = (() => {
         tags: (fd.get('tags') || '').split(',').map(s => s.trim()).filter(Boolean),
         note: fd.get('note') || '',
       };
-      if (guideId) {
-        doMutate(d => {
-          d.guides = d.guides || [];
+      // 编辑时保留原封面，除非链接变了
+      const prev = guideId ? (Store.getState().guides || []).find(x => x.id === guideId) : null;
+      if (prev && prev.cover && prev.link === fields.link) fields.cover = prev.cover;
+      closeModal();
+
+      // 抓封面是网络请求，不能阻塞保存：先落数据，抓到再补一次
+      doMutate(d => {
+        d.guides = d.guides || [];
+        if (guideId) {
           const it = d.guides.find(x => x.id === guideId);
           if (it) Object.assign(it, fields);
-        }, '已保存');
-      } else {
-        doMutate(d => { d.guides = d.guides || []; d.guides.push({ id: Store.uid('gde'), ...fields }); }, '已收藏');
-      }
-      closeModal();
+        } else {
+          d.guides.push({ id: Store.uid('gde'), ...fields });
+        }
+      }, guideId ? '已保存' : '已收藏');
+
+      const url = Render.extractUrl(fields.link || '');
+      if (!url || !/^https?:\/\//i.test(url)) return;
+      try {
+        const r = await fetch('/api/link-preview?url=' + encodeURIComponent(url));
+        if (!r.ok) return;
+        const og = await r.json();
+        if (!og || (!og.cover && !og.title)) return;
+        await Store.mutate(d => {
+          const list = d.guides || [];
+          const it = list.find(x => x.id === (guideId || (list[list.length - 1] || {}).id));
+          if (!it || it.link !== fields.link) return;   // 期间被删/改则放弃
+          if (og.cover && !it.cover) it.cover = og.cover;
+          if (og.title && !it.title) it.title = og.title.slice(0, 60);
+        });
+      } catch (_) { /* 抓不到就保持无封面，不影响收藏 */ }
       return;
     }
   }

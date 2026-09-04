@@ -14,6 +14,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -219,6 +220,59 @@ function photoUid() {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// 抓笔记页的 og:image / og:title。浏览器跨域取不到，只能服务端代抓。
+// 失败一律返回 null 由调用方降级，绝不阻塞收藏保存。
+function fetchOG(target, redirects) {
+  return new Promise((resolve) => {
+    let u;
+    try { u = new URL(target); } catch (_) { return resolve(null); }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return resolve(null);
+    const left = redirects == null ? 3 : redirects;
+    const get = u.protocol === 'https:' ? https : http;
+    const rq = get.get(u.href, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+      },
+      timeout: 8000,
+    }, (rs) => {
+      // 重定向：小红书短链会 302，跟几步才能拿到真实笔记页
+      if (rs.statusCode >= 300 && rs.statusCode < 400 && rs.headers.location && left > 0) {
+        rs.resume();
+        return resolve(fetchOG(new URL(rs.headers.location, u.href).href, left - 1));
+      }
+      if (rs.statusCode !== 200) { rs.resume(); return resolve(null); }
+      // og 标签都在 <head>，读前 256KB 足够，不为整页图片浪费内存
+      const chunks = [];
+      let size = 0;
+      rs.on('data', (c) => { if (size < 256 * 1024) { chunks.push(c); size += c.length; } });
+      rs.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      rs.on('error', () => resolve(null));
+    });
+    rq.on('timeout', () => { rq.destroy(); resolve(null); });
+    rq.on('error', () => resolve(null));
+  });
+}
+
+// og 标签的 property/content 顺序不固定，两种都匹配
+function ogContent(html, prop) {
+  const esc = prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const m = html.match(new RegExp(`<meta[^>]+(?:property="${esc}"[^>]*content="([^"]*)"|content="([^"]*)"[^>]*property="${esc}")`, 'i'));
+  return m ? (m[1] || m[2] || '') : '';
+}
+
+function pickCover(html) {
+  const all = [];
+  const re = /<meta[^>]+(?:property="og:image"[^>]*content="([^"]*)"|content="([^"]*)"[^>]*property="og:image")/gi;
+  let m;
+  while ((m = re.exec(html))) all.push(m[1] || m[2] || '');
+  // picasso-static 的小图是小红书默认占位图，不是笔记封面
+  const real = all.find(x => x.includes('notes_pre_post')) || all.find(x => x && !x.includes('picasso-static'));
+  const url = real || '';
+  return url.startsWith('//') ? 'https:' + url : url;
+}
+
 async function handlePhotoUpload(req, res, pathname) {
   if (pathname === '/api/photos' && req.method === 'POST') {
     try {
@@ -239,6 +293,14 @@ async function handlePhotoUpload(req, res, pathname) {
 async function handleApi(req, res, pathname) {
   const photoResult = await handlePhotoUpload(req, res, pathname);
   if (photoResult !== null) return photoResult;
+
+  if (pathname === '/api/link-preview' && req.method === 'GET') {
+    const target = new URL(req.url, 'http://localhost').searchParams.get('url');
+    if (!target) return sendJSON(res, 400, { error: '缺少 url' });
+    const html = await fetchOG(target);
+    if (!html) return sendJSON(res, 200, { cover: '', title: '' });
+    return sendJSON(res, 200, { cover: pickCover(html), title: ogContent(html, 'og:title') });
+  }
 
   if (pathname === '/api/data' && req.method === 'GET') {
     return sendJSON(res, 200, db);

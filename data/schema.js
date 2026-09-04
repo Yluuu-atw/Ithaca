@@ -59,7 +59,7 @@ function defaultDoc() {
     photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
     places: [],    // [{ id, name, category, location, lat, lng, date, note, status, cost, link }]
     bookings: [],  // [{ id, type, title, status, date, time, endDate, endTime, from, to, carrier, seat, refNo, price, payer, link, note }]
-    guides: [],    // [{ id, title, link, tags: [], note }] 攻略笔记（小红书等外部收藏）
+    guides: [],    // [{ id, title, link, cover, tags: [], note }] 攻略笔记（小红书等外部收藏）
   };
 }
 
