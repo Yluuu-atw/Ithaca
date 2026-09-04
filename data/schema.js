@@ -63,10 +63,16 @@ function defaultDoc() {
   };
 }
 
-// 归一化：保证任何来源的数据都符合结构，缺的字段补默认值
+// 未知字段的一次性告警：同一个 key 只提示一次，避免每次请求刷屏
+const warnedUnknown = new Set();
+
+// 归一化：保证已知字段符合结构，缺的补默认值。
+// 以原始 doc 为底再覆盖已知字段，未知字段原样保留——白名单式归一化会静默丢数据
+// （服务进程比前端旧、导入未来版本的备份都会中招），表现为「保存成功但没存上」。
 function normalize(doc) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return defaultDoc();
+
   const d = defaultDoc();
-  if (!doc || typeof doc !== 'object') return d;
 
   d.meta = Object.assign(d.meta, doc.meta || {});
   d.meta.version = Number(doc.meta && doc.meta.version) || 1;
@@ -84,7 +90,15 @@ function normalize(doc) {
   d.places = Array.isArray(doc.places) ? doc.places : [];
   d.bookings = Array.isArray(doc.bookings) ? doc.bookings : [];
   d.guides = Array.isArray(doc.guides) ? doc.guides : [];
-  return d;
+
+  for (const k of Object.keys(doc)) {
+    if (!(k in d) && !warnedUnknown.has(k)) {
+      warnedUnknown.add(k);
+      console.warn(`[schema] 未知字段「${k}」已原样保留；若这是新加的字段，服务端需要重启`);
+    }
+  }
+
+  return Object.assign({}, doc, d);
 }
 
 module.exports = {
