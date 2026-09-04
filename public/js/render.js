@@ -21,6 +21,29 @@ window.Render = (() => {
   ];
 
   // ---------------- 小工具 ----------------
+  // FluentUI 3D emoji（MIT, github.com/microsoft/fluentui-emoji）。
+  // 数据里仍存 emoji 字符，渲染时才换成图，免得动数据模型。
+  const EMOJI_PNG = {
+    '✈': '2708.png', '✨': '2728.png', '⭐': '2b50.png', '🌸': '1f338.png',
+    '🍀': '1f340.png', '🍉': '1f349.png', '🎈': '1f388.png', '🎒': '1f392.png',
+    '🎫': '1f3ab.png', '🏠': '1f3e0.png', '🏨': '1f3e8.png', '🐰': '1f430.png',
+    '🐱': '1f431.png', '🐶': '1f436.png', '🐸': '1f438.png', '🐻': '1f43b.png',
+    '🐼': '1f43c.png', '👤': '1f464.png', '💰': '1f4b0.png', '💸': '1f4b8.png',
+    '💺': '1f4ba.png', '📅': '1f4c5.png', '📌': '1f4cc.png', '📍': '1f4cd.png',
+    '📕': '1f4d5.png', '📦': '1f4e6.png', '📷': '1f4f7.png', '🔗': '1f517.png',
+    '🕐': '1f550.png', '🗓': '1f5d3.png', '🗺': '1f5fa.png', '😎': '1f60e.png',
+    '🙂': '1f642.png', '🚄': '1f684.png', '🚌': '1f68c.png', '🚩': '1f6a9.png',
+    '🥰': '1f970.png', '🦁': '1f981.png', '🦄': '1f984.png', '🦊': '1f98a.png',
+    '🧭': '1f9ed.png', '🧳': '1f9f3.png', '🧾': '1f9fe.png',
+  };
+
+  // 没收录的字符原样返回，避免变成空白
+  function emo(ch) {
+    const f = EMOJI_PNG[ch] || EMOJI_PNG[String(ch).replace(/\ufe0f/g, '')];
+    if (!f) return esc(ch);
+    return `<img class="emo" src="vendor/fluent-emoji/${f}" alt="${esc(ch)}" loading="lazy">`;
+  }
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -54,6 +77,11 @@ window.Render = (() => {
     return av[i] || '🙂';
   }
 
+  // <option> 与隐藏输入域里放不了图，那两处继续用 avatarOf 取字符
+  function avatarImg(meta, i) {
+    return emo(avatarOf(meta, i));
+  }
+
   function colorOf(meta, i) {
     const cl = (meta && meta.colors) || [];
     return cl[i] || '';
@@ -76,7 +104,7 @@ window.Render = (() => {
     const members = (meta && meta.members) || [];
     const i = members.indexOf(name);
     if (i < 0) return esc(name || '');
-    return `<span class="member-chip"><span class="member-ava">${avatarOf(meta, i)}</span>${esc(dispName(members, name))}</span>`;
+    return `<span class="member-chip"><span class="member-ava">${avatarImg(meta, i)}</span>${esc(dispName(members, name))}</span>`;
   }
 
   // 表单里的成员下拉：默认选中自己；显式传 selected 时以它为准（编辑态）
@@ -188,14 +216,14 @@ window.Render = (() => {
   function renderNav(active) {
     return TABS.map(t => `
       <button class="nav-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}">
-        <span class="nav-icon">${t.icon}</span><span class="nav-label">${t.label}</span>
+        <span class="nav-icon">${emo(t.icon)}</span><span class="nav-label">${t.label}</span>
       </button>`).join('');
   }
 
   function renderTabbar(active) {
     return TABS.map(t => `
       <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}">
-        <span class="tab-icon">${t.icon}</span><span class="tab-label">${t.label}</span>
+        <span class="tab-icon">${emo(t.icon)}</span><span class="tab-label">${t.label}</span>
       </button>`).join('');
   }
 
@@ -246,19 +274,19 @@ window.Render = (() => {
       const stats = [days ? `${days} 天` : '', cost ? money(cost, m.currency || 'CNY') : '']
         .filter(Boolean).join(' · ');
       const counts = [
-        (t.photos || []).length ? `📷${t.photos.length}` : '',
-        (t.places || []).length ? `📌${t.places.length}` : '',
-        (t.bookings || []).length ? `🎫${t.bookings.length}` : '',
-        (t.guides || []).length ? `📕${t.guides.length}` : '',
+        (t.photos || []).length ? `${emo('📷')}${t.photos.length}` : '',
+        (t.places || []).length ? `${emo('📌')}${t.places.length}` : '',
+        (t.bookings || []).length ? `${emo('🎫')}${t.bookings.length}` : '',
+        (t.guides || []).length ? `${emo('📕')}${t.guides.length}` : '',
       ].filter(Boolean).join(' ');
       return `<button class="board-card ${isActive ? 'is-active' : ''}" data-action="trip-open" data-id="${esc(t.id)}" title="${esc(m.tripName || '')}">
         ${cover
           ? `<span class="board-cover"><img src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
-          : `<span class="board-cover board-cover-empty">${avatarOf(m, 0)}</span>`}
+          : `<span class="board-cover board-cover-empty">${avatarImg(m, 0)}</span>`}
         <span class="board-main">
           <span class="board-name">${esc(m.tripName || '未命名')}</span>
           <span class="board-stats">${esc(stats || '还没有内容')}</span>
-          ${counts ? `<span class="board-counts">${esc(counts)}</span>` : ''}
+          ${counts ? `<span class="board-counts">${counts}</span>` : ''}
         </span>
         ${isActive ? '<span class="board-now">当前</span>' : ''}
       </button>`;
@@ -321,11 +349,11 @@ window.Render = (() => {
         <div class="trip-top">
           <h3>${esc(m.tripName || '未命名旅行')}${isActive ? '<span class="trip-now">当前</span>' : ''}${isArchived ? '<span class="trip-arch">已归档</span>' : ''}</h3>
         </div>
-        ${m.destination ? `<div class="trip-dest">📍 ${esc(m.destination)}</div>` : ''}
-        ${(m.startDate || m.endDate) ? `<div class="trip-date">🗓 ${esc(fmtDate(m.startDate) || '?')} – ${esc(fmtDate(m.endDate) || '?')}</div>` : ''}
+        ${m.destination ? `<div class="trip-dest">${emo('📍')} ${esc(m.destination)}</div>` : ''}
+        ${(m.startDate || m.endDate) ? `<div class="trip-date">${emo('🗓')} ${esc(fmtDate(m.startDate) || '?')} – ${esc(fmtDate(m.endDate) || '?')}</div>` : ''}
         <div class="trip-stats">${esc(stats)}</div>
         <div class="trip-foot">
-          <button class="icon-btn" data-action="trip-archive" data-id="${esc(t.id)}" data-arch="${isArchived ? '0' : '1'}" title="${isArchived ? '取消归档' : '归档'}">${isArchived ? '↩' : '📦'}</button>
+          <button class="icon-btn" data-action="trip-archive" data-id="${esc(t.id)}" data-arch="${isArchived ? '0' : '1'}" title="${isArchived ? '取消归档' : '归档'}">${isArchived ? '↩' : emo('📦')}</button>
           <button class="icon-btn danger" data-action="trip-delete" data-id="${esc(t.id)}" title="删除">✕</button>
         </div>
       </div>`;
@@ -333,7 +361,7 @@ window.Render = (() => {
 
     const grid = list.length
       ? `<div class="trip-grid">${cards}</div>`
-      : `<div class="card"><div class="empty"><p>${showArchived ? '没有已归档的旅行' : '还没有旅行'}</p><p class="empty-hint">新建一趟，把想去的地方、要订的票、花的钱都放进去 🧳</p></div></div>`;
+      : `<div class="card"><div class="empty"><p>${showArchived ? '没有已归档的旅行' : '还没有旅行'}</p><p class="empty-hint">新建一趟，把想去的地方、要订的票、花的钱都放进去 ${emo('🧳')}</p></div></div>`;
 
     return head + bar + grid;
   }
@@ -389,7 +417,7 @@ window.Render = (() => {
       <div class="page-stack">
         <section class="card">
           <div class="card-head">
-            <h2>🧳 行程信息</h2>
+            <h2>${emo('🧳')} 行程信息</h2>
             ${editMeta
               ? '<button class="btn btn-ghost btn-sm" data-action="meta-cancel">取消</button>'
               : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}
@@ -415,7 +443,7 @@ window.Render = (() => {
 
         <section class="card">
           <div class="card-head">
-            <h2>💸 花费与结算</h2>
+            <h2>${emo('💸')} 花费与结算</h2>
             ${exp.bookingTotal ? `<span class="spend-note">记账 ${money(exp.total, m.currency)} ＋ 已订票据 ${money(exp.bookingTotal, m.currency)}</span>` : ''}
           </div>
           <div class="settle-grid">${settle}</div>
@@ -439,7 +467,7 @@ window.Render = (() => {
 
     if (!days.length) {
       return `<div class="card">${head}<div class="empty">
-        <p>还没有行程安排</p><p class="empty-hint">先新建一天，再把想去的地方排进去 ✨</p>
+        <p>还没有行程安排</p><p class="empty-hint">先新建一天，再把想去的地方排进去 ${emo('✨')}</p>
       </div></div>`;
     }
     if (isDetail) {
@@ -514,7 +542,7 @@ window.Render = (() => {
       </div>
       <div class="iti-main">
         <div class="iti-title">${esc(i.title || '（未命名）')}</div>
-        ${i.location ? `<div class="iti-loc">📍 ${esc(i.location)}</div>` : ''}
+        ${i.location ? `<div class="iti-loc">${emo('📍')} ${esc(i.location)}</div>` : ''}
         ${i.note ? `<div class="iti-note">${esc(i.note)}</div>` : ''}
       </div>
       <div class="iti-side">
@@ -548,11 +576,11 @@ window.Render = (() => {
       </div>`;
     }).join('');
 
-    const summary = `<section class="card"><div class="card-head"><h2>🧾 结算</h2></div><div class="settle-grid">${settle}</div></section>`;
+    const summary = `<section class="card"><div class="card-head"><h2>${emo('🧾')} 结算</h2></div><div class="settle-grid">${settle}</div></section>`;
 
     const body = grouped.length
       ? grouped.map(g => renderExpenseGroup(s, g)).join('')
-      : `<div class="card"><div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 💸</p></div></div>`;
+      : `<div class="card"><div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div></div>`;
 
     return head + summary + body;
   }
@@ -596,7 +624,7 @@ window.Render = (() => {
     </div>`;
 
     if (!total) {
-      return `<div class="card">${head}<div class="empty"><p>打包清单是空的</p><p class="empty-hint">把要带的东西加进来吧 🎒</p></div></div>`;
+      return `<div class="card">${head}<div class="empty"><p>打包清单是空的</p><p class="empty-hint">把要带的东西加进来吧 ${emo('🎒')}</p></div></div>`;
     }
 
     const progress = `<div class="card progress-wrap">
@@ -638,7 +666,7 @@ window.Render = (() => {
       <button class="btn btn-primary" data-action="wish-add">＋ 添加心愿</button>
     </div>`;
     if (!s.wishlist.length) {
-      return `<div class="card">${head}<div class="empty"><p>还没有心愿</p><p class="empty-hint">把想去的地方、想做的事记下来 ⭐</p></div></div>`;
+      return `<div class="card">${head}<div class="empty"><p>还没有心愿</p><p class="empty-hint">把想去的地方、想做的事记下来 ${emo('⭐')}</p></div></div>`;
     }
     return head + `<div class="wish-grid">${s.wishlist.map(w => renderWishItem(s, w)).join('')}</div>`;
   }
@@ -654,7 +682,7 @@ window.Render = (() => {
           <button class="icon-btn danger" data-action="wish-del" data-id="${esc(w.id)}" title="删除">✕</button>
         </div>
       </div>
-      ${w.location ? `<div class="iti-loc">📍 ${esc(w.location)}</div>` : ''}
+      ${w.location ? `<div class="iti-loc">${emo('📍')} ${esc(w.location)}</div>` : ''}
       ${w.note ? `<div class="iti-note">${esc(w.note)}</div>` : ''}
       <div class="wish-foot">
         <span class="badge prio-${prioCls}">${esc(prio)}</span>
@@ -779,7 +807,7 @@ window.Render = (() => {
     if (!photos.length) {
       return `<div class="card">${head}<div class="empty">
         <p>还没有照片</p>
-        <p class="empty-hint">把旅行照片传上来，做成手帐 📷✨</p>
+        <p class="empty-hint">把旅行照片传上来，做成手帐 ${emo('📷')}${emo('✨')}</p>
       </div></div>`;
     }
 
@@ -804,7 +832,7 @@ window.Render = (() => {
       ${p.caption || p.location
         ? `<figcaption class="photo-cap">
             ${p.caption ? `<span class="photo-cap-text">${esc(p.caption)}</span>` : ''}
-            ${p.location ? `<span class="photo-cap-loc">📍 ${esc(p.location)}</span>` : ''}
+            ${p.location ? `<span class="photo-cap-loc">${emo('📍')} ${esc(p.location)}</span>` : ''}
           </figcaption>`
         : ''}
     </figure>`;
@@ -853,7 +881,7 @@ window.Render = (() => {
 
     if (!places.length) {
       return head + tools + `<div class="card"><div class="empty">
-        <p>还没有收藏的地点</p><p class="empty-hint">把要订的酒店、想去的餐厅加进来 📌</p>
+        <p>还没有收藏的地点</p><p class="empty-hint">把要订的酒店、想去的餐厅加进来 ${emo('📌')}</p>
       </div></div>`;
     }
 
@@ -872,7 +900,7 @@ window.Render = (() => {
         <span class="place-status st-${stCls}">${esc(p.status || '想去')}</span>
       </div>
       <h3 class="place-name">${esc(p.name || '（未命名）')}</h3>
-      ${p.location ? `<div class="place-loc">📍 ${esc(p.location)}</div>` : ''}
+      ${p.location ? `<div class="place-loc">${emo('📍')} ${esc(p.location)}</div>` : ''}
       ${p.note ? `<div class="place-note">${esc(p.note)}</div>` : ''}
       <div class="place-foot">
         ${p.cost ? `<span class="iti-cost">${money(p.cost, s.meta.currency)}</span>` : '<span></span>'}
@@ -896,10 +924,10 @@ window.Render = (() => {
         <span class="badge">${esc(p.category || '其他')}</span>
         <span class="place-status st-${({想去:'want',待订:'pending',已订:'booked'}[p.status] || 'want')}">${esc(p.status || '想去')}</span>
       </div>
-      ${p.location ? `<div class="detail-row">📍 ${esc(p.location)}</div>` : ''}
-      ${p.date ? `<div class="detail-row">📅 ${esc(p.date)}</div>` : ''}
-      ${p.cost ? `<div class="detail-row">💰 ${money(p.cost, s.meta.currency)}</div>` : ''}
-      ${safeUrl(p.link) ? `<div class="detail-row">🔗 <a href="${esc(safeUrl(p.link))}" target="_blank" rel="noopener noreferrer">${esc(p.link)}</a></div>` : ''}
+      ${p.location ? `<div class="detail-row">${emo('📍')} ${esc(p.location)}</div>` : ''}
+      ${p.date ? `<div class="detail-row">${emo('📅')} ${esc(p.date)}</div>` : ''}
+      ${p.cost ? `<div class="detail-row">${emo('💰')} ${money(p.cost, s.meta.currency)}</div>` : ''}
+      ${safeUrl(p.link) ? `<div class="detail-row">${emo('🔗')} <a href="${esc(safeUrl(p.link))}" target="_blank" rel="noopener noreferrer">${esc(p.link)}</a></div>` : ''}
       ${p.note ? `<div class="detail-note">${esc(p.note)}</div>` : ''}
     </div>`;
   }
@@ -952,7 +980,7 @@ window.Render = (() => {
     </div>`;
 
     if (!guides.length) {
-      return `<div class="card">${head}<div class="empty"><p>还没有收藏</p><p class="empty-hint">在小红书看到好攻略，点分享复制链接，存进来随时看 📕</p></div></div>`;
+      return `<div class="card">${head}<div class="empty"><p>还没有收藏</p><p class="empty-hint">在小红书看到好攻略，点分享复制链接，存进来随时看 ${emo('📕')}</p></div></div>`;
     }
 
     const grid = list.length
@@ -1050,7 +1078,7 @@ window.Render = (() => {
 
     if (!bookings.length) {
       return head + tools + `<div class="card"><div class="empty">
-        <p>还没有票据</p><p class="empty-hint">把订好的机票、火车票、大巴票、酒店凭证记进来 🎫</p>
+        <p>还没有票据</p><p class="empty-hint">把订好的机票、火车票、大巴票、酒店凭证记进来 ${emo('🎫')}</p>
       </div></div>`;
     }
 
@@ -1068,13 +1096,13 @@ window.Render = (() => {
     const pc = payerColor(s.meta, b.payer);
     const pi = ((s.meta && s.meta.members) || []).indexOf(b.payer);
     return `<div class="booking-card ${pc ? 'has-payer' : ''}" ${pc ? `style="--payer-color:${esc(pc)}"` : ''} data-action="booking-detail" data-id="${esc(b.id)}" role="button" tabindex="0">
-      <div class="bk-icon">${t.icon}</div>
+      <div class="bk-icon">${emo(t.icon)}</div>
       <div class="bk-main">
         <div class="bk-title">${esc(b.title || route || t.label)}</div>
         ${sub ? `<div class="bk-sub">${esc(sub)}</div>` : ''}
       </div>
       <div class="bk-side">
-        ${pi >= 0 ? `<span class="bk-payer" title="${esc(b.payer)}">${avatarOf(s.meta, pi)}</span>` : ''}
+        ${pi >= 0 ? `<span class="bk-payer" title="${esc(b.payer)}">${avatarImg(s.meta, pi)}</span>` : ''}
         <span class="bk-status st-${bkStatusCls(b.status)}">${esc(b.status || '待订')}</span>
         ${b.price ? `<span class="bk-price">${money(b.price, s.meta.currency)}</span>` : ''}
       </div>
@@ -1090,7 +1118,7 @@ window.Render = (() => {
     const when2 = [b.endDate, b.endTime].filter(Boolean).join(' ');
     return `<div class="detail">
       <div class="detail-head">
-        <h3>${t.icon} ${esc(b.title || route || t.label)}</h3>
+        <h3>${emo(t.icon)} ${esc(b.title || route || t.label)}</h3>
         <div>
           <button class="icon-btn" data-action="booking-edit" data-id="${esc(b.id)}" title="编辑">✎</button>
           <button class="icon-btn danger" data-action="booking-del" data-id="${esc(b.id)}" title="删除">✕</button>
@@ -1101,13 +1129,13 @@ window.Render = (() => {
         <span class="bk-status st-${bkStatusCls(b.status)}">${esc(b.status || '待订')}</span>
       </div>
       ${route ? `<div class="detail-row">🛣 ${esc(route)}</div>` : ''}
-      ${when ? `<div class="detail-row">🕐 ${esc(when)}${when2 ? ' → ' + esc(when2) : ''}</div>` : ''}
-      ${b.carrier ? `<div class="detail-row">🚩 承运/航司/车次：${esc(b.carrier)}</div>` : ''}
-      ${b.seat ? `<div class="detail-row">💺 座位/舱位/房型：${esc(b.seat)}</div>` : ''}
-      ${b.refNo ? `<div class="detail-row">🧾 订单号：${esc(b.refNo)}</div>` : ''}
-      ${b.price ? `<div class="detail-row">💰 金额：${money(b.price, s.meta.currency)}</div>` : ''}
-      ${b.payer ? `<div class="detail-row">👤 付款人：${esc(b.payer)}</div>` : ''}
-      ${safeUrl(b.link) ? `<div class="detail-row">🔗 <a href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener noreferrer">${esc(b.link)}</a></div>` : ''}
+      ${when ? `<div class="detail-row">${emo('🕐')} ${esc(when)}${when2 ? ' → ' + esc(when2) : ''}</div>` : ''}
+      ${b.carrier ? `<div class="detail-row">${emo('🚩')} 承运/航司/车次：${esc(b.carrier)}</div>` : ''}
+      ${b.seat ? `<div class="detail-row">${emo('💺')} 座位/舱位/房型：${esc(b.seat)}</div>` : ''}
+      ${b.refNo ? `<div class="detail-row">${emo('🧾')} 订单号：${esc(b.refNo)}</div>` : ''}
+      ${b.price ? `<div class="detail-row">${emo('💰')} 金额：${money(b.price, s.meta.currency)}</div>` : ''}
+      ${b.payer ? `<div class="detail-row">${emo('👤')} 付款人：${esc(b.payer)}</div>` : ''}
+      ${safeUrl(b.link) ? `<div class="detail-row">${emo('🔗')} <a href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener noreferrer">${esc(b.link)}</a></div>` : ''}
       ${b.note ? `<div class="detail-note">${esc(b.note)}</div>` : ''}
     </div>`;
   }
@@ -1181,7 +1209,7 @@ window.Render = (() => {
       const active = idx === i;
       return `<div class="identity-row ${active ? 'is-active' : ''}">
         <button class="identity-main" data-action="identity-pick" data-idx="${i}">
-          <span class="identity-ava">${avatarOf(meta, i)}</span>
+          <span class="identity-ava">${avatarImg(meta, i)}</span>
           <span class="identity-name">${esc(m)}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
         </button>
         <button class="icon-btn" data-action="member-edit" data-idx="${i}" title="改昵称/头像">✎</button>
@@ -1199,7 +1227,7 @@ window.Render = (() => {
     const cur = avatarOf(meta, idx);
     const curColor = colorOf(meta, idx);
     const opts = Store.CONST.avatarChoices.map(a =>
-      `<button type="button" class="chip avatar-opt ${a === cur ? 'active' : ''}" data-action="avatar-pick" data-avatar="${a}">${a}</button>`).join('');
+      `<button type="button" class="chip avatar-opt ${a === cur ? 'active' : ''}" data-action="avatar-pick" data-avatar="${a}">${emo(a)}</button>`).join('');
     const colorOpts = Store.CONST.colorChoices.map(c =>
       `<button type="button" class="chip color-opt ${c === curColor ? 'active' : ''}" data-action="color-pick" data-color="${esc(c)}" style="--swatch:${esc(c)}" title="${esc(c)}"></button>`).join('');
     return `<form data-form="member">

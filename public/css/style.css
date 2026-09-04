@@ -66,6 +66,9 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--te
   flex-direction: column;
 }
 
+/* 尺寸随字号走，表现得像文字 emoji */
+.emo { width: 1em; height: 1em; display: inline-block; vertical-align: -0.15em; object-fit: contain; }
+
 /* ---------------- 侧边栏 ---------------- */
 .brand {
   display: flex;
@@ -81,7 +84,8 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--te
   letter-spacing: .4px;
 }
 
-.nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+/* 旅行看板占纵向空间，导航可能被挤出视口；让 nav 自己滚动，看板保持可见 */
+.nav { display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0; overflow-y: auto; }
 .nav-item {
   display: flex;
   align-items: center;

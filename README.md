@@ -6,6 +6,7 @@
 - **多设备实时同步**：两人各开一个浏览器，一方改动，另一方即时看到
 - 数据存成 **JSON 文件**，可随时导出备份 / 导入恢复
 - 零依赖，仅用 Node 内置模块，无需 `npm install`
+- 图标使用 [Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT）的 3D 样式，已内置在 `public/vendor/fluent-emoji/`
 
 ## 功能
 
