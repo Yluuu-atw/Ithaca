@@ -39,7 +39,9 @@ window.App = (() => {
     $('#nav').innerHTML = Render.renderNav(current.tab);
     $('#tabbar').innerHTML = Render.renderTabbar(current.tab);
     $('#pageTitle').textContent = Render.tabTitle(current.tab);
-    $('#brandName').textContent = data.meta.tripName || 'Journey';
+    $('#board').innerHTML = Render.renderTripBoard();
+    const tripNameEl = $('#topbarTripName');
+    if (tripNameEl) tripNameEl.textContent = data.meta.tripName || 'Journey';
 
     // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
     if (current.tab === 'map') {

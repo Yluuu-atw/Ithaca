@@ -9,7 +9,6 @@
 window.Render = (() => {
   const TABS = [
     { id: 'overview', label: '概览', icon: '🏠' },
-    { id: 'trips', label: '旅行', icon: '🧳' },
     { id: 'itinerary', label: '行程', icon: '🗺️' },
     { id: 'places', label: '攻略', icon: '📌' },
     { id: 'guides', label: '收藏', icon: '📕' },
@@ -166,6 +165,7 @@ window.Render = (() => {
   }
 
   function tabTitle(tab) {
+    if (tab === 'trips') return '管理旅行';   // 不在 TABS 里，从侧栏看板进入
     const t = TABS.find(x => x.id === tab);
     return t ? t.label : '';
   }
@@ -186,6 +186,51 @@ window.Render = (() => {
       case 'photos': return renderPhotos(state);
       default: return renderOverview(state);
     }
+  }
+
+  // ---------------- 侧栏旅行看板 ----------------
+  // 归档的默认不显示，但全部归档时兜底显示，否则看板会空掉。
+  function renderTripBoard() {
+    const all = Store.listTrips();
+    const activeId = Store.getActiveTripId();
+    const live = all.filter(t => !(t.meta && t.meta.archived));
+    const list = live.length ? live : all;
+
+    const cards = list.map(t => {
+      const m = t.meta || {};
+      const isActive = t.id === activeId;
+      const cover = (t.photos && t.photos[0] && t.photos[0].url) || '';
+      const days = (t.itinerary || []).length;
+      const cost = (t.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
+      const stats = [days ? `${days} 天` : '', cost ? money(cost, m.currency || 'CNY') : '']
+        .filter(Boolean).join(' · ');
+      const counts = [
+        (t.photos || []).length ? `📷${t.photos.length}` : '',
+        (t.places || []).length ? `📌${t.places.length}` : '',
+        (t.bookings || []).length ? `🎫${t.bookings.length}` : '',
+        (t.guides || []).length ? `📕${t.guides.length}` : '',
+      ].filter(Boolean).join(' ');
+      return `<button class="board-card ${isActive ? 'is-active' : ''}" data-action="trip-open" data-id="${esc(t.id)}" title="${esc(m.tripName || '')}">
+        ${cover
+          ? `<span class="board-cover"><img src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
+          : `<span class="board-cover board-cover-empty">${avatarOf(m, 0)}</span>`}
+        <span class="board-main">
+          <span class="board-name">${esc(m.tripName || '未命名')}</span>
+          <span class="board-stats">${esc(stats || '还没有内容')}</span>
+          ${counts ? `<span class="board-counts">${esc(counts)}</span>` : ''}
+        </span>
+        ${isActive ? '<span class="board-now">当前</span>' : ''}
+      </button>`;
+    }).join('');
+
+    return `<div class="board">
+      <div class="board-head">
+        <span class="board-title">我的旅行</span>
+        <button class="icon-btn" data-action="trip-create" title="新建旅行">＋</button>
+      </div>
+      <div class="board-list">${cards || '<p class="board-empty">还没有旅行</p>'}</div>
+      <button class="board-more" data-action="trip-goto-list">管理旅行 ›</button>
+    </div>`;
   }
 
   // ---------------- 旅行列表 ----------------
@@ -1096,5 +1141,6 @@ window.Render = (() => {
     extractUrl, extractTitle,
     tripPicker,
     formMember,
+    renderTripBoard,
   };
 })();
