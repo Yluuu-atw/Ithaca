@@ -163,6 +163,10 @@ window.App = (() => {
         doMutate(d => { d.itinerary = d.itinerary.filter(x => x.id !== el.dataset.day); }, '已删除');
         break;
 
+      case 'board-toggle':
+        Store.setBoardOpen(!Store.getBoardOpen());
+        break;
+
       case 'trip-create':
         doDocOp(() => Store.createTrip()).then(() => {
           current.tab = 'overview';

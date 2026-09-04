@@ -190,11 +190,14 @@ window.Render = (() => {
 
   // ---------------- 侧栏旅行看板 ----------------
   // 归档的默认不显示，但全部归档时兜底显示，否则看板会空掉。
+  // 收起时头部改显当前旅行名，否则收起后就不知道在用哪一趟。
   function renderTripBoard() {
     const all = Store.listTrips();
     const activeId = Store.getActiveTripId();
     const live = all.filter(t => !(t.meta && t.meta.archived));
     const list = live.length ? live : all;
+    const open = Store.getBoardOpen();
+    const active = all.find(t => t.id === activeId);
 
     const cards = list.map(t => {
       const m = t.meta || {};
@@ -223,13 +226,22 @@ window.Render = (() => {
       </button>`;
     }).join('');
 
-    return `<div class="board">
+    const headText = open
+      ? `我的旅行${all.length ? ` · ${all.length}` : ''}`
+      : ((active && active.meta && active.meta.tripName) || '我的旅行');
+
+    return `<div class="board ${open ? '' : 'is-collapsed'}">
       <div class="board-head">
-        <span class="board-title">我的旅行</span>
+        <button class="board-toggle" data-action="board-toggle" aria-expanded="${open}">
+          <span class="board-title">${esc(headText)}</span>
+          <span class="board-chevron">${open ? '▾' : '▸'}</span>
+        </button>
         <button class="icon-btn" data-action="trip-create" title="新建旅行">＋</button>
       </div>
-      <div class="board-list">${cards || '<p class="board-empty">还没有旅行</p>'}</div>
-      <button class="board-more" data-action="trip-goto-list">管理旅行 ›</button>
+      <div class="board-body">
+        <div class="board-list">${cards || '<p class="board-empty">还没有旅行</p>'}</div>
+        <button class="board-more" data-action="trip-goto-list">管理旅行 ›</button>
+      </div>
     </div>`;
   }
 

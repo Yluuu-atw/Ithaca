@@ -237,6 +237,17 @@ window.Store = (() => {
   }
 
   function getIdentity() { return whoami; }
+
+  // 记在本设备而非文档里，两人可以各收各的
+  let boardOpen = true;
+  try { const v = localStorage.getItem('journey.boardOpen'); if (v != null) boardOpen = v === '1'; } catch (_) {}
+  function getBoardOpen() { return boardOpen; }
+  function setBoardOpen(v) {
+    boardOpen = !!v;
+    try { localStorage.setItem('journey.boardOpen', boardOpen ? '1' : '0'); } catch (_) {}
+    notify();
+  }
+
   function setIdentity(i) {
     whoami = i;
     try { localStorage.setItem('journey.whoami', String(i)); } catch (_) {}
@@ -262,5 +273,6 @@ window.Store = (() => {
     CONST, deepClone, uid, load, mutate, connect, subscribe, setStatusHandler,
     getState, getIdentity, setIdentity, uploadPhoto,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
+    getBoardOpen, setBoardOpen,
   };
 })();
