@@ -123,6 +123,14 @@ window.App = (() => {
         openModal('添加安排', Render.formItem(el.dataset.day));
         break;
 
+      case 'itinerary-edit-item': {
+        const data = Store.getState();
+        const day = (data.itinerary || []).find(x => x.id === el.dataset.day);
+        const item = day && (day.items || []).find(x => x.id === el.dataset.item);
+        if (item) openModal('编辑安排', Render.formItem(el.dataset.day, item));
+        break;
+      }
+
       case 'itinerary-del-item':
         if (!confirm('删除这条安排？')) return;
         doMutate(d => {
@@ -287,8 +295,8 @@ window.App = (() => {
 
     if (kind === 'item') {
       const dayId = fd.get('dayId');
-      const item = {
-        id: Store.uid('itm'),
+      const itemId = fd.get('itemId');
+      const fields = {
         time: fd.get('time') || '',
         endTime: fd.get('endTime') || '',
         title: fd.get('title') || '',
@@ -297,10 +305,18 @@ window.App = (() => {
         note: fd.get('note') || '',
         estimatedCost: Number(fd.get('estimatedCost')) || 0,
       };
-      doMutate(d => {
-        const day = d.itinerary.find(x => x.id === dayId);
-        if (day) { day.items = day.items || []; day.items.push(item); }
-      }, '已添加');
+      if (itemId) {
+        doMutate(d => {
+          const day = d.itinerary.find(x => x.id === dayId);
+          const it = day && (day.items || []).find(x => x.id === itemId);
+          if (it) Object.assign(it, fields);
+        }, '已保存');
+      } else {
+        doMutate(d => {
+          const day = d.itinerary.find(x => x.id === dayId);
+          if (day) { day.items = day.items || []; day.items.push({ id: Store.uid('itm'), ...fields }); }
+        }, '已添加');
+      }
       closeModal();
       return;
     }

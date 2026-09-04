@@ -327,6 +327,7 @@ window.Render = (() => {
       <div class="iti-side">
         <span class="badge">${esc(i.category || '其他')}</span>
         ${i.estimatedCost ? `<span class="iti-cost">${money(i.estimatedCost, s.meta.currency)}</span>` : ''}
+        <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
         <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
       </div>
     </li>`;
@@ -474,22 +475,24 @@ window.Render = (() => {
     </form>`;
   }
 
-  function formItem(dayId) {
+  function formItem(dayId, item) {
     const cats = Store.CONST.itineraryCategories;
+    const v = item || {};
     return `<form data-form="item">
       <input type="hidden" name="dayId" value="${esc(dayId)}">
+      ${item ? `<input type="hidden" name="itemId" value="${esc(item.id)}">` : ''}
       <div class="form-row">
-        <label>开始时间<input type="time" name="time" value="09:00"></label>
-        <label>结束时间<input type="time" name="endTime"></label>
+        <label>开始时间<input type="time" name="time" value="${esc(item ? (v.time || '') : '09:00')}"></label>
+        <label>结束时间<input type="time" name="endTime" value="${esc(v.endTime || '')}"></label>
       </div>
-      <label>安排内容<input name="title" required placeholder="如：清水寺"></label>
-      <label>地点<input name="location" placeholder="如：京都 · 东山区"></label>
+      <label>安排内容<input name="title" required placeholder="如：清水寺" value="${esc(v.title || '')}"></label>
+      <label>地点<input name="location" placeholder="如：京都 · 东山区" value="${esc(v.location || '')}"></label>
       <div class="form-row">
-        <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label>预估花费<input type="number" name="estimatedCost" min="0" step="0.01" placeholder="0" inputmode="decimal"></label>
+        <label>分类<select name="category">${cats.map(c => `<option ${c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>预估花费<input type="number" name="estimatedCost" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.estimatedCost || '')}"></label>
       </div>
-      <label>备注<input name="note" placeholder="预约信息、路线等"></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">添加</button></div>
+      <label>备注<input name="note" placeholder="预约信息、路线等" value="${esc(v.note || '')}"></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
 
