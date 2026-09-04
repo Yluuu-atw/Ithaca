@@ -107,28 +107,52 @@ window.Render = (() => {
   }
 
   // ---------------- 汇总计算 ----------------
+  // 已订/已完成是真花出去的钱，待订只是计划、已取消不作数
+  const BOOKING_COUNTED = ['已订', '已完成'];
+
   function summarizeExpenses(s) {
     const members = s.meta.members || [];
-    const total = s.expenses.reduce((a, e) => a + (Number(e.amount) || 0), 0);
+    const n = Math.max(1, members.length);
     const advanced = {}; members.forEach(m => advanced[m] = 0);
     const shouldPay = {}; members.forEach(m => shouldPay[m] = 0);
     const byCategory = {};
+    let total = 0;         // 仅记账模块的支出
+    let bookingTotal = 0;  // 已落实的票据金额
+
+    const isMember = (x) => x && advanced[x] !== undefined;
+    // 无付款人的款项视作公共支出：人人先垫自己那份，净转移为零但总额照算
+    const credit = (amt, payer) => {
+      if (isMember(payer)) advanced[payer] += amt;
+      else members.forEach(m => advanced[m] += amt / n);
+    };
 
     for (const e of s.expenses) {
       const amt = Number(e.amount) || 0;
+      total += amt;
       const payer = e.payer || members[0] || '';
-      advanced[payer] = (advanced[payer] || 0) + amt;
       byCategory[e.category || '其他'] = (byCategory[e.category || '其他'] || 0) + amt;
+      credit(amt, payer);
       if (e.split === '单方') {
-        shouldPay[payer] = (shouldPay[payer] || 0) + amt;
+        if (isMember(payer)) shouldPay[payer] += amt;
+        else members.forEach(m => shouldPay[m] += amt / n);
       } else {
-        const share = amt / Math.max(1, members.length);
-        members.forEach(m => shouldPay[m] = (shouldPay[m] || 0) + share);
+        members.forEach(m => shouldPay[m] += amt / n);
       }
     }
+
+    for (const b of (s.bookings || [])) {
+      if (!BOOKING_COUNTED.includes(b.status)) continue;
+      const amt = Number(b.price) || 0;
+      if (!amt) continue;
+      bookingTotal += amt;
+      byCategory['票据'] = (byCategory['票据'] || 0) + amt;
+      credit(amt, b.payer);
+      members.forEach(m => shouldPay[m] += amt / n);
+    }
+
     const balance = {};
     members.forEach(m => balance[m] = (advanced[m] || 0) - (shouldPay[m] || 0));
-    return { total, advanced, shouldPay, balance, byCategory };
+    return { total, bookingTotal, grand: total + bookingTotal, advanced, shouldPay, balance, byCategory };
   }
 
   function groupByDate(list) {
@@ -204,7 +228,10 @@ window.Render = (() => {
       const isActive = t.id === activeId;
       const cover = (t.photos && t.photos[0] && t.photos[0].url) || '';
       const days = (t.itinerary || []).length;
-      const cost = (t.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
+      const expCost = (t.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
+      const bkCost = (t.bookings || []).filter(x => BOOKING_COUNTED.includes(x.status))
+        .reduce((a, x) => a + (Number(x.price) || 0), 0);
+      const cost = expCost + bkCost;
       const stats = [days ? `${days} 天` : '', cost ? money(cost, m.currency || 'CNY') : '']
         .filter(Boolean).join(' · ');
       const counts = [
@@ -369,14 +396,17 @@ window.Render = (() => {
         </section>
 
         <section class="stat-grid">
-          <div class="stat-card"><div class="stat-value">${money(exp.total, m.currency)}</div><div class="stat-label">总花费</div></div>
+          <div class="stat-card"><div class="stat-value">${money(exp.grand, m.currency)}</div><div class="stat-label">总花费</div></div>
           <div class="stat-card"><div class="stat-value">${s.itinerary.length}</div><div class="stat-label">行程天数</div></div>
           <div class="stat-card"><div class="stat-value">${checklistDone}/${checklistTotal}</div><div class="stat-label">清单完成</div></div>
           <div class="stat-card"><div class="stat-value">${s.wishlist.length}</div><div class="stat-label">心愿单</div></div>
         </section>
 
         <section class="card">
-          <div class="card-head"><h2>💸 花费与结算</h2></div>
+          <div class="card-head">
+            <h2>💸 花费与结算</h2>
+            ${exp.bookingTotal ? `<span class="spend-note">记账 ${money(exp.total, m.currency)} ＋ 已订票据 ${money(exp.bookingTotal, m.currency)}</span>` : ''}
+          </div>
           <div class="settle-grid">${settle}</div>
           <div class="cat-list">${catBars}</div>
         </section>
@@ -490,7 +520,7 @@ window.Render = (() => {
     const exp = summarizeExpenses(s);
     const grouped = groupByDate(s.expenses);
     const head = `<div class="list-head">
-      <span>共 ${s.expenses.length} 笔 · 总计 ${money(exp.total, s.meta.currency)}</span>
+      <span>共 ${s.expenses.length} 笔 · 支出 ${money(exp.total, s.meta.currency)}${exp.bookingTotal ? ` · 另有已订票据 ${money(exp.bookingTotal, s.meta.currency)}` : ''}</span>
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
     </div>`;
 
