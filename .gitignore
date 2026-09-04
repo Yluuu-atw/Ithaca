@@ -2,6 +2,7 @@
 data/db.json
 data/db.json.tmp
 data/uploads/
+data/backups/
 
 node_modules/
 .DS_Store
