@@ -585,6 +585,32 @@ window.App = (() => {
     }
   }
 
+  // ---------------- 封面补抓 ----------------
+  // 旧数据或抓取失败的收藏没有 cover，会在每次数据变化时补抓一次。
+  // attempted 记住已试过的 id，避免死链被反复重试。
+  const coverAttempted = new Set();
+  async function backfillCovers() {
+    const data = Store.getState();
+    if (!data) return;
+    const todo = (data.guides || []).filter(g => g.link && !g.cover && !coverAttempted.has(g.id));
+    if (!todo.length) return;
+    for (const g of todo) {
+      coverAttempted.add(g.id);
+      const url = Render.extractUrl(g.link);
+      if (!/^https?:\/\//i.test(url)) continue;
+      try {
+        const r = await fetch('/api/link-preview?url=' + encodeURIComponent(url));
+        if (!r.ok) continue;
+        const og = await r.json();
+        if (!og || !og.cover) continue;
+        await Store.mutate(d => {
+          const it = (d.guides || []).find(x => x.id === g.id);
+          if (it && !it.cover) it.cover = og.cover;
+        });
+      } catch (_) { /* 抓不到就留空，下次不再重试 */ }
+    }
+  }
+
   // ---------------- 照片上传 ----------------
   async function uploadPhotos(files, date, caption, location) {
     toast('上传中…', 'info');
@@ -810,6 +836,7 @@ window.App = (() => {
   // ---------------- 初始化 ----------------
   function init() {
     Store.subscribe(render);
+    Store.subscribe(backfillCovers);
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
