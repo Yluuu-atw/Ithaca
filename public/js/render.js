@@ -26,6 +26,21 @@ window.Render = (() => {
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  /**
+   * 链接消毒：esc() 只转义字符，拦不住 javascript: / data: 这类伪协议
+   * （它们不含特殊字符，能原样穿过 esc 进入 href，点击即执行脚本）。
+   * 只放行 http(s) 与 mailto；无协议的裸域名补 https://；其余返回空串，
+   * 由调用方降级为纯文本，避免数据被静默丢弃。
+   */
+  function safeUrl(u) {
+    const s = String(u == null ? '' : u).trim();
+    if (!s) return '';
+    if (/^(https?:\/\/|mailto:)/i.test(s)) return s;
+    if (/^[a-z][a-z0-9+.\-]*:/i.test(s)) return '';          // 其它带协议的一律拒绝
+    if (/^[^\s/?#]+\.[^\s/?#]{2,}(?:[/?#]|$)/.test(s)) return 'https://' + s; // 裸域名
+    return '';
+  }
+
   function money(n, currency) {
     const v = Number(n) || 0;
     const sym = Store.CONST.currencySymbol[currency] || '';
@@ -674,7 +689,7 @@ window.Render = (() => {
       ${p.location ? `<div class="detail-row">📍 ${esc(p.location)}</div>` : ''}
       ${p.date ? `<div class="detail-row">📅 ${esc(p.date)}</div>` : ''}
       ${p.cost ? `<div class="detail-row">💰 ${money(p.cost, s.meta.currency)}</div>` : ''}
-      ${p.link ? `<div class="detail-row">🔗 <a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></div>` : ''}
+      ${safeUrl(p.link) ? `<div class="detail-row">🔗 <a href="${esc(safeUrl(p.link))}" target="_blank" rel="noopener noreferrer">${esc(p.link)}</a></div>` : ''}
       ${p.note ? `<div class="detail-note">${esc(p.note)}</div>` : ''}
     </div>`;
   }
@@ -784,7 +799,7 @@ window.Render = (() => {
       ${b.refNo ? `<div class="detail-row">🧾 订单号：${esc(b.refNo)}</div>` : ''}
       ${b.price ? `<div class="detail-row">💰 金额：${money(b.price, s.meta.currency)}</div>` : ''}
       ${b.payer ? `<div class="detail-row">👤 付款人：${esc(b.payer)}</div>` : ''}
-      ${b.link ? `<div class="detail-row">🔗 <a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.link)}</a></div>` : ''}
+      ${safeUrl(b.link) ? `<div class="detail-row">🔗 <a href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener noreferrer">${esc(b.link)}</a></div>` : ''}
       ${b.note ? `<div class="detail-note">${esc(b.note)}</div>` : ''}
     </div>`;
   }

@@ -39,18 +39,61 @@ function loadDb() {
 }
 
 let db = loadDb();
-let writeChain = Promise.resolve();
 
-function persist(data) {
-  writeChain = writeChain.then(() => new Promise((resolve, reject) => {
+// 写盘：临时文件 + rename，避免写一半损坏原文件
+function writeDb(data) {
+  return new Promise((resolve, reject) => {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     const tmp = DB_PATH + '.tmp';
     fs.writeFile(tmp, JSON.stringify(data, null, 2), 'utf8', (err) => {
       if (err) return reject(err);
       fs.rename(tmp, DB_PATH, (err2) => (err2 ? reject(err2) : resolve()));
     });
-  }));
-  return writeChain;
+  });
+}
+
+// 版本冲突专用错误，让路由层能区分 409（客户端该重试）和 400（请求本身有问题）
+class VersionConflictError extends Error {
+  constructor(latestVersion) {
+    super('版本冲突');
+    this.latestVersion = latestVersion;
+  }
+}
+
+let writeChain = Promise.resolve();
+
+/**
+ * 串行提交一次变更：「校验版本 → 更新内存 → 落盘」作为一个原子步骤排队执行。
+ *
+ * 排队是必须的：不排队的话两个并发 PUT 会在 await 期间交错，双方都读到同一个
+ * 旧版本号而通过校验，后完成的那次会静默覆盖前一次（丢数据）。
+ *
+ * 落盘失败必须回滚内存：否则接口返回的数据和磁盘上的不一致，用户看到改动
+ * 却在重启后全部丢失。
+ *
+ * 失败只影响本次调用——队列吞掉 rejection。否则一次写盘失败（磁盘满、休眠唤醒）
+ * 会让 writeChain 变成 rejected promise，之后所有写入都永久失效。
+ */
+function commit(mutateFn, baseVersion) {
+  const run = writeChain.then(async () => {
+    if (baseVersion !== undefined && baseVersion !== db.meta.version) {
+      throw new VersionConflictError(db.meta.version);
+    }
+    const previous = db;
+    const next = mutateFn(db);
+    next.meta.updatedAt = new Date().toISOString();
+    db = next;
+    try {
+      await writeDb(db);
+    } catch (err) {
+      db = previous; // 回滚：内存必须与磁盘保持一致
+      throw err;
+    }
+    broadcast({ type: 'data', data: db, version: db.meta.version });
+    return db;
+  });
+  writeChain = run.then(() => {}, () => {}); // 吞掉失败，不污染队列
+  return run;
 }
 
 // ---------------- SSE 实时广播 ----------------
@@ -128,38 +171,40 @@ function sendJSON(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', (c) => {
-      raw += c;
-      if (raw.length > 5 * 1024 * 1024) {
-        reject(new Error('请求体过大'));
-        req.destroy();
-      }
-    });
-    req.on('end', () => resolve(raw));
-    req.on('error', reject);
-  });
-}
-
-// 读取原始二进制 body（照片上传），限制 20MB
-function readRawBody(req) {
+/**
+ * 读取请求体为 Buffer。必须先攒 Buffer 再一次性解码：
+ * 逐 chunk 做字符串拼接会把跨 chunk 边界的 UTF-8 多字节字符切成 U+FFFD，
+ * 中文内容超过约 64KB（Node stream 默认 highWaterMark）就会静默损坏。
+ */
+function readBody(req, limit) {
+  const max = limit || 5 * 1024 * 1024;
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let done = false;
     req.on('data', (c) => {
+      if (done) return;
       size += c.length;
-      if (size > 20 * 1024 * 1024) {
-        reject(new Error('照片过大（上限 20MB）'));
+      if (size > max) {
+        done = true;
+        reject(new Error('请求体过大'));
         req.destroy();
         return;
       }
       chunks.push(c);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
+    req.on('end', () => {
+      if (done) return;
+      done = true;
+      resolve(Buffer.concat(chunks));
+    });
+    req.on('error', (err) => { if (!done) { done = true; reject(err); } });
   });
+}
+
+// JSON 请求体：攒完再按 UTF-8 整体解码
+async function readJSON(req) {
+  return JSON.parse((await readBody(req)).toString('utf8'));
 }
 
 function extFromType(contentType) {
@@ -177,7 +222,7 @@ function photoUid() {
 async function handlePhotoUpload(req, res, pathname) {
   if (pathname === '/api/photos' && req.method === 'POST') {
     try {
-      const buf = await readRawBody(req);
+      const buf = await readBody(req, 20 * 1024 * 1024);
       const ct = (req.headers['content-type'] || '').split(';')[0].trim();
       const ext = extFromType(ct);
       const name = photoUid() + ext;
@@ -201,20 +246,19 @@ async function handleApi(req, res, pathname) {
 
   if (pathname === '/api/data' && req.method === 'PUT') {
     try {
-      const payload = JSON.parse(await readBody(req));
+      const payload = await readJSON(req);
       const baseVersion = Number(payload.baseVersion) || 0;
-      // 乐观并发控制：客户端基于的版本不一致则拒绝，避免覆盖他人改动
-      if (baseVersion !== db.meta.version) {
-        return sendJSON(res, 409, { error: '版本冲突', version: db.meta.version });
-      }
-      const next = normalize(payload.data);
-      next.meta.version = db.meta.version + 1;
-      next.meta.updatedAt = new Date().toISOString();
-      db = next;
-      await persist(db);
-      broadcast({ type: 'data', data: db, version: db.meta.version });
-      return sendJSON(res, 200, { data: db, version: db.meta.version });
+      // 乐观并发控制：校验版本、更新内存、落盘作为一个原子步骤串行执行
+      const saved = await commit((cur) => {
+        const next = normalize(payload.data);
+        next.meta.version = cur.meta.version + 1;
+        return next;
+      }, baseVersion);
+      return sendJSON(res, 200, { data: saved, version: saved.meta.version });
     } catch (err) {
+      if (err instanceof VersionConflictError) {
+        return sendJSON(res, 409, { error: '版本冲突', version: err.latestVersion });
+      }
       return sendJSON(res, 400, { error: err.message });
     }
   }
@@ -230,14 +274,14 @@ async function handleApi(req, res, pathname) {
 
   if (pathname === '/api/import' && req.method === 'POST') {
     try {
-      const incoming = JSON.parse(await readBody(req));
-      const next = normalize(incoming);
-      next.meta.version = db.meta.version + 1;
-      next.meta.updatedAt = new Date().toISOString();
-      db = next;
-      await persist(db);
-      broadcast({ type: 'data', data: db, version: db.meta.version });
-      return sendJSON(res, 200, { data: db, version: db.meta.version });
+      const incoming = await readJSON(req);
+      // 导入是用户显式选择的整份覆盖，不做版本校验（不传 baseVersion）
+      const saved = await commit((cur) => {
+        const next = normalize(incoming);
+        next.meta.version = cur.meta.version + 1;
+        return next;
+      });
+      return sendJSON(res, 200, { data: saved, version: saved.meta.version });
     } catch (err) {
       return sendJSON(res, 400, { error: err.message });
     }

@@ -45,7 +45,9 @@ window.App = (() => {
     if (current.tab === 'map') {
       if (map && $('#map')) { refreshMap(data); return; }
       $('#content').innerHTML = Render.renderPage(data, current.tab, { tileSource: currentTileSource });
-      setTimeout(() => initMap(data), 0);
+      // 必须用 refreshMap 而非 initMap：切走再切回时旧 map 实例仍绑定着已脱离
+      // DOM 的容器，initMap 只判断实例存在与否，会往旧容器上画，导致新节点空白
+      setTimeout(() => refreshMap(data), 0);
       return;
     }
 
@@ -553,14 +555,6 @@ window.App = (() => {
 
     fitMapToAll();
     renderMapLegend(data, colorByDate);
-  }
-
-  function initMap(data) {
-    const el = $('#map');
-    if (!el || typeof L === 'undefined') return;
-    if (!map) buildMap();
-    drawMapLayers(data);
-    setTimeout(() => map.invalidateSize(), 60);
   }
 
   function refreshMap(data) {
