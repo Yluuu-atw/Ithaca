@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false };
+  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false };
   const $ = (sel) => document.querySelector(sel);
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
@@ -60,6 +60,7 @@ window.App = (() => {
       bookingFilter: current.bookingFilter,
       guideFilter: current.guideFilter,
       showArchived: current.showArchived,
+      editMeta: current.editMeta,
     });
     // 搜索框重绘后恢复焦点，保证连续输入
     if (hadSearchFocus && current.tab === 'places') {
@@ -161,6 +162,16 @@ window.App = (() => {
       case 'itinerary-del-day':
         if (!confirm('删除这一天及其所有安排？')) return;
         doMutate(d => { d.itinerary = d.itinerary.filter(x => x.id !== el.dataset.day); }, '已删除');
+        break;
+
+      case 'meta-edit':
+        current.editMeta = true;
+        render();
+        break;
+
+      case 'meta-cancel':
+        current.editMeta = false;
+        render();
         break;
 
       case 'board-toggle':
@@ -424,6 +435,8 @@ window.App = (() => {
         d.meta.currency = fd.get('currency') || 'CNY';
         if (memberList.length) d.meta.members = memberList;
       }, '行程信息已保存');
+      current.editMeta = false;
+      render();
       return;
     }
 

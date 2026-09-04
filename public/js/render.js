@@ -184,7 +184,7 @@ window.Render = (() => {
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
       case 'photos': return renderPhotos(state);
-      default: return renderOverview(state);
+      default: return renderOverview(state, opts.editMeta);
     }
   }
 
@@ -301,7 +301,30 @@ window.Render = (() => {
   }
 
   // ---------------- 概览 ----------------
-  function renderOverview(s) {
+  // 填完就该像「已完成」，不该一直挂着表单框
+  function metaSummary(m) {
+    const days = (m.startDate && m.endDate) ? diffDays(m.startDate, m.endDate) + 1 : 0;
+    const dateTxt = (m.startDate || m.endDate)
+      ? `${esc(fmtDate(m.startDate) || '?')} – ${esc(fmtDate(m.endDate) || '?')}${days > 0 ? ` · ${days} 天` : ''}`
+      : '';
+    const cur = Store.CONST.currencySymbol[m.currency] || '';
+    const row = (key, val) => val
+      ? `<div class="trip-row"><span class="trip-key">${key}</span><span class="trip-val">${val}</span></div>`
+      : '';
+    const members = (m.members || []).map((name, i) => memberChip(m, name)).join('');
+    return `<div class="trip-summary">
+      <div class="trip-summary-name">${esc(m.tripName || '未命名旅行')}</div>
+      <div class="trip-summary-rows">
+        ${row('目的地', m.destination ? esc(m.destination) : '')}
+        ${row('日期', dateTxt)}
+        ${row('币种', m.currency ? `${esc(m.currency)} ${esc(cur)}` : '')}
+        ${row('成员', members)}
+      </div>
+      ${(m.destination || m.startDate || m.endDate) ? '' : '<p class="trip-summary-hint">还没有填完整，点右上角编辑补充</p>'}
+    </div>`;
+  }
+
+  function renderOverview(s, editMeta) {
     const m = s.meta;
     const exp = summarizeExpenses(s);
     const checklistDone = s.checklist.filter(c => c.checked).length;
@@ -335,7 +358,11 @@ window.Render = (() => {
     return `
       <div class="page-stack">
         <section class="card">
-          <div class="card-head"><h2>🧳 行程信息</h2></div>
+          <div class="card-head">
+            <h2>🧳 行程信息</h2>
+            ${editMeta ? '' : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}
+          </div>
+          ${editMeta ? `
           <form class="grid-form" data-form="meta">
             <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
             <label>目的地<input name="destination" value="${esc(m.destination)}" placeholder="如：日本 · 关西"></label>
@@ -343,8 +370,11 @@ window.Render = (() => {
             <label>结束日期<input type="date" name="endDate" value="${esc(m.endDate)}"></label>
             <label>币种<select name="currency">${currencyOpts}</select></label>
             <label>成员（逗号分隔）<input name="members" value="${esc((m.members || []).join(','))}" placeholder="我,她"></label>
-            <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
-          </form>
+            <div class="form-actions">
+              <button class="btn btn-ghost" type="button" data-action="meta-cancel">取消</button>
+              <button class="btn btn-primary" type="submit">保存</button>
+            </div>
+          </form>` : metaSummary(m)}
         </section>
 
         <section class="stat-grid">
