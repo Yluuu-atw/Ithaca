@@ -171,6 +171,65 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .dash-grid > .span-8 { grid-column: span 8; }
 .dash-grid > .span-12 { grid-column: span 12; }
 .day-list { display: flex; flex-direction: column; gap: 18px; }
+
+/* ---------------- 行程时间轴 ---------------- */
+.timeline { display: flex; flex-direction: column; }
+.tl-day { display: grid; grid-template-columns: 52px 1fr; column-gap: 16px; position: relative; padding-bottom: 26px; }
+.tl-day:last-child { padding-bottom: 0; }
+/* 脊线：从节点下方延伸到下一天 */
+.tl-day::before {
+  content: ''; position: absolute; left: 25px; top: 40px; bottom: 0; width: 2px;
+  background: linear-gradient(180deg, var(--border), var(--surface-2));
+}
+.tl-day:last-child::before { display: none; }
+
+.tl-marker { grid-column: 1; display: flex; justify-content: center; }
+.tl-dot {
+  width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 5px var(--bg); position: relative; z-index: 1;
+}
+
+.tl-body { grid-column: 2; min-width: 0; padding-top: 2px; }
+.tl-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tl-dayno { font-size: 13px; font-weight: 700; color: var(--primary-600); letter-spacing: .08em; }
+.tl-date { font-size: 27px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tl-weekday { font-size: 15px; color: var(--muted); font-weight: 500; }
+.tl-meta { margin-left: auto; font-size: 13.5px; color: var(--muted); align-self: center; display: flex; align-items: center; gap: 4px; }
+.tl-actions { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.tl-stops { font-size: 13.5px; color: var(--muted); margin-top: 5px; }
+/* 简洁模式：整块可点，点开看当天详情 */
+.tl-summary { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); padding: 13px 16px; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
+.tl-summary:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.tl-summary .tl-head { align-items: baseline; }
+.tl-titles { font-size: 15.5px; color: var(--muted); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tl-items { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+/* 详情弹窗里没有脊线，隐藏节点圆点 */
+.tl-plain .tl-item::before { display: none; }
+.tl-item { position: relative; display: grid; grid-template-columns: 60px 1fr; gap: 12px; align-items: start; }
+/* 条目节点上的小圆点，落在脊线上 */
+.tl-item::before {
+  content: ''; position: absolute; left: -46px; top: 15px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--border); box-shadow: 0 0 0 4px var(--bg);
+}
+.tl-item.has-value::before { background: var(--accent); }
+.tl-time { font-size: 17.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary-600); padding-top: 10px; }
+.tl-time small { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.tl-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 11px 14px; display: flex; gap: 12px; align-items: flex-start;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.tl-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.tl-main { flex: 1; min-width: 0; }
+.tl-title { font-weight: 600; }
+.tl-loc { font-size: 15.5px; color: var(--muted); margin-top: 2px; }
+.tl-note { font-size: 15.5px; color: var(--muted); margin-top: 4px; }
+.tl-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.tl-empty { font-size: 14px; color: var(--muted); padding: 10px 0 0; }
 .wish-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 
 /* ---------------- 列表头 ---------------- */
@@ -269,7 +328,6 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .ring-cap { font-size: 11px; color: var(--muted); }
 .ring-note { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
 
-
 /* ---------------- 按钮 ---------------- */
 .btn {
   display: inline-flex;
@@ -337,7 +395,6 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .muted { color: var(--muted); font-size: 16.5px; }
 
 /* ---------------- 行程 ---------------- */
-.day-card { padding: 0; overflow: hidden; }
 .day-head {
   display: flex;
   align-items: center;
@@ -348,33 +405,9 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   border-bottom: 1px solid var(--border);
 }
 .day-head h3 { margin: 0; font-size: 20px; font-weight: 700; }
-.day-date { font-weight: 400; color: var(--muted); font-size: 17px; margin-left: 6px; }
-.day-actions { display: flex; align-items: center; gap: 8px; }
 
-.iti-list { list-style: none; margin: 0; padding: 8px 0; }
-.iti-item {
-  display: flex;
-  gap: 14px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--surface-2);
-}
-.iti-item:last-child { border-bottom: none; }
-.iti-time {
-  flex: 0 0 68px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding-top: 2px;
-}
-.t-start { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary-600); }
-.t-end { color: var(--muted); font-size: 15.5px; font-variant-numeric: tabular-nums; }
-.t-arrow { color: var(--border); font-size: 14px; line-height: 1; }
-.iti-main { flex: 1; min-width: 0; }
-.iti-title { font-weight: 600; }
 .iti-loc { font-size: 16.5px; color: var(--muted); margin-top: 2px; }
 .iti-note { font-size: 16.5px; color: var(--muted); margin-top: 4px; }
-.iti-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .iti-cost { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 17.5px; }
 
 /* ---------------- 记账 ---------------- */
@@ -648,41 +681,6 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 /* ---------------- 行程：简洁/复杂模式 ---------------- */
 .head-actions { display: flex; align-items: center; gap: 8px; }
 
-.day-simple {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  padding: 16px 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  cursor: pointer;
-  text-align: left;
-  transition: border-color .15s ease, box-shadow .15s ease;
-}
-.day-simple:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
-.day-simple-num {
-  flex: 0 0 auto;
-  font-size: 17.5px;
-  font-weight: 700;
-  color: var(--primary-600);
-  background: var(--primary-soft);
-  border-radius: 10px;
-  padding: 6px 10px;
-}
-.day-simple-main { flex: 1; min-width: 0; }
-.day-simple-date { font-weight: 600; font-size: 19px; }
-.day-simple-titles {
-  font-size: 16.5px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
-}
-.day-simple-side { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.day-simple-count { font-size: 15.5px; color: var(--muted); }
 .chevron { color: var(--border); font-size: 25px; line-height: 1; }
 
 /* ---------------- 详情弹窗内容 ---------------- */
@@ -962,26 +960,36 @@ textarea { resize: vertical; min-height: 60px; }
   .chart-bars { height: 132px; }
   .donut { width: 108px; height: 108px; }
   .ring { width: 88px; height: 88px; }
+  .tl-day { grid-template-columns: 38px 1fr; column-gap: 10px; padding-bottom: 22px; }
+  .tl-day::before { left: 18px; top: 34px; }
+  .tl-dot { width: 28px; height: 28px; font-size: 13px; box-shadow: 0 0 0 4px var(--bg); }
+  .tl-date { font-size: 23px; }
+  .tl-item { grid-template-columns: 50px 1fr; gap: 9px; }
+  .tl-item::before { left: -35px; top: 13px; width: 7px; height: 7px; }
+  .tl-time { font-size: 16px; padding-top: 9px; }
+  .tl-meta { margin-left: 0; width: 100%; }
+  .tl-head { gap: 8px; }
+  .tl-actions { margin-left: 0; }
 
   /* iOS Safari：输入框字号 <16px 会触发聚焦自动缩放，这里固定 16px 并禁用双击缩放 */
   input, select, textarea { font-size: 20px; }
-  button, .chip, .day-simple, .booking-card, .place-card { touch-action: manipulation; }
+  button, .chip, .tl-summary, .booking-card, .place-card { touch-action: manipulation; }
 
   .card { padding: 16px; }
   .grid-form { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr 1fr; }
 
-  .iti-item { gap: 10px; padding: 12px 16px; }
-  .iti-time { flex-basis: 54px; }
-  .iti-side { flex-wrap: wrap; justify-content: flex-end; }
-  .iti-side .badge { display: none; }
+  
+  
+  
+  .tl-side .badge { display: none; }
 
   .exp-item { padding: 12px 16px; }
   .chk-item { padding: 10px 16px; }
 
-  .day-simple { padding: 14px 16px; gap: 10px; }
-  .day-simple-num { font-size: 15px; padding: 4px 8px; }
-  .day-simple-count { display: none; }
+  
+  
+  
   .place-grid { grid-template-columns: 1fr; }
   .place-tools { padding: 14px 16px; }
 

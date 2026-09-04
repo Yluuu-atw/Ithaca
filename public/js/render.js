@@ -640,9 +640,9 @@ window.Render = (() => {
       </div></div>`;
     }
     if (isDetail) {
-      return head + `<div class="day-list">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
+      return head + `<div class="timeline">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
     }
-    return head + `<div class="day-list">${days.map((d, i) => renderDaySimple(s, d, i)).join('')}</div>`;
+    return head + `<div class="timeline">${days.map((d, i) => renderDaySimple(s, d, i)).join('')}</div>`;
   }
 
   function renderDaySimple(s, d, idx) {
@@ -651,19 +651,31 @@ window.Render = (() => {
     const date = d.date || '';
     const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
       ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
+    const stops = items.map(i => i.location).filter(Boolean);
+    const firstStop = stops[0], lastStop = stops[stops.length - 1];
+    const stopTxt = firstStop
+      ? (firstStop === lastStop ? firstStop : `${firstStop} → ${lastStop}`)
+      : '';
     const firstTitles = items.slice(0, 3).map(i => esc(i.title)).join(' · ');
-    return `<button class="day-simple" data-action="day-detail" data-day="${esc(d.id)}">
-      <div class="day-simple-num">Day ${dayNo}</div>
-      <div class="day-simple-main">
-        <div class="day-simple-date">${fmtDate(date)} ${weekday(date)}</div>
-        <div class="day-simple-titles">${items.length ? firstTitles + (items.length > 3 ? ' …' : '') : '（暂无安排）'}</div>
+    return `<div class="tl-day">
+      <div class="tl-marker"><span class="tl-dot">${dayNo}</span></div>
+      <div class="tl-body">
+        <button class="tl-summary" data-action="day-detail" data-day="${esc(d.id)}">
+          <div class="tl-head">
+            <span class="tl-dayno">DAY ${dayNo}</span>
+            <span class="tl-date">${esc(shortDate(date))}</span>
+            <span class="tl-weekday">${esc(weekday(date))}</span>
+            <div class="tl-meta">
+              ${items.length ? `${items.length} 项` : ''}
+              ${dayTotal ? ` · ${money(dayTotal, s.meta.currency)}` : ''}
+              <span class="chevron">›</span>
+            </div>
+          </div>
+          ${stopTxt ? `<div class="tl-stops">${emo('📍')} ${esc(stopTxt)}</div>` : ''}
+          <div class="tl-titles">${items.length ? firstTitles + (items.length > 3 ? ' …' : '') : '暂无安排'}</div>
+        </button>
       </div>
-      <div class="day-simple-side">
-        <span class="day-simple-count">${items.length} 项</span>
-        ${dayTotal ? `<span class="iti-cost">${money(dayTotal, s.meta.currency)}</span>` : ''}
-        <span class="chevron">›</span>
-      </div>
-    </button>`;
+    </div>`;
   }
 
   function dayDetail(s, dayId) {
@@ -676,9 +688,16 @@ window.Render = (() => {
         <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 安排</button>
       </div>
       ${items.length
-        ? `<ul class="iti-list detail-list">${items.map(i => renderItiItem(s, day.id, i)).join('')}</ul>`
+        ? `<ul class="tl-items tl-plain">${items.map(i => renderItiItem(s, day.id, i)).join('')}</ul>`
         : '<p class="empty small">这天还没有安排</p>'}
     </div>`;
+  }
+
+  // 简化日期：2026-09-29 → 9/29，时间轴大标题用
+  function shortDate(d) {
+    if (!d) return '';
+    const p = d.split('-').map(Number);
+    return p.length < 3 ? d : `${p[1]}/${p[2]}`;
   }
 
   function renderDay(s, d, idx) {
@@ -687,38 +706,52 @@ window.Render = (() => {
     const date = d.date || '';
     const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
       ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
+    const stops = items.map(i => i.location).filter(Boolean);
+    const firstStop = stops[0], lastStop = stops[stops.length - 1];
+    const stopTxt = firstStop
+      ? (firstStop === lastStop ? firstStop : `${firstStop} → ${lastStop}`)
+      : '';
 
-    return `<section class="card day-card">
-      <div class="day-head">
-        <div><h3>Day ${dayNo} <span class="day-date">${fmtDate(date)} ${weekday(date)}</span></h3></div>
-        <div class="day-actions">
-          ${dayTotal ? `<span class="iti-cost">${money(dayTotal, s.meta.currency)}</span>` : ''}
-          <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(d.id)}">＋ 安排</button>
-          <button class="icon-btn danger" data-action="itinerary-del-day" data-day="${esc(d.id)}" title="删除这一天">✕</button>
+    return `<div class="tl-day">
+      <div class="tl-marker"><span class="tl-dot">${dayNo}</span></div>
+      <div class="tl-body">
+        <div class="tl-head">
+          <span class="tl-dayno">DAY ${dayNo}</span>
+          <span class="tl-date">${esc(shortDate(date))}</span>
+          <span class="tl-weekday">${esc(weekday(date))}</span>
+          <div class="tl-meta">
+            ${items.length ? `${items.length} 项` : ''}
+            ${dayTotal ? ` · ${money(dayTotal, s.meta.currency)}` : ''}
+          </div>
+          <div class="tl-actions">
+            <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(d.id)}">＋ 安排</button>
+            <button class="icon-btn danger" data-action="itinerary-del-day" data-day="${esc(d.id)}" title="删除这一天">✕</button>
+          </div>
         </div>
+        ${stopTxt ? `<div class="tl-stops">${emo('📍')} ${esc(stopTxt)}${stops.length > 2 ? ` 等 ${stops.length} 地` : ''}</div>` : ''}
+        ${items.length
+          ? `<ul class="tl-items">${items.map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
+          : '<p class="tl-empty">这天还没有安排</p>'}
       </div>
-      ${items.length
-        ? `<ul class="iti-list">${items.map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
-        : '<p class="empty small">这天还没有安排</p>'}
-    </section>`;
+    </div>`;
   }
 
   function renderItiItem(s, dayId, i) {
-    return `<li class="iti-item">
-      <div class="iti-time">
-        <span class="t-start">${esc(i.time || '—')}</span>
-        ${i.endTime ? `<span class="t-arrow">↓</span><span class="t-end">${esc(i.endTime)}</span>` : ''}
-      </div>
-      <div class="iti-main">
-        <div class="iti-title">${esc(i.title || '（未命名）')}</div>
-        ${i.location ? `<div class="iti-loc">${emo('📍')} ${esc(i.location)}</div>` : ''}
-        ${i.note ? `<div class="iti-note">${esc(i.note)}</div>` : ''}
-      </div>
-      <div class="iti-side">
-        <span class="badge">${esc(i.category || '其他')}</span>
-        ${i.estimatedCost ? `<span class="iti-cost">${money(i.estimatedCost, s.meta.currency)}</span>` : ''}
-        <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
-        <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
+    const t = i.time || '';
+    return `<li class="tl-item ${i.estimatedCost ? 'has-value' : ''}">
+      <div class="tl-time">${esc(t || '—')}${i.endTime ? `<small>${esc(i.endTime)}</small>` : ''}</div>
+      <div class="tl-card">
+        <div class="tl-main">
+          <div class="tl-title">${esc(i.title || '（未命名）')}</div>
+          ${i.location ? `<div class="tl-loc">${emo('📍')} ${esc(i.location)}</div>` : ''}
+          ${i.note ? `<div class="tl-note">${esc(i.note)}</div>` : ''}
+        </div>
+        <div class="tl-side">
+          <span class="badge">${esc(i.category || '其他')}</span>
+          ${i.estimatedCost ? `<span class="iti-cost">${money(i.estimatedCost, s.meta.currency)}</span>` : ''}
+          <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
+          <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
+        </div>
       </div>
     </li>`;
   }
