@@ -144,7 +144,7 @@ input, select, textarea { font-family: inherit; font-size: 15px; color: var(--te
   box-shadow: var(--shadow-sm);
   padding: 20px 22px;
 }
-.card-head { margin-bottom: 14px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .card-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
 
 .page-stack { display: flex; flex-direction: column; gap: 18px; }
