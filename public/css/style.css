@@ -773,6 +773,8 @@ textarea { resize: vertical; min-height: 60px; }
 }
 .booking-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
 .booking-card:active { transform: scale(.98); }
+.booking-card.has-payer { border-left: 4px solid var(--payer-color, var(--border)); padding-left: 15px; }
+.bk-payer { flex: 0 0 auto; font-size: 19px; line-height: 1; }
 .bk-icon {
   flex: 0 0 auto;
   width: 42px; height: 42px;
@@ -822,6 +824,11 @@ textarea { resize: vertical; min-height: 60px; }
 .avatar-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 6px; }
 .avatar-opt { justify-content: center; font-size: 19px; padding: 6px 0; line-height: 1.2; }
 .avatar-opt.active { border-color: var(--primary); background: var(--primary-soft); }
+
+/* 标识色选择 */
+.color-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 6px; }
+.color-opt { height: 30px; padding: 0; background: var(--swatch); border-radius: 8px; }
+.color-opt.active { outline: 2px solid var(--text); outline-offset: 2px; }
 
 /* ---------------- 底部标签栏（手机） ---------------- */
 .tabbar {

@@ -56,6 +56,7 @@ function defaultTrip() {
       currency: 'CNY',
       members: ['我', '她'],
       avatars: ['😎', '🥰'],   // 与 members 一一对应
+      colors: ['#e6a877', '#6f9e8f'],   // 与 members 一一对应，用于按付款人区分
       archived: false,
     },
     itinerary: [], // [{ id, date, items: [{ id, time, endTime, title, location, lat, lng, note, category, estimatedCost }] }]
@@ -99,6 +100,10 @@ function normalizeTrip(raw) {
   const DEFAULT_AVATARS = ['😎', '🥰', '🐻', '🐱'];
   const av = Array.isArray(t.meta.avatars) ? t.meta.avatars : [];
   t.meta.avatars = t.meta.members.map((_, i) => (av[i] ? String(av[i]) : DEFAULT_AVATARS[i % DEFAULT_AVATARS.length]));
+  // 同理，颜色也要与成员对齐
+  const DEFAULT_COLORS = ['#e6a877', '#6f9e8f', '#7c9fd9', '#c98bb8'];
+  const cl = Array.isArray(t.meta.colors) ? t.meta.colors : [];
+  t.meta.colors = t.meta.members.map((_, i) => (cl[i] ? String(cl[i]) : DEFAULT_COLORS[i % DEFAULT_COLORS.length]));
   t.meta.archived = !!t.meta.archived;
 
   for (const k of TRIP_LISTS) t[k] = Array.isArray(src[k]) ? src[k] : [];

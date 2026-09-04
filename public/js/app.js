@@ -409,6 +409,13 @@ window.App = (() => {
         break;
       }
 
+      case 'color-pick': {
+        el.closest('.color-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        el.closest('form').querySelector('[name=color]').value = el.dataset.color;
+        break;
+      }
+
       default:
         break;
     }
@@ -615,6 +622,7 @@ window.App = (() => {
       const idx = Number(fd.get('idx'));
       const newName = (fd.get('name') || '').trim();
       const avatar = fd.get('avatar') || '';
+      const color = fd.get('color') || '';
       if (!newName) return;
       doMutate(d => {
         const m = d.meta.members;
@@ -623,6 +631,8 @@ window.App = (() => {
         m[idx] = newName;
         d.meta.avatars = d.meta.avatars || [];
         d.meta.avatars[idx] = avatar;
+        d.meta.colors = d.meta.colors || [];
+        d.meta.colors[idx] = color;
         // 这三处按名字引用成员，不同步就会指向一个已不存在的人
         if (old && old !== newName) {
           (d.expenses || []).forEach(e => { if (e.payer === old) e.payer = newName; });

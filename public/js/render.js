@@ -54,6 +54,17 @@ window.Render = (() => {
     return av[i] || '🙂';
   }
 
+  function colorOf(meta, i) {
+    const cl = (meta && meta.colors) || [];
+    return cl[i] || '';
+  }
+
+  // 返回空串表示该付款人不着色
+  function payerColor(meta, name) {
+    const i = ((meta && meta.members) || []).indexOf(name);
+    return i < 0 ? '' : colorOf(meta, i);
+  }
+
   // 成员显示名：本设备自己显示「我」，对方显示实际昵称
   function dispName(members, name) {
     const idx = Store.getIdentity();
@@ -1054,13 +1065,16 @@ window.Render = (() => {
     const t = bkType(b.type);
     const route = [b.from, b.to].filter(Boolean).join(' → ');
     const sub = [route, b.date ? fmtDate(b.date) : '', b.time || '', b.carrier || '', b.refNo ? `#${b.refNo}` : ''].filter(Boolean).join(' · ');
-    return `<div class="booking-card" data-action="booking-detail" data-id="${esc(b.id)}" role="button" tabindex="0">
+    const pc = payerColor(s.meta, b.payer);
+    const pi = ((s.meta && s.meta.members) || []).indexOf(b.payer);
+    return `<div class="booking-card ${pc ? 'has-payer' : ''}" ${pc ? `style="--payer-color:${esc(pc)}"` : ''} data-action="booking-detail" data-id="${esc(b.id)}" role="button" tabindex="0">
       <div class="bk-icon">${t.icon}</div>
       <div class="bk-main">
         <div class="bk-title">${esc(b.title || route || t.label)}</div>
         ${sub ? `<div class="bk-sub">${esc(sub)}</div>` : ''}
       </div>
       <div class="bk-side">
+        ${pi >= 0 ? `<span class="bk-payer" title="${esc(b.payer)}">${avatarOf(s.meta, pi)}</span>` : ''}
         <span class="bk-status st-${bkStatusCls(b.status)}">${esc(b.status || '待订')}</span>
         ${b.price ? `<span class="bk-price">${money(b.price, s.meta.currency)}</span>` : ''}
       </div>
@@ -1183,13 +1197,18 @@ window.Render = (() => {
     const meta = (trip && trip.meta) || {};
     const members = meta.members || [];
     const cur = avatarOf(meta, idx);
+    const curColor = colorOf(meta, idx);
     const opts = Store.CONST.avatarChoices.map(a =>
       `<button type="button" class="chip avatar-opt ${a === cur ? 'active' : ''}" data-action="avatar-pick" data-avatar="${a}">${a}</button>`).join('');
+    const colorOpts = Store.CONST.colorChoices.map(c =>
+      `<button type="button" class="chip color-opt ${c === curColor ? 'active' : ''}" data-action="color-pick" data-color="${esc(c)}" style="--swatch:${esc(c)}" title="${esc(c)}"></button>`).join('');
     return `<form data-form="member">
       <input type="hidden" name="idx" value="${idx}">
       <input type="hidden" name="avatar" value="${esc(cur)}">
+      <input type="hidden" name="color" value="${esc(curColor)}">
       <label>昵称<input name="name" required value="${esc(members[idx] || '')}" placeholder="如：小树"></label>
       <label>头像<div class="avatar-grid">${opts}</div></label>
+      <label>标识色<div class="color-grid">${colorOpts}</div></label>
       <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
     </form>`;
   }
