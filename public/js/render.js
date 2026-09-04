@@ -301,26 +301,18 @@ window.Render = (() => {
   }
 
   // ---------------- 概览 ----------------
-  // 填完就该像「已完成」，不该一直挂着表单框
+  // 沿用表单的两列网格与内边距，只把输入框换成纯文字，免得切换时版式跳动
   function metaSummary(m) {
-    const days = (m.startDate && m.endDate) ? diffDays(m.startDate, m.endDate) + 1 : 0;
-    const dateTxt = (m.startDate || m.endDate)
-      ? `${esc(fmtDate(m.startDate) || '?')} – ${esc(fmtDate(m.endDate) || '?')}${days > 0 ? ` · ${days} 天` : ''}`
-      : '';
-    const cur = Store.CONST.currencySymbol[m.currency] || '';
-    const row = (key, val) => val
-      ? `<div class="trip-row"><span class="trip-key">${key}</span><span class="trip-val">${val}</span></div>`
-      : '';
-    const members = (m.members || []).map((name, i) => memberChip(m, name)).join('');
-    return `<div class="trip-summary">
-      <div class="trip-summary-name">${esc(m.tripName || '未命名旅行')}</div>
-      <div class="trip-summary-rows">
-        ${row('目的地', m.destination ? esc(m.destination) : '')}
-        ${row('日期', dateTxt)}
-        ${row('币种', m.currency ? `${esc(m.currency)} ${esc(cur)}` : '')}
-        ${row('成员', members)}
-      </div>
-      ${(m.destination || m.startDate || m.endDate) ? '' : '<p class="trip-summary-hint">还没有填完整，点右上角编辑补充</p>'}
+    const val = (v) => v
+      ? `<span class="ro-val">${v}</span>`
+      : '<span class="ro-val ro-empty">—</span>';
+    return `<div class="grid-form grid-ro">
+      <label>旅行名称${val(esc(m.tripName || ''))}</label>
+      <label>目的地${val(m.destination ? esc(m.destination) : '')}</label>
+      <label>开始日期${val(esc(m.startDate || ''))}</label>
+      <label>结束日期${val(esc(m.endDate || ''))}</label>
+      <label>币种${val(m.currency ? `${esc(m.currency)} ${esc(Store.CONST.currencySymbol[m.currency] || '')}` : '')}</label>
+      <label>成员${val((m.members || []).map((name, i) => memberChip(m, name)).join(''))}</label>
     </div>`;
   }
 
@@ -360,7 +352,9 @@ window.Render = (() => {
         <section class="card">
           <div class="card-head">
             <h2>🧳 行程信息</h2>
-            ${editMeta ? '' : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}
+            ${editMeta
+              ? '<button class="btn btn-ghost btn-sm" data-action="meta-cancel">取消</button>'
+              : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}
           </div>
           ${editMeta ? `
           <form class="grid-form" data-form="meta">
@@ -370,10 +364,7 @@ window.Render = (() => {
             <label>结束日期<input type="date" name="endDate" value="${esc(m.endDate)}"></label>
             <label>币种<select name="currency">${currencyOpts}</select></label>
             <label>成员（逗号分隔）<input name="members" value="${esc((m.members || []).join(','))}" placeholder="我,她"></label>
-            <div class="form-actions">
-              <button class="btn btn-ghost" type="button" data-action="meta-cancel">取消</button>
-              <button class="btn btn-primary" type="submit">保存</button>
-            </div>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
           </form>` : metaSummary(m)}
         </section>
 
