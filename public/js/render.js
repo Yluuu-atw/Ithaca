@@ -373,15 +373,27 @@ window.Render = (() => {
     return dates.length ? { start: dates[0], end: dates[dates.length - 1] } : { start: '', end: '' };
   }
 
-  // 途经的全部节点，去掉相邻重复。行程里存的是具体地名推不出城市，原样展示
+  // 只取每天的起点，末站再补终点。中间经过的地点不展示，免得链路太长。
   function tripStops(s) {
     const days = [...(s.itinerary || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const all = [];
-    days.forEach(d => (d.items || []).forEach(i => {
-      const loc = (i.location || '').trim();
-      if (loc && loc !== all[all.length - 1]) all.push(loc);
-    }));
-    return all;
+    const stops = [];
+    const push = (loc) => {
+      const x = (loc || '').trim();
+      if (x && x !== stops[stops.length - 1]) stops.push(x);
+    };
+    days.forEach(d => {
+      const first = (d.items || []).map(i => i.location).find(Boolean);
+      push(first);
+    });
+    // 末站补终点
+    const lastDay = days[days.length - 1];
+    if (lastDay) {
+      const items = lastDay.items || [];
+      for (let i = items.length - 1; i >= 0; i--) {
+        if (items[i].location) { push(items[i].location); break; }
+      }
+    }
+    return stops;
   }
 
   // 填完就该像「已完成」，不该一直挂着表单框
