@@ -153,15 +153,15 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
-  padding: 20px 22px;
+  padding: 15px 17px;
 }
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.card-head h2 { margin: 0; font-size: 20px; font-weight: 700; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.card-head h2 { margin: 0; font-size: 17.5px; font-weight: 700; }
 .spend-note { font-size: 15.5px; color: var(--muted); }
 
-.page-stack { display: flex; flex-direction: column; gap: 18px; }
+.page-stack { display: flex; flex-direction: column; gap: 14px; }
 /* 概览仪表盘：12 列网格，卡片按需跨列，形成横竖错落 */
-.dash-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; }
+.dash-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
 /* grid item 默认 min-width:auto，柱状图的 nowrap 日期标签会撑破网格区域，
    导致移动端横向溢出，所以这里必须 min-width:0 */
 .dash-grid > .card { display: flex; flex-direction: column; min-width: 0; }
@@ -247,41 +247,41 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  gap: 10px;
 }
 /* 卡片跨列变窄时用 2 列，避免四个数字挤成一条 */
 .stat-grid-2 { grid-template-columns: repeat(2, 1fr); }
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
   text-align: center;
 }
-.stat-value { font-size: 27.5px; font-weight: 700; color: var(--primary-600); }
-.stat-label { font-size: 15.5px; color: var(--muted); margin-top: 2px; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--primary-600); line-height: 1.25; }
+.stat-label { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
 
 /* ---------------- 结算 ---------------- */
 .settle-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 .settle-item {
   background: var(--surface-2);
   border-radius: var(--radius-sm);
-  padding: 14px;
+  padding: 10px 12px;
 }
 .settle-name { font-weight: 600; }
-.settle-line { font-size: 15.5px; color: var(--muted); margin: 4px 0; }
-.settle-bal { font-size: 17.5px; font-weight: 700; }
+.settle-line { font-size: 13.5px; color: var(--muted); margin: 3px 0; }
+.settle-bal { font-size: 16px; font-weight: 700; }
 .settle-bal.pos { color: var(--primary-600); }
 .settle-bal.neg { color: var(--danger); }
 .settle-bal.zero { color: var(--muted); }
 
 /* ---------------- 分类占比 ---------------- */
-.cat-list { display: flex; flex-direction: column; gap: 10px; }
+.cat-list { display: flex; flex-direction: column; gap: 8px; }
 .cat-row { display: grid; grid-template-columns: 52px 1fr 72px; align-items: center; gap: 10px; }
 .cat-name { font-size: 16.5px; color: var(--text); }
 .cat-val { font-size: 16.5px; color: var(--muted); text-align: right; }
@@ -295,7 +295,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 /* ---------------- 仪表盘图表 ---------------- */
 /* 每日花费柱状图 */
-.chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 168px; padding: 8px 0 0; }
+.chart-bars { display: flex; align-items: flex-end; gap: 5px; height: 128px; padding: 6px 0 0; }
 .bar-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
 .bar-track { width: 100%; max-width: 34px; flex: 1; display: flex; align-items: flex-end; background: linear-gradient(to top, var(--surface-2), transparent); border-radius: 6px 6px 0 0; }
 .bar-fill { width: 100%; height: var(--h, 0%); min-height: 3px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--chart-2), var(--chart-1)); transition: height .5s ease; }
@@ -306,7 +306,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 
 /* 环形图（分类占比） */
 .donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.donut { position: relative; flex: 0 0 auto; width: 132px; height: 132px; }
+.donut { position: relative; flex: 0 0 auto; width: 112px; height: 112px; }
 .donut svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .donut-total { font-size: 19px; font-weight: 700; }
@@ -318,15 +318,16 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .legend-val { color: var(--muted); }
 
 /* 进度环 */
-.ring-wrap { display: flex; align-items: center; gap: 18px; }
-.ring { position: relative; flex: 0 0 auto; width: 104px; height: 104px; }
+/* 纵向居中：卡片高度由同排的统计卡决定，横排会在下半截留出大片空白 */
+.ring-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 11px; }
+.ring { position: relative; flex: 0 0 auto; width: 119px; height: 119px; }
 .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .ring-bg { fill: none; stroke: var(--surface-2); stroke-width: 9; }
 .ring-fg { fill: none; stroke: var(--chart-1); stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
 .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .ring-pct { font-size: 21px; font-weight: 700; }
 .ring-cap { font-size: 11px; color: var(--muted); }
-.ring-note { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+.ring-note { font-size: 13.5px; color: var(--muted); line-height: 1.5; text-align: center; }
 
 /* ---------------- 按钮 ---------------- */
 .btn {
@@ -957,9 +958,9 @@ textarea { resize: vertical; min-height: 60px; }
   .dash-grid > .span-7,
   .dash-grid > .span-8,
   .dash-grid > .span-12 { grid-column: span 1; }
-  .chart-bars { height: 132px; }
-  .donut { width: 108px; height: 108px; }
-  .ring { width: 88px; height: 88px; }
+  .chart-bars { height: 104px; }
+  .donut { width: 96px; height: 96px; }
+  .ring { width: 92px; height: 92px; }
   .tl-day { grid-template-columns: 38px 1fr; column-gap: 10px; padding-bottom: 22px; }
   .tl-day::before { left: 18px; top: 34px; }
   .tl-dot { width: 28px; height: 28px; font-size: 13px; box-shadow: 0 0 0 4px var(--bg); }
