@@ -11,6 +11,7 @@ window.Render = (() => {
     { id: 'overview', label: '概览', icon: '🏠' },
     { id: 'itinerary', label: '行程', icon: '🗺️' },
     { id: 'places', label: '攻略', icon: '📌' },
+    { id: 'guides', label: '收藏', icon: '📕' },
     { id: 'bookings', label: '票据', icon: '🎫' },
     { id: 'expenses', label: '记账', icon: '💰' },
     { id: 'checklist', label: '清单', icon: '🎒' },
@@ -160,6 +161,7 @@ window.Render = (() => {
     switch (tab) {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'places': return renderPlaces(state, opts.placeFilter);
+      case 'guides': return renderGuides(state, opts.guideFilter);
       case 'bookings': return renderBookings(state, opts.bookingFilter);
       case 'map': return renderMap(state, opts.tileSource);
       case 'expenses': return renderExpenses(state);
@@ -734,6 +736,81 @@ window.Render = (() => {
     </form>`;
   }
 
+  // ---------------- 攻略笔记收藏（小红书等外部链接） ----------------
+  function renderGuides(s, filter) {
+    const guides = s.guides || [];
+    filter = filter || {};
+    const activeTag = filter.tag || '全部';
+    const kw = (filter.keyword || '').trim().toLowerCase();
+    const list = guides.filter(g => {
+      if (activeTag !== '全部' && !(g.tags || []).includes(activeTag)) return false;
+      if (!kw) return true;
+      return [g.title, g.note, (g.tags || []).join(' ')].join(' ').toLowerCase().includes(kw);
+    });
+
+    const head = `<div class="list-head">
+      <span>共 ${guides.length} 篇收藏</span>
+      <button class="btn btn-primary" data-action="guide-add">＋ 收藏笔记</button>
+    </div>`;
+
+    const chips = ['全部', ...Store.CONST.guideTags].map(t =>
+      `<button class="chip ${t === activeTag ? 'active' : ''}" data-action="guide-filter" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
+
+    const tools = `<div class="card place-tools">
+      <div class="search-bar"><input type="search" id="guideSearch" placeholder="搜索标题 / 备注 / 标签…" value="${esc(filter.keyword || '')}"></div>
+      <div class="chips">${chips}</div>
+    </div>`;
+
+    if (!guides.length) {
+      return `<div class="card">${head}<div class="empty"><p>还没有收藏</p><p class="empty-hint">在小红书看到好攻略，点分享复制链接，存进来随时看 📕</p></div></div>`;
+    }
+
+    const grid = list.length
+      ? `<div class="place-grid">${list.map(g => renderGuideCard(s, g)).join('')}</div>`
+      : `<div class="card"><div class="empty"><p>没有匹配的结果</p></div></div>`;
+
+    return head + tools + grid;
+  }
+
+  function renderGuideCard(s, g) {
+    const url = safeUrl(g.link);
+    const tags = (g.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    return `<div class="card guide-card">
+      ${url
+        ? `<a class="guide-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
+             <h3>${esc(g.title || '（未命名）')}</h3>
+             <div class="guide-host">↗ ${esc(hostOf(url))}</div>
+           </a>`
+        : `<h3>${esc(g.title || '（未命名）')}</h3>`}
+      ${tags ? `<div class="guide-tags">${tags}</div>` : ''}
+      ${g.note ? `<div class="iti-note">${esc(g.note)}</div>` : ''}
+      <div class="guide-foot">
+        <button class="icon-btn" data-action="guide-edit" data-id="${esc(g.id)}" title="编辑">✎</button>
+        <button class="icon-btn danger" data-action="guide-del" data-id="${esc(g.id)}" title="删除">✕</button>
+      </div>
+    </div>`;
+  }
+
+  function hostOf(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return url; }
+  }
+
+  function formGuide(item) {
+    const tags = Store.CONST.guideTags;
+    const v = item || {};
+    const picked = v.tags || [];
+    return `<form data-form="guide">
+      ${item ? `<input type="hidden" name="guideId" value="${esc(item.id)}">` : ''}
+      <label>标题<input name="title" required placeholder="如：香港三天两夜保姆级攻略" value="${esc(v.title || '')}"></label>
+      <label>链接<input name="link" placeholder="粘贴小红书分享链接（可选）" value="${esc(v.link || '')}"></label>
+      <label>标签<div class="chips guide-tag-pick">${tags.map(t =>
+        `<button type="button" class="chip ${picked.includes(t) ? 'active' : ''}" data-action="guide-tag-toggle" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}</div></label>
+      <input type="hidden" name="tags" value="${esc(picked.join(','))}">
+      <label>备注<textarea name="note" rows="2" placeholder="哪几点值得去、要提前订什么">${esc(v.note || '')}</textarea></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '收藏'}</button></div>
+    </form>`;
+  }
+
   // ---------------- 票据 / 预订凭证 ----------------
   const bkType = (id) => Store.CONST.bookingTypes.find(x => x.id === id) || { icon: '🎫', label: '其他' };
   const bkStatusCls = (st) => ({ 待订: 'want', 已订: 'booked', 已完成: 'done', 已取消: 'cancel' }[st] || 'want');
@@ -890,5 +967,6 @@ window.Render = (() => {
     renderNav, renderTabbar, tabTitle, renderPage,
     formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
+    formGuide,
   };
 })();

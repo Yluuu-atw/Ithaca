@@ -29,6 +29,7 @@ const PLACE_CATEGORIES = ['住宿', '餐饮', '景点', '交通', '购物', '娱
 const PLACE_STATUS = ['想去', '待订', '已订'];
 const BOOKING_TYPES = ['flight', 'train', 'bus', 'hotel', 'other'];
 const BOOKING_STATUS = ['待订', '已订', '已完成', '已取消'];
+const GUIDE_TAGS = ['美食', '景点', '住宿', '交通', '购物', '避坑', '行程', '其他'];
 const CURRENCY_SYMBOL = {
   CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
   KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
@@ -58,6 +59,7 @@ function defaultDoc() {
     photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
     places: [],    // [{ id, name, category, location, lat, lng, date, note, status, cost, link }]
     bookings: [],  // [{ id, type, title, status, date, time, endDate, endTime, from, to, carrier, seat, refNo, price, payer, link, note }]
+    guides: [],    // [{ id, title, link, tags: [], note }] 攻略笔记（小红书等外部收藏）
   };
 }
 
@@ -81,6 +83,7 @@ function normalize(doc) {
   d.photos = Array.isArray(doc.photos) ? doc.photos : [];
   d.places = Array.isArray(doc.places) ? doc.places : [];
   d.bookings = Array.isArray(doc.bookings) ? doc.bookings : [];
+  d.guides = Array.isArray(doc.guides) ? doc.guides : [];
   return d;
 }
 
@@ -93,6 +96,7 @@ module.exports = {
   PLACE_STATUS,
   BOOKING_TYPES,
   BOOKING_STATUS,
+  GUIDE_TAGS,
   CURRENCY_SYMBOL,
   uid,
   defaultDoc,

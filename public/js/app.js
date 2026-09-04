@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' } };
+  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' } };
   const $ = (sel) => document.querySelector(sel);
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
@@ -51,15 +51,20 @@ window.App = (() => {
       return;
     }
 
-    const hadSearchFocus = document.activeElement && document.activeElement.id === 'placeSearch';
+    const hadSearchFocus = document.activeElement && (document.activeElement.id === 'placeSearch' || document.activeElement.id === 'guideSearch');
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
       itineraryMode: current.itineraryMode,
       placeFilter: current.placeFilter,
       bookingFilter: current.bookingFilter,
+      guideFilter: current.guideFilter,
     });
     // 搜索框重绘后恢复焦点，保证连续输入
     if (hadSearchFocus && current.tab === 'places') {
       const el = $('#placeSearch');
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
+    if (hadSearchFocus && current.tab === 'guides') {
+      const el = $('#guideSearch');
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     }
   }
@@ -246,6 +251,35 @@ window.App = (() => {
         current.placeFilter.category = el.dataset.cat;
         render();
         break;
+
+      case 'guide-add':
+        openModal('收藏笔记', Render.formGuide());
+        break;
+
+      case 'guide-edit': {
+        const g = (Store.getState().guides || []).find(x => x.id === el.dataset.id);
+        if (g) openModal('编辑收藏', Render.formGuide(g));
+        break;
+      }
+
+      case 'guide-del':
+        if (!confirm('删除这篇收藏？')) return;
+        doMutate(d => { d.guides = (d.guides || []).filter(x => x.id !== el.dataset.id); }, '已删除');
+        break;
+
+      case 'guide-filter':
+        current.guideFilter.tag = el.dataset.tag;
+        render();
+        break;
+
+      case 'guide-tag-toggle': {
+        // 多选结果塞进隐藏域，表单提交时才有 tags 字段可取
+        el.classList.toggle('active');
+        const picked = Array.from(el.closest('.guide-tag-pick').querySelectorAll('.chip.active'))
+          .map(c => c.dataset.tag);
+        el.closest('form').querySelector('[name=tags]').value = picked.join(',');
+        break;
+      }
 
       case 'booking-add':
         openModal('添加票据', Render.formBooking(members()));
@@ -480,6 +514,27 @@ window.App = (() => {
         }, '已保存票据');
       } else {
         doMutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); }, '已保存票据');
+      }
+      closeModal();
+      return;
+    }
+
+    if (kind === 'guide') {
+      const guideId = fd.get('guideId');
+      const fields = {
+        title: fd.get('title') || '',
+        link: fd.get('link') || '',
+        tags: (fd.get('tags') || '').split(',').map(s => s.trim()).filter(Boolean),
+        note: fd.get('note') || '',
+      };
+      if (guideId) {
+        doMutate(d => {
+          d.guides = d.guides || [];
+          const it = d.guides.find(x => x.id === guideId);
+          if (it) Object.assign(it, fields);
+        }, '已保存');
+      } else {
+        doMutate(d => { d.guides = d.guides || []; d.guides.push({ id: Store.uid('gde'), ...fields }); }, '已收藏');
       }
       closeModal();
       return;
@@ -751,16 +806,16 @@ window.App = (() => {
         e.target.value = '';
       }
     });
-    // 攻略搜索：实时检索（防抖 250ms）
+    // 搜索：实时检索（防抖）
     let searchTimer = null;
     document.addEventListener('input', (e) => {
-      if (e.target && e.target.id === 'placeSearch') {
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
-          current.placeFilter.keyword = e.target.value;
-          render();
-        }, 250);
-      }
+      const which = e.target && (e.target.id === 'placeSearch' ? 'place' : e.target.id === 'guideSearch' ? 'guide' : null);
+      if (!which) return;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        current[which === 'place' ? 'placeFilter' : 'guideFilter'].keyword = e.target.value;
+        render();
+      }, 250);
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
     // 窗口尺寸变化时重算地图尺寸，避免瓦片错位
