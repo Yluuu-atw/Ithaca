@@ -153,6 +153,12 @@ window.App = (() => {
         doMutate(d => { d.expenses = d.expenses.filter(x => x.id !== el.dataset.id); }, '已删除');
         break;
 
+      case 'expense-edit': {
+        const it = (Store.getState().expenses || []).find(x => x.id === el.dataset.id);
+        if (it) openModal('编辑支出', Render.formExpense(members(), it));
+        break;
+      }
+
       case 'checklist-add':
         openModal('添加物品', Render.formChecklist(members()));
         break;
@@ -160,6 +166,12 @@ window.App = (() => {
       case 'checklist-del':
         doMutate(d => { d.checklist = d.checklist.filter(x => x.id !== el.dataset.id); }, '已删除');
         break;
+
+      case 'checklist-edit': {
+        const it = (Store.getState().checklist || []).find(x => x.id === el.dataset.id);
+        if (it) openModal('编辑物品', Render.formChecklist(members(), it));
+        break;
+      }
 
       case 'wish-add':
         openModal('添加心愿', Render.formWish());
@@ -169,6 +181,12 @@ window.App = (() => {
         if (!confirm('删除这个心愿？')) return;
         doMutate(d => { d.wishlist = d.wishlist.filter(x => x.id !== el.dataset.id); }, '已删除');
         break;
+
+      case 'wish-edit': {
+        const it = (Store.getState().wishlist || []).find(x => x.id === el.dataset.id);
+        if (it) openModal('编辑心愿', Render.formWish(it));
+        break;
+      }
 
       case 'gpx-import':
         $('#gpxFile').click();
@@ -213,6 +231,12 @@ window.App = (() => {
         openModal('地点详情', Render.placeDetail(Store.getState(), el.dataset.id));
         break;
 
+      case 'place-edit': {
+        const it = (Store.getState().places || []).find(x => x.id === el.dataset.id);
+        if (it) openModal('编辑地点', Render.formPlace(it));
+        break;
+      }
+
       case 'place-del':
         if (!confirm('删除这个地点？')) return;
         doMutate(d => { d.places = (d.places || []).filter(x => x.id !== el.dataset.id); }, '已删除');
@@ -230,6 +254,12 @@ window.App = (() => {
       case 'booking-detail':
         openModal('票据详情', Render.bookingDetail(Store.getState(), el.dataset.id));
         break;
+
+      case 'booking-edit': {
+        const it = (Store.getState().bookings || []).find(x => x.id === el.dataset.id);
+        if (it) openModal('编辑票据', Render.formBooking(members(), it));
+        break;
+      }
 
       case 'booking-del':
         if (!confirm('删除这张票据？')) return;
@@ -322,8 +352,8 @@ window.App = (() => {
     }
 
     if (kind === 'expense') {
-      const exp = {
-        id: Store.uid('exp'),
+      const expenseId = fd.get('expenseId');
+      const fields = {
         date: fd.get('date') || '',
         time: fd.get('time') || '',
         amount: Number(fd.get('amount')) || 0,
@@ -332,34 +362,55 @@ window.App = (() => {
         split: fd.get('split') || '均摊',
         note: fd.get('note') || '',
       };
-      doMutate(d => { d.expenses.push(exp); }, '已记下');
+      if (expenseId) {
+        doMutate(d => {
+          const it = d.expenses.find(x => x.id === expenseId);
+          if (it) Object.assign(it, fields);
+        }, '已保存');
+      } else {
+        doMutate(d => { d.expenses.push({ id: Store.uid('exp'), ...fields }); }, '已记下');
+      }
       closeModal();
       return;
     }
 
     if (kind === 'checklist') {
-      const item = {
-        id: Store.uid('chk'),
+      const checklistId = fd.get('checklistId');
+      const fields = {
         name: fd.get('name') || '',
         category: fd.get('category') || '其他',
         owner: fd.get('owner') || '',
-        checked: false,
       };
-      doMutate(d => { d.checklist.push(item); }, '已添加');
+      if (checklistId) {
+        // checked 由列表上的勾选框单独维护，不在表单里，不能重置
+        doMutate(d => {
+          const it = d.checklist.find(x => x.id === checklistId);
+          if (it) Object.assign(it, fields);
+        }, '已保存');
+      } else {
+        doMutate(d => { d.checklist.push({ id: Store.uid('chk'), ...fields, checked: false }); }, '已添加');
+      }
       closeModal();
       return;
     }
 
     if (kind === 'wish') {
-      const item = {
-        id: Store.uid('wish'),
+      const wishId = fd.get('wishId');
+      const fields = {
         name: fd.get('name') || '',
         location: fd.get('location') || '',
         note: fd.get('note') || '',
         priority: fd.get('priority') || '中',
-        status: '想去',
       };
-      doMutate(d => { d.wishlist.push(item); }, '已添加');
+      if (wishId) {
+        // status 由列表上的下拉单独维护，不在表单里，不能重置
+        doMutate(d => {
+          const it = d.wishlist.find(x => x.id === wishId);
+          if (it) Object.assign(it, fields);
+        }, '已保存');
+      } else {
+        doMutate(d => { d.wishlist.push({ id: Store.uid('wish'), ...fields, status: '想去' }); }, '已添加');
+      }
       closeModal();
       return;
     }
@@ -377,8 +428,8 @@ window.App = (() => {
     }
 
     if (kind === 'place') {
-      const place = {
-        id: Store.uid('plc'),
+      const placeId = fd.get('placeId');
+      const fields = {
         name: fd.get('name') || '',
         category: fd.get('category') || '其他',
         status: fd.get('status') || '想去',
@@ -388,14 +439,22 @@ window.App = (() => {
         link: fd.get('link') || '',
         note: fd.get('note') || '',
       };
-      doMutate(d => { d.places = d.places || []; d.places.push(place); }, '已保存');
+      if (placeId) {
+        doMutate(d => {
+          d.places = d.places || [];
+          const it = d.places.find(x => x.id === placeId);
+          if (it) Object.assign(it, fields);
+        }, '已保存');
+      } else {
+        doMutate(d => { d.places = d.places || []; d.places.push({ id: Store.uid('plc'), ...fields }); }, '已保存');
+      }
       closeModal();
       return;
     }
 
     if (kind === 'booking') {
-      const booking = {
-        id: Store.uid('bk'),
+      const bookingId = fd.get('bookingId');
+      const fields = {
         type: fd.get('type') || 'other',
         title: fd.get('title') || '',
         status: fd.get('status') || '待订',
@@ -413,7 +472,15 @@ window.App = (() => {
         link: fd.get('link') || '',
         note: fd.get('note') || '',
       };
-      doMutate(d => { d.bookings = d.bookings || []; d.bookings.push(booking); }, '已保存票据');
+      if (bookingId) {
+        doMutate(d => {
+          d.bookings = d.bookings || [];
+          const it = d.bookings.find(x => x.id === bookingId);
+          if (it) Object.assign(it, fields);
+        }, '已保存票据');
+      } else {
+        doMutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); }, '已保存票据');
+      }
       closeModal();
       return;
     }

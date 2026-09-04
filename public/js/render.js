@@ -54,13 +54,14 @@ window.Render = (() => {
     return name || '';
   }
 
-  // 表单里的成员下拉：自己显示「我」并默认选中
-  function memberOptions(members) {
+  // 表单里的成员下拉：默认选中自己；显式传 selected 时以它为准（编辑态）
+  function memberOptions(members, selected) {
     const idx = Store.getIdentity();
+    const hasSel = selected != null && selected !== '';
     return (members || []).map((m, i) => {
       const label = (idx != null && i === idx) ? '我' : m;
-      const sel = (idx != null && i === idx) ? ' selected' : '';
-      return `<option value="${esc(m)}"${sel}>${esc(label)}</option>`;
+      const on = hasSel ? (m === selected) : (idx != null && i === idx);
+      return `<option value="${esc(m)}"${on ? ' selected' : ''}>${esc(label)}</option>`;
     }).join('');
   }
 
@@ -386,6 +387,7 @@ window.Render = (() => {
       </div>
       <div class="exp-side">
         <span class="exp-amount">${money(e.amount, s.meta.currency)}</span>
+        <button class="icon-btn" data-action="expense-edit" data-id="${esc(e.id)}" title="编辑">✎</button>
         <button class="icon-btn danger" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
       </div>
     </li>`;
@@ -431,6 +433,7 @@ window.Render = (() => {
       </label>
       <div class="chk-side">
         ${c.owner ? `<span class="tag">${esc(dispName(s.meta.members || [], c.owner))}</span>` : ''}
+        <button class="icon-btn" data-action="checklist-edit" data-id="${esc(c.id)}" title="编辑">✎</button>
         <button class="icon-btn danger" data-action="checklist-del" data-id="${esc(c.id)}" title="删除">✕</button>
       </div>
     </li>`;
@@ -454,7 +457,10 @@ window.Render = (() => {
     return `<div class="card wish-card">
       <div class="wish-head">
         <h3>${esc(w.name)}</h3>
-        <button class="icon-btn danger" data-action="wish-del" data-id="${esc(w.id)}" title="删除">✕</button>
+        <div>
+          <button class="icon-btn" data-action="wish-edit" data-id="${esc(w.id)}" title="编辑">✎</button>
+          <button class="icon-btn danger" data-action="wish-del" data-id="${esc(w.id)}" title="删除">✕</button>
+        </div>
       </div>
       ${w.location ? `<div class="iti-loc">📍 ${esc(w.location)}</div>` : ''}
       ${w.note ? `<div class="iti-note">${esc(w.note)}</div>` : ''}
@@ -496,45 +502,51 @@ window.Render = (() => {
     </form>`;
   }
 
-  function formExpense(members) {
+  function formExpense(members, item) {
     const cats = Store.CONST.expenseCategories;
     const splits = Store.CONST.splitOptions;
+    const v = item || {};
     return `<form data-form="expense">
+      ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
       <div class="form-row">
-        <label>日期<input type="date" name="date" required value="${today()}"></label>
-        <label>时间<input type="time" name="time"></label>
+        <label>日期<input type="date" name="date" required value="${esc(item ? (v.date || '') : today())}"></label>
+        <label>时间<input type="time" name="time" value="${esc(v.time || '')}"></label>
       </div>
-      <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal"></label>
+      <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
       <div class="form-row">
-        <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label>谁付的<select name="payer">${memberOptions(members)}</select></label>
+        <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>谁付的<select name="payer">${memberOptions(members, item ? v.payer : undefined)}</select></label>
       </div>
-      <label>分摊<select name="split">${splits.map(sp => `<option>${sp}</option>`).join('')}</select></label>
-      <label>备注<input name="note" placeholder="如：晚饭 · 烤肉"></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">记下</button></div>
+      <label>分摊<select name="split">${splits.map(sp => `<option ${item && sp === (v.split || '均摊') ? 'selected' : ''}>${sp}</option>`).join('')}</select></label>
+      <label>备注<input name="note" placeholder="如：晚饭 · 烤肉" value="${esc(v.note || '')}"></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button></div>
     </form>`;
   }
 
-  function formChecklist(members) {
+  function formChecklist(members, item) {
     const cats = Store.CONST.checklistCategories;
+    const v = item || {};
     return `<form data-form="checklist">
-      <label>物品<input name="name" required placeholder="如：护照"></label>
+      ${item ? `<input type="hidden" name="checklistId" value="${esc(item.id)}">` : ''}
+      <label>物品<input name="name" required placeholder="如：护照" value="${esc(v.name || '')}"></label>
       <div class="form-row">
-        <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label>谁带<select name="owner">${memberOptions(members)}</select></label>
+        <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>谁带<select name="owner">${memberOptions(members, item ? v.owner : undefined)}</select></label>
       </div>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">添加</button></div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
 
-  function formWish() {
+  function formWish(item) {
     const prios = Store.CONST.priorities;
+    const v = item || {};
     return `<form data-form="wish">
-      <label>心愿<input name="name" required placeholder="如：看一次日出"></label>
-      <label>地点<input name="location" placeholder="如：海边"></label>
-      <label>优先级<select name="priority">${prios.map(p => `<option>${p}</option>`).join('')}</select></label>
-      <label>备注<input name="note" placeholder="为什么想去、有什么期待"></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">添加</button></div>
+      ${item ? `<input type="hidden" name="wishId" value="${esc(item.id)}">` : ''}
+      <label>心愿<input name="name" required placeholder="如：看一次日出" value="${esc(v.name || '')}"></label>
+      <label>地点<input name="location" placeholder="如：海边" value="${esc(v.location || '')}"></label>
+      <label>优先级<select name="priority">${prios.map(p => `<option ${item && p === (v.priority || '中') ? 'selected' : ''}>${p}</option>`).join('')}</select></label>
+      <label>备注<input name="note" placeholder="为什么想去、有什么期待" value="${esc(v.note || '')}"></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
 
@@ -683,7 +695,10 @@ window.Render = (() => {
     return `<div class="detail">
       <div class="detail-head">
         <h3>${esc(p.name || '')}</h3>
-        <button class="icon-btn danger" data-action="place-del" data-id="${esc(p.id)}" title="删除">✕</button>
+        <div>
+          <button class="icon-btn" data-action="place-edit" data-id="${esc(p.id)}" title="编辑">✎</button>
+          <button class="icon-btn danger" data-action="place-del" data-id="${esc(p.id)}" title="删除">✕</button>
+        </div>
       </div>
       <div class="detail-tags">
         <span class="badge">${esc(p.category || '其他')}</span>
@@ -697,23 +712,25 @@ window.Render = (() => {
     </div>`;
   }
 
-  function formPlace() {
+  function formPlace(item) {
     const cats = Store.CONST.placeCategories;
     const sts = Store.CONST.placeStatus;
+    const v = item || {};
     return `<form data-form="place">
-      <label>名称<input name="name" required placeholder="如：尖沙咀某酒店"></label>
+      ${item ? `<input type="hidden" name="placeId" value="${esc(item.id)}">` : ''}
+      <label>名称<input name="name" required placeholder="如：尖沙咀某酒店" value="${esc(v.name || '')}"></label>
       <div class="form-row">
-        <label>分类<select name="category">${cats.map(c => `<option>${c}</option>`).join('')}</select></label>
-        <label>状态<select name="status">${sts.map(st => `<option>${st}</option>`).join('')}</select></label>
+        <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>状态<select name="status">${sts.map(st => `<option ${item && st === (v.status || '想去') ? 'selected' : ''}>${st}</option>`).join('')}</select></label>
       </div>
-      <label>地点<input name="location" placeholder="如：香港尖沙咀"></label>
+      <label>地点<input name="location" placeholder="如：香港尖沙咀" value="${esc(v.location || '')}"></label>
       <div class="form-row">
-        <label>日期<input type="date" name="date"></label>
-        <label>预算/价格<input type="number" name="cost" min="0" step="0.01" placeholder="0" inputmode="decimal"></label>
+        <label>日期<input type="date" name="date" value="${esc(v.date || '')}"></label>
+        <label>预算/价格<input type="number" name="cost" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.cost == null ? '' : v.cost)}"></label>
       </div>
-      <label>链接<input name="link" placeholder="预订链接（可选）"></label>
-      <label>备注<textarea name="note" rows="2" placeholder="房型、预订号、推荐菜等"></textarea></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
+      <label>链接<input name="link" placeholder="预订链接（可选）" value="${esc(v.link || '')}"></label>
+      <label>备注<textarea name="note" rows="2" placeholder="房型、预订号、推荐菜等">${esc(v.note || '')}</textarea></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
 
@@ -789,7 +806,10 @@ window.Render = (() => {
     return `<div class="detail">
       <div class="detail-head">
         <h3>${t.icon} ${esc(b.title || route || t.label)}</h3>
-        <button class="icon-btn danger" data-action="booking-del" data-id="${esc(b.id)}" title="删除">✕</button>
+        <div>
+          <button class="icon-btn" data-action="booking-edit" data-id="${esc(b.id)}" title="编辑">✎</button>
+          <button class="icon-btn danger" data-action="booking-del" data-id="${esc(b.id)}" title="删除">✕</button>
+        </div>
       </div>
       <div class="detail-tags">
         <span class="badge">${t.label}</span>
@@ -807,42 +827,44 @@ window.Render = (() => {
     </div>`;
   }
 
-  function formBooking(members) {
+  function formBooking(members, item) {
     const types = Store.CONST.bookingTypes;
     const sts = Store.CONST.bookingStatus;
-    const memberOpts = memberOptions(members);
+    const v = item || {};
+    const memberOpts = memberOptions(members, item ? v.payer : undefined);
     return `<form data-form="booking">
+      ${item ? `<input type="hidden" name="bookingId" value="${esc(item.id)}">` : ''}
       <div class="form-row">
-        <label>票种<select name="type">${types.map(t => `<option value="${t.id}">${t.icon} ${t.label}</option>`).join('')}</select></label>
-        <label>状态<select name="status">${sts.map(st => `<option>${st}</option>`).join('')}</select></label>
+        <label>票种<select name="type">${types.map(t => `<option value="${t.id}" ${item && t.id === (v.type || 'other') ? 'selected' : ''}>${t.icon} ${t.label}</option>`).join('')}</select></label>
+        <label>状态<select name="status">${sts.map(st => `<option ${item && st === (v.status || '待订') ? 'selected' : ''}>${st}</option>`).join('')}</select></label>
       </div>
-      <label>标题<input name="title" required placeholder="如：CZ3xxx 航班 / G6xx 车次 / 酒店名"></label>
+      <label>标题<input name="title" required placeholder="如：CZ3xxx 航班 / G6xx 车次 / 酒店名" value="${esc(v.title || '')}"></label>
       <div class="form-row">
-        <label>出发地/起点<input name="from" placeholder="如：北京"></label>
-        <label>到达地/终点<input name="to" placeholder="如：珠海"></label>
-      </div>
-      <div class="form-row">
-        <label>日期<input type="date" name="date"></label>
-        <label>时间<input type="time" name="time"></label>
+        <label>出发地/起点<input name="from" placeholder="如：北京" value="${esc(v.from || '')}"></label>
+        <label>到达地/终点<input name="to" placeholder="如：珠海" value="${esc(v.to || '')}"></label>
       </div>
       <div class="form-row">
-        <label>结束日期<input type="date" name="endDate"></label>
-        <label>结束时间<input type="time" name="endTime"></label>
+        <label>日期<input type="date" name="date" value="${esc(v.date || '')}"></label>
+        <label>时间<input type="time" name="time" value="${esc(v.time || '')}"></label>
       </div>
       <div class="form-row">
-        <label>承运/航司/车次<input name="carrier" placeholder="如：南方航空"></label>
-        <label>座位/舱位/房型<input name="seat" placeholder="如：经济舱 / 大床房"></label>
+        <label>结束日期<input type="date" name="endDate" value="${esc(v.endDate || '')}"></label>
+        <label>结束时间<input type="time" name="endTime" value="${esc(v.endTime || '')}"></label>
       </div>
       <div class="form-row">
-        <label>订单号<input name="refNo" placeholder="如：ABC123"></label>
-        <label>金额<input type="number" name="price" min="0" step="0.01" placeholder="0" inputmode="decimal"></label>
+        <label>承运/航司/车次<input name="carrier" placeholder="如：南方航空" value="${esc(v.carrier || '')}"></label>
+        <label>座位/舱位/房型<input name="seat" placeholder="如：经济舱 / 大床房" value="${esc(v.seat || '')}"></label>
+      </div>
+      <div class="form-row">
+        <label>订单号<input name="refNo" placeholder="如：ABC123" value="${esc(v.refNo || '')}"></label>
+        <label>金额<input type="number" name="price" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.price == null ? '' : v.price)}"></label>
       </div>
       <div class="form-row">
         <label>谁付的<select name="payer">${memberOpts}</select></label>
-        <label>链接<input name="link" placeholder="电子票链接（可选）"></label>
+        <label>链接<input name="link" placeholder="电子票链接（可选）" value="${esc(v.link || '')}"></label>
       </div>
-      <label>备注<textarea name="note" rows="2" placeholder="取票码、行李、退改规则等"></textarea></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">保存票据</button></div>
+      <label>备注<textarea name="note" rows="2" placeholder="取票码、行李、退改规则等">${esc(v.note || '')}</textarea></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '保存票据'}</button></div>
     </form>`;
   }
 
