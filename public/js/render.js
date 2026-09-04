@@ -373,30 +373,33 @@ window.Render = (() => {
     return dates.length ? { start: dates[0], end: dates[dates.length - 1] } : { start: '', end: '' };
   }
 
-  // 行程里存的是「北京大兴」这类具体地名，推不出城市，所以只取首尾
-  function tripEndpoints(s) {
+  // 途经的全部节点，去掉相邻重复。行程里存的是具体地名推不出城市，原样展示
+  function tripStops(s) {
     const days = [...(s.itinerary || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const locs = [];
-    days.forEach(d => (d.items || []).forEach(i => { if (i.location) locs.push(i.location.trim()); }));
-    if (!locs.length) return '';
-    const first = locs[0], last = locs[locs.length - 1];
-    return first === last ? first : `${first} → ${last}`;
+    const all = [];
+    days.forEach(d => (d.items || []).forEach(i => {
+      const loc = (i.location || '').trim();
+      if (loc && loc !== all[all.length - 1]) all.push(loc);
+    }));
+    return all;
   }
 
   // 填完就该像「已完成」，不该一直挂着表单框
   function metaSummary(s) {
     const m = s.meta;
     const d = tripDates(s);
-    const dest = tripEndpoints(s);
+    const stops = tripStops(s);
     const days = (d.start && d.end) ? diffDays(d.start, d.end) + 1 : 0;
     const dateTxt = d.start
       ? `${fmtDate(d.start)} – ${fmtDate(d.end)}${days > 0 ? ` · ${days} 天` : ''}`
       : '';
+    const chain = stops.map(x => `<span class="stop">${esc(x)}</span>`)
+      .join('<span class="stop-arrow">→</span>');
     return `<div class="trip-summary">
       <div class="trip-summary-name">${esc(m.tripName || '未命名旅行')}</div>
-      ${dest ? `<div class="trip-summary-row">${emo('📍')} <span>${esc(dest)}</span></div>` : ''}
+      ${stops.length ? `<div class="trip-stops">${chain}</div>` : ''}
       ${dateTxt ? `<div class="trip-summary-row">${emo('🗓')} <span>${esc(dateTxt)}</span></div>` : ''}
-      ${(!dest && !dateTxt) ? '<p class="trip-summary-hint">去「行程」页排几天，日期和目的地会自动带出来</p>' : ''}
+      ${(!stops.length && !dateTxt) ? '<p class="trip-summary-hint">去「行程」页排几天，日期和途经地会自动带出来</p>' : ''}
     </div>`;
   }
 

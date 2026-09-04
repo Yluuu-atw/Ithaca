@@ -741,6 +741,10 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .trip-summary-name { font-size: 19px; font-weight: 700; line-height: 1.35; }
 .trip-summary-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
 .trip-summary-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+/* 途经节点链路：节点多时自动换行排布 */
+.trip-stops { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; font-size: 13.5px; line-height: 1.9; }
+.stop { white-space: nowrap; }
+.stop-arrow { margin: 0 7px; color: var(--muted); }
 
 /* ---------------- 成员面板 ---------------- */
 .member-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
