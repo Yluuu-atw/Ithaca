@@ -8,6 +8,7 @@
 
 window.App = (() => {
   const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false };
+  let dockKick = null;
   const $ = (sel) => document.querySelector(sel);
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
@@ -37,7 +38,8 @@ window.App = (() => {
     const data = Store.getState();
     if (!data) return;
     $('#nav').innerHTML = Render.renderNav(current.tab);
-    $('#tabbar').innerHTML = Render.renderTabbar(current.tab);
+    $('#tabItems').innerHTML = Render.renderTabbar(current.tab);
+    if (dockKick) dockKick();
     $('#pageTitle').textContent = Render.tabTitle(current.tab);
     $('#board').innerHTML = Render.renderTripBoard();
     const tripNameEl = $('#topbarTripName');
@@ -1043,34 +1045,141 @@ window.App = (() => {
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
 
-    // 手指在标签栏上滑动：指到哪个页签就切到哪页，按位置而不是按滑动距离算
-    (function bindTabbarDrag() {
+    // Dock 式标签栏：指针位置连续驱动缩放与背景隆起，两者共用同一条高斯曲线
+    (function bindDock() {
       const bar = $('#tabbar');
+      const canvas = bar.querySelector('.tabbar-bg');
+      const ctx = canvas.getContext('2d');
+      const MAX_S = 1.55, MIN_S = 0.78, LIFT = 13, BULGE = 16, RADIUS = 66, EASE = 0.24;
+      let targetX = null;
+      let curX = null;
+      let running = false;
+
+      const gauss = (d) => Math.exp(-(d * d) / (RADIUS * RADIUS));
+      const base = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+      function activeCenter() {
+        const a = bar.querySelector('.tab-item.active');
+        return a ? a.offsetLeft + a.offsetWidth / 2 : null;
+      }
+
+      function resize() {
+        const r = bar.getBoundingClientRect();
+        if (!r.width) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        canvas.width = Math.round(r.width * dpr);
+        canvas.height = Math.round(r.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function paint(px, w, h) {
+        const edge = (x) => BULGE * (1 - gauss(x - px));
+        ctx.clearRect(0, 0, w, h);
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        ctx.lineTo(0, edge(0));
+        for (let x = 2; x <= w; x += 2) ctx.lineTo(x, edge(x));
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = base('--surface') || '#fff';
+        ctx.fill();
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += 2) {
+          const y = edge(x);
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = base('--border') || '#e6e6e6';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      function frame() {
+        running = false;
+        if (getComputedStyle(bar).display === 'none') return;
+        const r = bar.getBoundingClientRect();
+        if (!r.width) return;
+        // init 时 render 还没跑完，标签栏高度为 0，画布得等有尺寸后再设
+        if (canvas.width !== Math.round(r.width * Math.min(window.devicePixelRatio || 1, 3))
+          || canvas.height !== Math.round(r.height * Math.min(window.devicePixelRatio || 1, 3))) resize();
+        const want = targetX != null ? targetX : activeCenter();
+        if (want == null) return;
+        if (curX == null) curX = want;
+        const dx = want - curX;
+        curX = Math.abs(dx) < 0.2 ? want : curX + dx * EASE;
+
+        const list = bar.querySelectorAll('.tab-item');
+        list.forEach((it) => {
+          const w = it.offsetWidth;
+          const c = it.offsetLeft + w / 2;
+          const d = c - curX;
+          const f = gauss(d);
+          const s = MIN_S + (MAX_S - MIN_S) * f;
+          // 尺寸变化会挤占邻居，按缩放幅度把距离同比例撑开，与 Dock 一致
+          const spread = (s - 1) * d * 0.5;
+          it.style.transform = `translate(${spread.toFixed(2)}px, ${(-LIFT * f).toFixed(2)}px) scale(${s.toFixed(4)})`;
+        });
+        paint(curX, r.width, r.height);
+
+        if (curX !== want) kick();
+      }
+
+      function kick() {
+        if (!running) { running = true; requestAnimationFrame(frame); }
+      }
+
+      const xAt = (clientX) => {
+        const r = bar.getBoundingClientRect();
+        return clientX - r.left;
+      };
+      // 按布局槽位判定而不是 elementFromPoint：放大后当前项会侵入邻居格子，
+      // 用视觉位置判定会把手指吸住走不开
+      const tabAt = (localX) => {
+        const list = bar.querySelectorAll('.tab-item');
+        for (const it of list) {
+          const l = it.offsetLeft;
+          if (localX >= l && localX < l + it.offsetWidth) return it;
+        }
+        return null;
+      };
       let dragging = false;
       let startX = 0;
-      const tabAt = (x, y) => {
-        const el = document.elementFromPoint(x, y);
-        const item = el && el.closest('.tab-item');
-        return item ? item.dataset.tab : null;
-      };
-      const go = (tab) => { if (tab && tab !== current.tab) { current.tab = tab; render(); } };
+      let moved = false;
+
       bar.addEventListener('touchstart', (e) => {
-        dragging = false;
+        dragging = true; moved = false;
         startX = e.touches[0].clientX;
+        targetX = xAt(startX);
+        kick();
       }, { passive: true });
       bar.addEventListener('touchmove', (e) => {
         const t = e.touches[0];
-        if (!dragging && Math.abs(t.clientX - startX) > 6) dragging = true;
-        if (dragging) go(tabAt(t.clientX, t.clientY));
+        if (!moved && Math.abs(t.clientX - startX) > 6) moved = true;
+        targetX = xAt(t.clientX);
+        // 页面跟着真实手指位置即时切换，视觉上的缓动照旧，两者解耦
+        if (moved) {
+          const item = tabAt(xAt(t.clientX));
+          if (item && item.dataset.tab !== current.tab) { current.tab = item.dataset.tab; render(); }
+        }
+        kick();
       }, { passive: true });
       bar.addEventListener('touchend', (e) => {
-        if (!dragging) {
-          const t = e.changedTouches[0];
-          go(tabAt(t.clientX, t.clientY));
-        }
         dragging = false;
+        if (!moved) {
+          const item = tabAt(xAt(e.changedTouches[0].clientX));
+          if (item && item.dataset.tab !== current.tab) { current.tab = item.dataset.tab; render(); }
+        }
+        targetX = null;
+        kick();
       }, { passive: true });
-      bar.addEventListener('touchcancel', () => { dragging = false; }, { passive: true });
+      bar.addEventListener('touchcancel', () => { dragging = false; targetX = null; kick(); }, { passive: true });
+
+      bar.addEventListener('mousemove', (e) => { if (!dragging) { targetX = xAt(e.clientX); kick(); } });
+      bar.addEventListener('mouseleave', () => { if (!dragging) { targetX = null; kick(); } });
+
+      window.addEventListener('resize', () => { resize(); kick(); });
+      resize();
+      dockKick = kick;
+      kick();
     })();
     // 窗口尺寸变化时重算地图尺寸，避免瓦片错位
     window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
