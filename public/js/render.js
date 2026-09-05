@@ -104,7 +104,8 @@ window.Render = (() => {
     const members = (meta && meta.members) || [];
     const i = members.indexOf(name);
     if (i < 0) return esc(name || '');
-    return `<span class="member-chip"><span class="member-ava">${avatarImg(meta, i)}</span>${esc(dispName(members, name))}</span>`;
+    const mc = colorOf(meta, i);
+    return `<span class="member-chip"${mc ? ` style="--mc:${esc(mc)}"` : ''}><span class="member-ava">${avatarImg(meta, i)}</span>${esc(dispName(members, name))}</span>`;
   }
 
   // 表单里的成员下拉：默认选中自己；显式传 selected 时以它为准（编辑态）
@@ -1422,7 +1423,7 @@ window.Render = (() => {
     const rows = members.map((m, i) => {
       const active = idx === i;
       const used = usedBy(m);
-      return `<div class="identity-row ${active ? 'is-active' : ''}">
+      return `<div class="identity-row ${active ? 'is-active' : ''}"${colorOf(meta, i) ? ` style="--mc:${esc(colorOf(meta, i))}"` : ''}>
         <button class="identity-main" data-action="identity-pick" data-idx="${i}">
           <span class="identity-ava">${avatarImg(meta, i)}</span>
           <span class="identity-name">${esc(m)}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
