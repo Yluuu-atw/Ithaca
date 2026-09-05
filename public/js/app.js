@@ -58,7 +58,8 @@ window.App = (() => {
       return;
     }
 
-    const hadSearchFocus = document.activeElement && (document.activeElement.id === 'placeSearch' || document.activeElement.id === 'guideSearch');
+    const focusedSearch = document.activeElement && (document.activeElement.id === 'placeSearch' || document.activeElement.id === 'guideSearch')
+      ? document.activeElement.id : null;
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
       itineraryMode: current.itineraryMode,
       placeFilter: current.placeFilter,
@@ -68,12 +69,8 @@ window.App = (() => {
       editMeta: current.editMeta,
     });
     // 搜索框重绘后恢复焦点，保证连续输入
-    if (hadSearchFocus && current.tab === 'places') {
-      const el = $('#placeSearch');
-      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-    }
-    if (hadSearchFocus && current.tab === 'guides') {
-      const el = $('#guideSearch');
+    if (focusedSearch && current.tab === 'places') {
+      const el = document.getElementById(focusedSearch);
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     }
   }
@@ -1070,7 +1067,12 @@ window.App = (() => {
       const gauss = (d) => Math.exp(-(d * d) / (RADIUS * RADIUS));
       const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-      const slotCenter = (i, w) => (i + 0.5) * (w / tabs.length);
+      const totalW = tabs.reduce((s, t) => s + t.w, 0);
+      const slotCenter = (i, w) => {
+        let acc = 0;
+        for (let k = 0; k < i; k++) acc += tabs[k].w;
+        return (acc + tabs[i].w / 2) / totalW * w;
+      };
 
       function activeIdx() {
         const a = bar.querySelector('.tab-item.active');

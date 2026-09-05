@@ -1043,7 +1043,7 @@ textarea { resize: vertical; min-height: 60px; }
   align-items: stretch;
 }
 .tab-item {
-  flex: 1;
+  flex: none;
   min-width: 0;
   align-self: stretch;
   border: none;

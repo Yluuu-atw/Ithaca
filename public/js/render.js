@@ -7,17 +7,17 @@
  */
 
 window.Render = (() => {
+  // w 是槽位宽度权重：左 3 项各 1.0 共 3.0、概览 1.25、右 4 项各 0.75 共 3.0，
+  // 概览中心 = 3.0 + 1.25/2 = 3.625，总权重 7.25，正好落在 0.5 中线上
   const TABS = [
-    { id: 'overview', label: '概览', icon: '🏠' },
-    { id: 'itinerary', label: '行程', icon: '🗺️' },
-    { id: 'places', label: '攻略', icon: '📌' },
-    { id: 'guides', label: '收藏', icon: '📕' },
-    { id: 'bookings', label: '票据', icon: '🎫' },
-    { id: 'expenses', label: '记账', icon: '💰' },
-    { id: 'checklist', label: '清单', icon: '🎒' },
-    { id: 'wishlist', label: '心愿单', icon: '⭐' },
-    { id: 'map', label: '地图', icon: '📍' },
-    { id: 'photos', label: '照片', icon: '📷' },
+    { id: 'itinerary', label: '行程', icon: '🗺️', w: 1 },
+    { id: 'places', label: '攻略', icon: '📌', w: 1 },
+    { id: 'map', label: '地图', icon: '📍', w: 1 },
+    { id: 'overview', label: '概览', icon: '🏠', w: 1.25 },
+    { id: 'wishlist', label: '心愿单', icon: '⭐', w: 0.75 },
+    { id: 'bookings', label: '记账', icon: '🎫', w: 0.75 },
+    { id: 'checklist', label: '清单', icon: '🎒', w: 0.75 },
+    { id: 'photos', label: '照片', icon: '📷', w: 0.75 },
   ];
 
   // ---------------- 小工具 ----------------
@@ -241,10 +241,13 @@ window.Render = (() => {
       </button>`).join('');
   }
 
-  // 视觉由 Canvas 绘制，这里只保留触摸热区与无障碍语义
+  // 视觉由 Canvas 绘制，这里只保留触摸热区与无障碍语义；
+  // 宽度用百分比从权重算出，不靠 flex-grow：浏览器的 flex 分配对
+  // 小数 grow 值不会严格按比例，会让热区和 canvas 槽位对不齐
   function renderTabbar(active) {
+    const total = TABS.reduce((s, t) => s + t.w, 0);
     return TABS.map(t => `
-      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}" aria-label="${esc(t.label)}"></button>`).join('');
+      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}" style="width:${(t.w / total * 100).toFixed(4)}%" aria-label="${esc(t.label)}"></button>`).join('');
   }
 
   function tabTitle(tab) {
@@ -259,11 +262,9 @@ window.Render = (() => {
     switch (tab) {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'trips': return renderTrips(opts.showArchived);
-      case 'places': return renderPlaces(state, opts.placeFilter);
-      case 'guides': return renderGuides(state, opts.guideFilter);
-      case 'bookings': return renderBookings(state, opts.bookingFilter);
+      case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
+      case 'bookings': return renderBookings(state, opts.bookingFilter) + renderExpenses(state);
       case 'map': return renderMap(state, opts.tileSource);
-      case 'expenses': return renderExpenses(state);
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
       case 'photos': return renderPhotos(state);
