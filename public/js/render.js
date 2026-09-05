@@ -1325,10 +1325,10 @@ window.Render = (() => {
       ['承运 / 车次', b.carrier],
       ['座位 / 房型', b.seat],
       ['订单号', b.refNo],
-      ['付款人', b.payer],
     ].filter(f => f[1]);
     const factCells = facts.map(([k, v]) =>
-      `<div class="detail-fact"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+      `<div class="detail-fact"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')
+      + (b.payer ? `<div class="detail-fact"><dt>付款人</dt><dd>${memberChip(s.meta, b.payer)}</dd></div>` : '');
     return `<div class="detail">
       <div class="detail-head">
         <h3>${emo(t.icon)} ${esc(b.title || t.label)}</h3>
