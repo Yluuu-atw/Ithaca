@@ -157,10 +157,26 @@ function serveStatic(req, res, pathname) {
       return;
     }
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, {
+    // vendor 下的 emoji 与 leaflet 是打包进来的静态资源，内容不会变，给长缓存；
+    // 其余每次校验，但带上 ETag/Last-Modified 才能命中 304，否则 no-cache 等于每次全量重下
+    const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+    const lastModified = stat.mtime.toUTCString();
+    const immutable = rel.startsWith('vendor/');
+    const headers = {
       'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
-    });
+      'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+      'ETag': etag,
+      'Last-Modified': lastModified,
+    };
+    const inm = req.headers['if-none-match'];
+    const ims = req.headers['if-modified-since'];
+    if ((inm && inm.split(',').some(t => t.trim() === etag))
+      || (!inm && ims && Date.parse(ims) >= Math.floor(stat.mtimeMs / 1000) * 1000)) {
+      res.writeHead(304, headers);
+      res.end();
+      return;
+    }
+    res.writeHead(200, headers);
     fs.createReadStream(filePath).pipe(res);
   });
 }

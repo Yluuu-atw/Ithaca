@@ -1058,6 +1058,10 @@ window.App = (() => {
         const src = Render.emojiSrc(t.icon);
         if (!src) return null;
         const im = new Image();
+        // 异步加载期间画不出东西，加载完成后必须补一帧，否则首屏图标空白
+        im.decoding = 'async';
+        im.addEventListener('load', kick);
+        im.addEventListener('error', kick);
         im.src = src;
         return im;
       });
