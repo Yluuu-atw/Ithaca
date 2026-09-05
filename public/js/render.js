@@ -108,16 +108,30 @@ window.Render = (() => {
     return `<span class="member-chip"${mc ? ` style="--mc:${esc(mc)}"` : ''}><span class="member-ava">${avatarImg(meta, i)}</span>${esc(dispName(members, name))}</span>`;
   }
 
-  // 表单里的成员下拉：默认选中自己；显式传 selected 时以它为准（编辑态）
-  function memberOptions(members, selected, meta) {
+  // <select> 的 option 里放不进渲染后的表情图，成员选择改成自定义控件：
+  // 隐藏域承载值，FormData 原样读得到，与 avatar-pick 同一套做法
+  function memberPicker(members, selected, meta, name) {
     const idx = Store.getIdentity();
+    const list = members || [];
     const hasSel = selected != null && selected !== '';
-    return (members || []).map((m, i) => {
-      const label = (idx != null && i === idx) ? '我' : m;
-      const on = hasSel ? (m === selected) : (idx != null && i === idx);
-      const ava = meta ? avatarOf(meta, i) + ' ' : '';
-      return `<option value="${esc(m)}"${on ? ' selected' : ''}>${esc(ava + label)}</option>`;
-    }).join('');
+    const cur = hasSel ? selected : (idx != null ? list[idx] : list[0]);
+    const curIdx = list.indexOf(cur);
+    const chip = (i) => {
+      const mc = colorOf(meta, i);
+      return `<span class="member-chip"${mc ? ` style="--mc:${esc(mc)}"` : ''}><span class="member-ava">${avatarImg(meta, i)}</span>${esc(dispName(list, list[i]))}</span>`;
+    };
+    const opts = list.map((m, i) => `
+      <button type="button" class="member-pick-opt ${m === cur ? 'is-cur' : ''}" data-action="member-pick-opt" data-name="${esc(m)}">
+        ${chip(i)}
+      </button>`).join('');
+    return `<input type="hidden" name="${esc(name)}" value="${esc(cur || '')}">
+      <div class="member-pick">
+        <button type="button" class="member-pick-cur" data-action="member-pick-toggle" aria-haspopup="listbox">
+          ${curIdx >= 0 ? chip(curIdx) : '<span class="member-chip">未指定</span>'}
+          <span class="member-pick-caret">▾</span>
+        </button>
+        <div class="member-pick-menu" hidden>${opts}</div>
+      </div>`;
   }
 
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -937,7 +951,7 @@ window.Render = (() => {
       <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
       <div class="form-row">
         <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>谁付的<select name="payer">${memberOptions(members, item ? v.payer : undefined, Store.getState().meta)}</select></label>
+        <label>谁付的${memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer')}</label>
       </div>
       <label>分摊<select name="split">${splits.map(sp => `<option ${item && sp === (v.split || '均摊') ? 'selected' : ''}>${sp}</option>`).join('')}</select></label>
       <label>备注<input name="note" placeholder="如：晚饭 · 烤肉" value="${esc(v.note || '')}"></label>
@@ -953,7 +967,7 @@ window.Render = (() => {
       <label>物品<input name="name" required placeholder="如：护照" value="${esc(v.name || '')}"></label>
       <div class="form-row">
         <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>谁带<select name="owner">${memberOptions(members, item ? v.owner : undefined, Store.getState().meta)}</select></label>
+        <label>谁带${memberPicker(members, item ? v.owner : undefined, Store.getState().meta, 'owner')}</label>
       </div>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
@@ -1355,7 +1369,7 @@ window.Render = (() => {
     const types = Store.CONST.bookingTypes;
     const sts = Store.CONST.bookingStatus;
     const v = item || {};
-    const memberOpts = memberOptions(members, item ? v.payer : undefined, Store.getState().meta);
+    const memberPick = memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer');
     return `<form data-form="booking">
       ${item ? `<input type="hidden" name="bookingId" value="${esc(item.id)}">` : ''}
       <div class="form-row">
@@ -1384,7 +1398,7 @@ window.Render = (() => {
         <label>金额<input type="number" name="price" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.price == null ? '' : v.price)}"></label>
       </div>
       <div class="form-row">
-        <label>谁付的<select name="payer">${memberOpts}</select></label>
+        <label>谁付的${memberPick}</label>
         <label>链接<input name="link" placeholder="电子票链接（可选）" value="${esc(v.link || '')}"></label>
       </div>
       <label>备注<textarea name="note" rows="2" placeholder="取票码、行李、退改规则等">${esc(v.note || '')}</textarea></label>

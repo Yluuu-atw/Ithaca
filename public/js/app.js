@@ -452,6 +452,27 @@ window.App = (() => {
         break;
       }
 
+      case 'member-pick-toggle': {
+        const menu = el.closest('.member-pick').querySelector('.member-pick-menu');
+        document.querySelectorAll('.member-pick-menu').forEach(m => {
+          if (m !== menu) m.hidden = true;
+        });
+        menu.hidden = !menu.hidden;
+        break;
+      }
+
+      case 'member-pick-opt': {
+        const wrap = el.closest('.member-pick');
+        const hidden = wrap.previousElementSibling;
+        hidden.value = el.dataset.name;
+        wrap.querySelector('.member-pick-cur .member-chip')
+          .replaceWith(el.querySelector('.member-chip').cloneNode(true));
+        wrap.querySelectorAll('.member-pick-opt').forEach(o => o.classList.remove('is-cur'));
+        el.classList.add('is-cur');
+        wrap.querySelector('.member-pick-menu').hidden = true;
+        break;
+      }
+
       default:
         break;
     }
