@@ -746,7 +746,7 @@ window.Render = (() => {
           ${i.note ? `<div class="tl-note">${esc(i.note)}</div>` : ''}
         </div>
         <div class="tl-side">
-          <span class="badge">${esc(i.category || '其他')}</span>
+          <span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span>
           ${i.estimatedCost ? `<span class="iti-cost">${money(i.estimatedCost, s.meta.currency)}</span>` : ''}
           <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
           <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
@@ -800,7 +800,7 @@ window.Render = (() => {
       <div class="exp-main">
         <div class="exp-title">${esc(e.note || e.category || '支出')}</div>
         <div class="exp-meta">
-          <span class="badge">${esc(e.category || '其他')}</span>
+          <span class="badge" data-cat="${esc(e.category || '其他')}">${esc(e.category || '其他')}</span>
           ${e.time ? `<span class="exp-time">${esc(e.time)}</span>` : ''}
           <span class="tag">${memberChip(s.meta, e.payer || '')} 付</span>
           <span class="tag">${splitTag}</span>
@@ -1097,7 +1097,7 @@ window.Render = (() => {
     const stCls = { 想去: 'want', 待订: 'pending', 已订: 'booked' }[p.status] || 'want';
     return `<div class="place-card" data-action="place-detail" data-id="${esc(p.id)}" role="button" tabindex="0">
       <div class="place-top">
-        <span class="badge">${esc(p.category || '其他')}</span>
+        <span class="badge" data-cat="${esc(p.category || '其他')}">${esc(p.category || '其他')}</span>
         <span class="place-status st-${stCls}">${esc(p.status || '想去')}</span>
       </div>
       <h3 class="place-name">${esc(p.name || '（未命名）')}</h3>
@@ -1122,7 +1122,7 @@ window.Render = (() => {
         </div>
       </div>
       <div class="detail-tags">
-        <span class="badge">${esc(p.category || '其他')}</span>
+        <span class="badge" data-cat="${esc(p.category || '其他')}">${esc(p.category || '其他')}</span>
         <span class="place-status st-${({想去:'want',待订:'pending',已订:'booked'}[p.status] || 'want')}">${esc(p.status || '想去')}</span>
       </div>
       ${p.location ? `<div class="detail-row">${emo('📍')} ${esc(p.location)}</div>` : ''}
@@ -1297,7 +1297,7 @@ window.Render = (() => {
     const pc = payerColor(s.meta, b.payer);
     const pi = ((s.meta && s.meta.members) || []).indexOf(b.payer);
     return `<div class="booking-card ${pc ? 'has-payer' : ''}" ${pc ? `style="--payer-color:${esc(pc)}"` : ''} data-action="booking-detail" data-id="${esc(b.id)}" role="button" tabindex="0">
-      <div class="bk-icon">${emo(t.icon)}</div>
+      <div class="bk-icon" data-type="${esc(t.id)}">${emo(t.icon)}</div>
       <div class="bk-main">
         <div class="bk-title">${esc(b.title || route || t.label)}</div>
         ${sub ? `<div class="bk-sub">${esc(sub)}</div>` : ''}
@@ -1314,12 +1314,23 @@ window.Render = (() => {
     const b = (s.bookings || []).find(x => x.id === id);
     if (!b) return '<p class="empty small">找不到这张票据</p>';
     const t = bkType(b.type);
-    const route = [b.from, b.to].filter(Boolean).join(' → ');
+    const from = b.from || '';
+    const to = b.to || '';
+    const hasRoute = !!(from || to);
     const when = [b.date, b.time].filter(Boolean).join(' ');
     const when2 = [b.endDate, b.endTime].filter(Boolean).join(' ');
+    const facts = [
+      ['时间', when ? when + (when2 ? ' → ' + when2 : '') : ''],
+      ['承运 / 车次', b.carrier],
+      ['座位 / 房型', b.seat],
+      ['订单号', b.refNo],
+      ['付款人', b.payer],
+    ].filter(f => f[1]);
+    const factCells = facts.map(([k, v]) =>
+      `<div class="detail-fact"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
     return `<div class="detail">
       <div class="detail-head">
-        <h3>${emo(t.icon)} ${esc(b.title || route || t.label)}</h3>
+        <h3>${emo(t.icon)} ${esc(b.title || t.label)}</h3>
         <div>
           <button class="icon-btn" data-action="booking-edit" data-id="${esc(b.id)}" title="编辑">✎</button>
           <button class="icon-btn danger" data-action="booking-del" data-id="${esc(b.id)}" title="删除">✕</button>
@@ -1329,13 +1340,11 @@ window.Render = (() => {
         <span class="badge">${t.label}</span>
         <span class="bk-status st-${bkStatusCls(b.status)}">${esc(b.status || '待订')}</span>
       </div>
-      ${route ? `<div class="detail-row">🛣 ${esc(route)}</div>` : ''}
-      ${when ? `<div class="detail-row">${emo('🕐')} ${esc(when)}${when2 ? ' → ' + esc(when2) : ''}</div>` : ''}
-      ${b.carrier ? `<div class="detail-row">${emo('🚩')} 承运/航司/车次：${esc(b.carrier)}</div>` : ''}
-      ${b.seat ? `<div class="detail-row">${emo('💺')} 座位/舱位/房型：${esc(b.seat)}</div>` : ''}
-      ${b.refNo ? `<div class="detail-row">${emo('🧾')} 订单号：${esc(b.refNo)}</div>` : ''}
-      ${b.price ? `<div class="detail-row">${emo('💰')} 金额：${money(b.price, s.meta.currency)}</div>` : ''}
-      ${b.payer ? `<div class="detail-row">${emo('👤')} 付款人：${esc(b.payer)}</div>` : ''}
+      ${hasRoute ? `<div class="detail-route">
+        <span class="pt">${esc(from || '—')}</span><span class="arrow">→</span><span class="pt">${esc(to || '—')}</span>
+      </div>` : ''}
+      ${factCells ? `<dl class="detail-facts">${factCells}</dl>` : ''}
+      ${b.price ? `<div class="detail-amount">${money(b.price, s.meta.currency)}</div>` : ''}
       ${safeUrl(b.link) ? `<div class="detail-row">${emo('🔗')} <a href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener noreferrer">${esc(b.link)}</a></div>` : ''}
       ${b.note ? `<div class="detail-note">${esc(b.note)}</div>` : ''}
     </div>`;

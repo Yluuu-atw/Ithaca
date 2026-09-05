@@ -24,6 +24,30 @@
   --chart-4: #c98bb8;
   --chart-5: #8fb6a0;
   --chart-6: #d9a577;
+  /* 票据类型色，取自 chart 调色板同一批色相，soft 用于图标底 */
+  --cat-flight: #7c9fd9;
+  --cat-flight-soft: #e9f0fa;
+  --cat-train: #6f9e8f;
+  --cat-train-soft: #e7f0ec;
+  --cat-bus: #d9a577;
+  --cat-bus-soft: #f9f0e7;
+  --cat-hotel: #c98bb8;
+  --cat-hotel-soft: #f9ebf3;
+  --cat-other: #8fb6a0;
+  --cat-other-soft: #ecf3ef;
+  /* 攻略/行程分类色，与票据类型色共用同一批色相 */
+  --cat-stay: #c98bb8;
+  --cat-stay-soft: #f9ebf3;
+  --cat-food: #e6a877;
+  --cat-food-soft: #fbeedd;
+  --cat-scenic: #6f9e8f;
+  --cat-scenic-soft: #e7f0ec;
+  --cat-traffic: #7c9fd9;
+  --cat-traffic-soft: #e9f0fa;
+  --cat-shop: #d9a577;
+  --cat-shop-soft: #f9f0e7;
+  --cat-fun: #8fb6a0;
+  --cat-fun-soft: #ecf3ef;
   --shadow: 0 1px 2px rgba(60, 60, 50, .04), 0 10px 30px rgba(60, 60, 50, .06);
   --shadow-sm: 0 1px 2px rgba(60, 60, 50, .05);
   --radius: 16px;
@@ -380,6 +404,14 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   font-weight: 600;
   white-space: nowrap;
 }
+.badge[data-cat="住宿"] { background: var(--cat-stay-soft); color: var(--cat-stay); }
+.badge[data-cat="餐饮"] { background: var(--cat-food-soft); color: var(--cat-food); }
+.badge[data-cat="景点"] { background: var(--cat-scenic-soft); color: var(--cat-scenic); }
+.badge[data-cat="门票"] { background: var(--cat-scenic-soft); color: var(--cat-scenic); }
+.badge[data-cat="交通"] { background: var(--cat-traffic-soft); color: var(--cat-traffic); }
+.badge[data-cat="购物"] { background: var(--cat-shop-soft); color: var(--cat-shop); }
+.badge[data-cat="娱乐"] { background: var(--cat-fun-soft); color: var(--cat-fun); }
+.badge[data-cat="其他"] { background: var(--surface-2); color: var(--muted); }
 .tag {
   display: inline-flex;
   align-items: center;
@@ -702,6 +734,24 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 }
 .detail-list { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 
+.detail-route { display: flex; align-items: center; gap: 10px; font-size: 21.5px; font-weight: 700; line-height: 1.35; }
+.detail-route .arrow { flex: 0 0 auto; color: var(--muted); font-weight: 400; }
+.detail-route .pt { min-width: 0; }
+/* gap 露出底色当分隔线，比给每格单独加边框干净 */
+.detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.detail-fact { background: var(--surface); padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.detail-fact dt { font-size: 13.5px; color: var(--muted); }
+.detail-fact dd { margin: 0; font-size: 16.5px; font-weight: 600; word-break: break-word; }
+.detail-amount { font-size: 25px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+
 /* ---------------- 攻略 / 预订 ---------------- */
 .place-tools { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
 .search-bar input { width: 100%; }
@@ -851,12 +901,18 @@ textarea { resize: vertical; min-height: 60px; }
 .bk-payer { flex: 0 0 auto; font-size: 24px; line-height: 1; }
 .bk-icon {
   flex: 0 0 auto;
-  width: 42px; height: 42px;
+  width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 27.5px;
+  font-size: 26px;
   background: var(--surface-2);
-  border-radius: 12px;
+  border-radius: 13px;
+  box-shadow: inset 0 0 0 1px rgba(60, 60, 50, .05);
 }
+.bk-icon[data-type="flight"] { background: var(--cat-flight-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-flight) 26%, transparent); }
+.bk-icon[data-type="train"]  { background: var(--cat-train-soft);  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-train) 26%, transparent); }
+.bk-icon[data-type="bus"]    { background: var(--cat-bus-soft);    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-bus) 26%, transparent); }
+.bk-icon[data-type="hotel"]  { background: var(--cat-hotel-soft);  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-hotel) 26%, transparent); }
+.bk-icon[data-type="other"]  { background: var(--cat-other-soft);  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-other) 26%, transparent); }
 .bk-main { flex: 1; min-width: 0; }
 .bk-title { font-weight: 600; font-size: 19px; }
 .bk-sub {
@@ -868,7 +924,7 @@ textarea { resize: vertical; min-height: 60px; }
   text-overflow: ellipsis;
 }
 .bk-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.bk-price { font-weight: 700; font-size: 19px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.bk-price { font-weight: 700; font-size: 21.5px; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
 
 .bk-status { font-size: 15px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .st-want { background: var(--accent-soft); color: var(--accent); }
