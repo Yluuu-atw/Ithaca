@@ -44,6 +44,12 @@ window.Render = (() => {
     return `<img class="emo" src="vendor/fluent-emoji/${f}" alt="${esc(ch)}" loading="lazy">`;
   }
 
+  // Canvas 绘制用：拿到收录过的 emoji 图片地址，没收录的返回空串
+  function emojiSrc(ch) {
+    const f = EMOJI_PNG[ch] || EMOJI_PNG[String(ch).replace(/\ufe0f/g, '')];
+    return f ? `vendor/fluent-emoji/${f}` : '';
+  }
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -235,11 +241,10 @@ window.Render = (() => {
       </button>`).join('');
   }
 
+  // 视觉由 Canvas 绘制，这里只保留触摸热区与无障碍语义
   function renderTabbar(active) {
     return TABS.map(t => `
-      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}">
-        <span class="tab-icon">${emo(t.icon)}</span><span class="tab-label">${t.label}</span>
-      </button>`).join('');
+      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}" aria-label="${esc(t.label)}"></button>`).join('');
   }
 
   function tabTitle(tab) {
@@ -1484,5 +1489,6 @@ window.Render = (() => {
     tripPicker,
     formMember,
     renderTripBoard,
+    emojiSrc,
   };
 })();

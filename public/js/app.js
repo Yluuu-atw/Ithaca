@@ -1045,22 +1045,33 @@ window.App = (() => {
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
 
-    // Dock 式标签栏：指针位置连续驱动缩放与背景隆起，两者共用同一条高斯曲线
+    // Dock 式标签栏：整条栏画在一张 canvas 上，DOM 只留透明热区，
+    // 避免每帧改 style.transform 触发合成层重排导致手机上闪烁
     (function bindDock() {
       const bar = $('#tabbar');
       const canvas = bar.querySelector('.tabbar-bg');
       const ctx = canvas.getContext('2d');
-      const MAX_S = 1.55, MIN_S = 0.78, LIFT = 2, BULGE = 3, RADIUS = 66, EASE = 0.24;
-      let targetX = null;
+      const MAX_S = 1.9, MIN_S = 0.72, RADIUS = 72, EASE = 0.22;
+      const ICON = 25, LABEL = 11.5;
+      const tabs = Render.TABS;
+      const imgs = tabs.map((t) => {
+        const src = Render.emojiSrc(t.icon);
+        if (!src) return null;
+        const im = new Image();
+        im.src = src;
+        return im;
+      });
       let curX = null;
       let running = false;
 
       const gauss = (d) => Math.exp(-(d * d) / (RADIUS * RADIUS));
-      const base = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-      function activeCenter() {
+      const slotCenter = (i, w) => (i + 0.5) * (w / tabs.length);
+
+      function activeIdx() {
         const a = bar.querySelector('.tab-item.active');
-        return a ? a.offsetLeft + a.offsetWidth / 2 : null;
+        return a ? Array.prototype.indexOf.call(bar.querySelectorAll('.tab-item'), a) : 0;
       }
 
       function resize() {
@@ -1072,25 +1083,48 @@ window.App = (() => {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
 
-      function paint(px, w, h) {
-        const edge = (x) => BULGE * (1 - gauss(x - px));
+      function paint(px, w, h, itemsH) {
         ctx.clearRect(0, 0, w, h);
+        // 背景板：顶边按同一条高斯曲线隆起，隆起外保持透明
+        const BULGE = 5;
+        const edge = (x) => BULGE * (1 - gauss(x - px));
         ctx.beginPath();
         ctx.moveTo(0, h);
         ctx.lineTo(0, edge(0));
         for (let x = 2; x <= w; x += 2) ctx.lineTo(x, edge(x));
         ctx.lineTo(w, h);
         ctx.closePath();
-        ctx.fillStyle = base('--surface') || '#fff';
+        ctx.fillStyle = cssVar('--surface') || '#fff';
         ctx.fill();
         ctx.beginPath();
         for (let x = 0; x <= w; x += 2) {
           const y = edge(x);
           if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
-        ctx.strokeStyle = base('--border') || '#e6e6e6';
+        ctx.strokeStyle = cssVar('--border') || '#e6e6e6';
         ctx.lineWidth = 1;
         ctx.stroke();
+
+        const act = activeIdx();
+        const labelY = itemsH - 8;
+        tabs.forEach((t, i) => {
+          const c = slotCenter(i, w);
+          const f = gauss(c - px);
+          const s = MIN_S + (MAX_S - MIN_S) * f;
+          const size = ICON * s;
+          const cy = labelY - LABEL - 4 - size / 2;
+          const im = imgs[i];
+          if (im && im.complete && im.naturalWidth) {
+            ctx.drawImage(im, c - size / 2, cy - size / 2, size, size);
+          }
+          ctx.font = `600 ${(LABEL * (1 + f * 0.35)).toFixed(1)}px ${cssVar('--font') || 'sans-serif'}`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillStyle = i === act ? (cssVar('--primary-600') || '#4f786c') : (cssVar('--muted') || '#6b7268');
+          ctx.globalAlpha = i === act ? 1 : 0.55 + 0.45 * f;
+          ctx.fillText(t.label, c, labelY);
+          ctx.globalAlpha = 1;
+        });
       }
 
       function frame() {
@@ -1098,32 +1132,14 @@ window.App = (() => {
         if (getComputedStyle(bar).display === 'none') return;
         const r = bar.getBoundingClientRect();
         if (!r.width) return;
-        // init 时 render 还没跑完，标签栏高度为 0，画布得等有尺寸后再设
         if (canvas.width !== Math.round(r.width * Math.min(window.devicePixelRatio || 1, 3))
           || canvas.height !== Math.round(r.height * Math.min(window.devicePixelRatio || 1, 3))) resize();
-        const want = targetX != null ? targetX : activeCenter();
-        if (want == null) return;
+        // 目标吸附到当前页签中心，滑动时就一格一格跳，不是浮在半路
+        const want = slotCenter(activeIdx(), r.width);
         if (curX == null) curX = want;
         const dx = want - curX;
         curX = Math.abs(dx) < 0.2 ? want : curX + dx * EASE;
-
-        const list = bar.querySelectorAll('.tab-item');
-        const barW = r.width;
-        list.forEach((it) => {
-          const w = it.offsetWidth;
-          const c = it.offsetLeft + w / 2;
-          const d = c - curX;
-          const f = gauss(d);
-          const s = MIN_S + (MAX_S - MIN_S) * f;
-          // 尺寸变化会挤占邻居，按缩放幅度把距离同比例撑开，与 Dock 一致；
-          // 乘 f 让远处项不受影响，否则缩小项会整体朝指针堆过来留下空档
-          const half = w * s / 2;
-          // 放大后的项比槽位宽，边缘项会溢出屏幕，钳回可视范围内
-          const spread = Math.min(Math.max((s - 1) * d * 0.5 * f, -(c - half)), barW - c - half);
-          it.style.transform = `translate(${spread.toFixed(2)}px, ${(-LIFT * f).toFixed(2)}px) scale(${s.toFixed(4)})`;
-        });
-        paint(curX, barW, r.height);
-
+        paint(curX, r.width, r.height, bar.querySelector('.tab-items').offsetHeight);
         if (curX !== want) kick();
       }
 
@@ -1131,12 +1147,8 @@ window.App = (() => {
         if (!running) { running = true; requestAnimationFrame(frame); }
       }
 
-      const xAt = (clientX) => {
-        const r = bar.getBoundingClientRect();
-        return clientX - r.left;
-      };
-      // 按布局槽位判定而不是 elementFromPoint：放大后当前项会侵入邻居格子，
-      // 用视觉位置判定会把手指吸住走不开
+      const xAt = (clientX) => clientX - bar.getBoundingClientRect().left;
+      // 按布局槽位判定：每格固定宽度，手指横移时区域可预测
       const tabAt = (localX) => {
         const list = bar.querySelectorAll('.tab-item');
         for (const it of list) {
@@ -1145,6 +1157,10 @@ window.App = (() => {
         }
         return null;
       };
+      const switchTo = (item) => {
+        if (item && item.dataset.tab !== current.tab) { current.tab = item.dataset.tab; render(); }
+      };
+
       let dragging = false;
       let startX = 0;
       let moved = false;
@@ -1152,33 +1168,20 @@ window.App = (() => {
       bar.addEventListener('touchstart', (e) => {
         dragging = true; moved = false;
         startX = e.touches[0].clientX;
-        targetX = xAt(startX);
         kick();
       }, { passive: true });
       bar.addEventListener('touchmove', (e) => {
         const t = e.touches[0];
         if (!moved && Math.abs(t.clientX - startX) > 6) moved = true;
-        targetX = xAt(t.clientX);
-        // 页面跟着真实手指位置即时切换，视觉上的缓动照旧，两者解耦
-        if (moved) {
-          const item = tabAt(xAt(t.clientX));
-          if (item && item.dataset.tab !== current.tab) { current.tab = item.dataset.tab; render(); }
-        }
+        if (moved) switchTo(tabAt(xAt(t.clientX)));
         kick();
       }, { passive: true });
       bar.addEventListener('touchend', (e) => {
         dragging = false;
-        if (!moved) {
-          const item = tabAt(xAt(e.changedTouches[0].clientX));
-          if (item && item.dataset.tab !== current.tab) { current.tab = item.dataset.tab; render(); }
-        }
-        targetX = null;
+        if (!moved) switchTo(tabAt(xAt(e.changedTouches[0].clientX)));
         kick();
       }, { passive: true });
-      bar.addEventListener('touchcancel', () => { dragging = false; targetX = null; kick(); }, { passive: true });
-
-      bar.addEventListener('mousemove', (e) => { if (!dragging) { targetX = xAt(e.clientX); kick(); } });
-      bar.addEventListener('mouseleave', () => { if (!dragging) { targetX = null; kick(); } });
+      bar.addEventListener('touchcancel', () => { dragging = false; kick(); }, { passive: true });
 
       window.addEventListener('resize', () => { resize(); kick(); });
       resize();
