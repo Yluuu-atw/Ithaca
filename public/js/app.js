@@ -1050,7 +1050,7 @@ window.App = (() => {
       const bar = $('#tabbar');
       const canvas = bar.querySelector('.tabbar-bg');
       const ctx = canvas.getContext('2d');
-      const MAX_S = 1.55, MIN_S = 0.78, LIFT = 13, BULGE = 16, RADIUS = 66, EASE = 0.24;
+      const MAX_S = 1.55, MIN_S = 0.78, LIFT = 4, BULGE = 6, RADIUS = 66, EASE = 0.24;
       let targetX = null;
       let curX = null;
       let running = false;
@@ -1108,17 +1108,21 @@ window.App = (() => {
         curX = Math.abs(dx) < 0.2 ? want : curX + dx * EASE;
 
         const list = bar.querySelectorAll('.tab-item');
+        const barW = r.width;
         list.forEach((it) => {
           const w = it.offsetWidth;
           const c = it.offsetLeft + w / 2;
           const d = c - curX;
           const f = gauss(d);
           const s = MIN_S + (MAX_S - MIN_S) * f;
-          // 尺寸变化会挤占邻居，按缩放幅度把距离同比例撑开，与 Dock 一致
-          const spread = (s - 1) * d * 0.5;
+          // 尺寸变化会挤占邻居，按缩放幅度把距离同比例撑开，与 Dock 一致；
+          // 乘 f 让远处项不受影响，否则缩小项会整体朝指针堆过来留下空档
+          const half = w * s / 2;
+          // 放大后的项比槽位宽，边缘项会溢出屏幕，钳回可视范围内
+          const spread = Math.min(Math.max((s - 1) * d * 0.5 * f, -(c - half)), barW - c - half);
           it.style.transform = `translate(${spread.toFixed(2)}px, ${(-LIFT * f).toFixed(2)}px) scale(${s.toFixed(4)})`;
         });
-        paint(curX, r.width, r.height);
+        paint(curX, barW, r.height);
 
         if (curX !== want) kick();
       }
