@@ -288,7 +288,6 @@ window.Render = (() => {
           <span class="board-stats">${esc(stats || '还没有内容')}</span>
           ${counts ? `<span class="board-counts">${counts}</span>` : ''}
         </span>
-        ${isActive ? '<span class="board-now">当前</span>' : ''}
       </button>`;
     }).join('');
 

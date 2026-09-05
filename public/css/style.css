@@ -28,6 +28,7 @@
   --shadow-sm: 0 1px 2px rgba(60, 60, 50, .05);
   --radius: 16px;
   --radius-sm: 10px;
+  --sidebar-w: 272px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
 }
@@ -57,7 +58,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .sidebar {
   position: fixed;
   left: 0; top: 0; bottom: 0;
-  width: 236px;
+  width: var(--sidebar-w);
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -67,7 +68,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 
 .main {
-  margin-left: 236px;
+  margin-left: var(--sidebar-w);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -775,16 +776,15 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .board-body { display: flex; flex-direction: column; gap: 7px; }
 .board.is-collapsed .board-body { display: none; }
 .board-list { display: flex; flex-direction: column; gap: 7px; max-height: 40vh; overflow-y: auto; }
-.board-card { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.board-card { display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 .board-card:hover { border-color: var(--primary); }
 .board-card.is-active { border-color: var(--primary); background: var(--primary-soft); }
 .board-cover { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 9px; overflow: hidden; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 24px; }
 .board-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.board-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.board-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .board-name { font-size: 16.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.board-stats { font-size: 14.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.board-counts { font-size: 14px; color: var(--muted); }
-.board-now { flex: 0 0 auto; font-size: 12.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--primary); color: #fff; }
+.board-stats { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board-counts { font-size: 13px; color: var(--muted); opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .board-more { border: none; background: none; font: inherit; font-size: 15px; color: var(--muted); cursor: pointer; padding: 3px 4px; text-align: left; }
 .board-more:hover { color: var(--primary-600); }
 .board-empty { margin: 0; padding: 8px 4px; font-size: 15px; color: var(--muted); }
