@@ -1042,6 +1042,36 @@ window.App = (() => {
       }, 250);
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
+
+    // 手指在标签栏上滑动：指到哪个页签就切到哪页，按位置而不是按滑动距离算
+    (function bindTabbarDrag() {
+      const bar = $('#tabbar');
+      let dragging = false;
+      let startX = 0;
+      const tabAt = (x, y) => {
+        const el = document.elementFromPoint(x, y);
+        const item = el && el.closest('.tab-item');
+        return item ? item.dataset.tab : null;
+      };
+      const go = (tab) => { if (tab && tab !== current.tab) { current.tab = tab; render(); } };
+      bar.addEventListener('touchstart', (e) => {
+        dragging = false;
+        startX = e.touches[0].clientX;
+      }, { passive: true });
+      bar.addEventListener('touchmove', (e) => {
+        const t = e.touches[0];
+        if (!dragging && Math.abs(t.clientX - startX) > 6) dragging = true;
+        if (dragging) go(tabAt(t.clientX, t.clientY));
+      }, { passive: true });
+      bar.addEventListener('touchend', (e) => {
+        if (!dragging) {
+          const t = e.changedTouches[0];
+          go(tabAt(t.clientX, t.clientY));
+        }
+        dragging = false;
+      }, { passive: true });
+      bar.addEventListener('touchcancel', () => { dragging = false; }, { passive: true });
+    })();
     // 窗口尺寸变化时重算地图尺寸，避免瓦片错位
     window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
 

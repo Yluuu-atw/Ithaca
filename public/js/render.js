@@ -236,10 +236,14 @@ window.Render = (() => {
   }
 
   function renderTabbar(active) {
-    return TABS.map(t => `
-      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}">
+    const activeIdx = TABS.findIndex(t => t.id === active);
+    return TABS.map((t, i) => {
+      const d = activeIdx < 0 ? 9 : Math.abs(i - activeIdx);
+      return `
+      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}" style="--d:${d}">
         <span class="tab-icon">${emo(t.icon)}</span><span class="tab-label">${t.label}</span>
-      </button>`).join('');
+      </button>`;
+    }).join('');
   }
 
   function tabTitle(tab) {

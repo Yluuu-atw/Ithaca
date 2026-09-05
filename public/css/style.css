@@ -1024,6 +1024,8 @@ textarea { resize: vertical; min-height: 60px; }
   border-top: 1px solid var(--border);
   z-index: 30;
   padding-bottom: env(safe-area-inset-bottom);
+  /* 手指按住滑动切页由自己接管，不交给浏览器当滚动 */
+  touch-action: none;
 }
 .tab-item {
   flex: 1;
@@ -1037,8 +1039,16 @@ textarea { resize: vertical; min-height: 60px; }
   color: var(--muted);
   font-size: 14px;
   cursor: pointer;
+  /* --d 是与激活项的距离，连续衰减而非离散档位，贴近 Dock 手感 */
+  --lift: max(0, 1 - var(--d, 9) * 0.45);
+  transform: translateY(calc(var(--lift) * -6px));
+  transition: transform .2s cubic-bezier(.2, .8, .3, 1), color .2s ease;
 }
-.tab-icon { font-size: 25px; }
+.tab-icon {
+  font-size: 25px;
+  transform: scale(calc(1 + var(--lift) * 0.28));
+  transition: transform .2s cubic-bezier(.2, .8, .3, 1);
+}
 .tab-item.active { color: var(--primary-600); }
 
 /* ============================================================
