@@ -38,7 +38,10 @@ window.App = (() => {
     const data = Store.getState();
     if (!data) return;
     $('#nav').innerHTML = Render.renderNav(current.tab);
-    $('#tabItems').innerHTML = Render.renderTabbar(current.tab);
+    if (!$('#tabItems').children.length) $('#tabItems').innerHTML = Render.renderTabbar(current.tab);
+    else $('#tabItems').querySelectorAll('.tab-item').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === current.tab);
+    });
     if (dockKick) dockKick();
     $('#pageTitle').textContent = Render.tabTitle(current.tab);
     $('#board').innerHTML = Render.renderTripBoard();
@@ -1085,9 +1088,16 @@ window.App = (() => {
 
       function paint(px, w, h, itemsH) {
         ctx.clearRect(0, 0, w, h);
-        // 背景板：顶边按同一条高斯曲线隆起，隆起外保持透明
-        const BULGE = 5;
-        const edge = (x) => BULGE * (1 - gauss(x - px));
+        const act = activeIdx();
+        const labelY = itemsH - 8;
+        // 文字占位按实际行高算，图标底边贴在文字上方，否则放大后会被画布上沿裁掉
+        const textH = LABEL * 1.45;
+        const iconBottom = labelY - textH - 3;
+        // 表面高度跟着图标大小走：两侧贴着最小图标，指针处抬到最大图标上方，
+        // 两端由图标尺寸反推，避免出现曲线够得着中间却离两侧图标很远的空档
+        const flatTop = iconBottom - ICON * MIN_S - 5;
+        const peakTop = iconBottom - ICON * MAX_S - 5;
+        const edge = (x) => flatTop - (flatTop - peakTop) * gauss(x - px);
         ctx.beginPath();
         ctx.moveTo(0, h);
         ctx.lineTo(0, edge(0));
@@ -1105,14 +1115,12 @@ window.App = (() => {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        const act = activeIdx();
-        const labelY = itemsH - 8;
         tabs.forEach((t, i) => {
           const c = slotCenter(i, w);
           const f = gauss(c - px);
           const s = MIN_S + (MAX_S - MIN_S) * f;
           const size = ICON * s;
-          const cy = labelY - LABEL - 4 - size / 2;
+          const cy = iconBottom - size / 2;
           const im = imgs[i];
           if (im && im.complete && im.naturalWidth) {
             ctx.drawImage(im, c - size / 2, cy - size / 2, size, size);

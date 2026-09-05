@@ -1038,7 +1038,7 @@ textarea { resize: vertical; min-height: 60px; }
   position: relative;
   flex: 1;
   min-width: 0;
-  height: 64px;
+  height: 84px;
   display: flex;
   align-items: stretch;
 }
