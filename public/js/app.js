@@ -1050,7 +1050,7 @@ window.App = (() => {
       const bar = $('#tabbar');
       const canvas = bar.querySelector('.tabbar-bg');
       const ctx = canvas.getContext('2d');
-      const MAX_S = 1.55, MIN_S = 0.78, LIFT = 4, BULGE = 6, RADIUS = 66, EASE = 0.24;
+      const MAX_S = 1.55, MIN_S = 0.78, LIFT = 2, BULGE = 3, RADIUS = 66, EASE = 0.24;
       let targetX = null;
       let curX = null;
       let running = false;
