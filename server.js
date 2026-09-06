@@ -278,6 +278,45 @@ function ogContent(html, prop) {
   return m ? (m[1] || m[2] || '') : '';
 }
 
+// 小红书等站点的 CDN 链接带签名和时间戳会过期，只存 URL 迟早裂图，
+// 抓到封面就落到本地。失败返回空串，由调用方退回原链接，绝不阻塞收藏。
+function downloadImage(url, redirects) {
+  return new Promise((resolve) => {
+    let u;
+    try { u = new URL(url); } catch (_) { return resolve(''); }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return resolve('');
+    const left = redirects == null ? 3 : redirects;
+    const get = u.protocol === 'https:' ? https : http;
+    const rq = get.get(u.href, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+      timeout: 10000,
+    }, (rs) => {
+      if (rs.statusCode >= 300 && rs.statusCode < 400 && rs.headers.location && left > 0) {
+        rs.resume();
+        return resolve(downloadImage(new URL(rs.headers.location, u.href).href, left - 1));
+      }
+      if (rs.statusCode !== 200) { rs.resume(); return resolve(''); }
+      const chunks = [];
+      let size = 0;
+      rs.on('data', (c) => {
+        size += c.length;
+        if (size > 15 * 1024 * 1024) { rq.destroy(); return resolve(''); }
+        chunks.push(c);
+      });
+      rs.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        if (!buf.length) return resolve('');
+        const name = photoUid() + extFromType((rs.headers['content-type'] || '').split(';')[0].trim());
+        if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+        fs.writeFile(path.join(UPLOAD_DIR, name), buf, (err) => resolve(err ? '' : '/uploads/' + name));
+      });
+      rs.on('error', () => resolve(''));
+    });
+    rq.on('timeout', () => { rq.destroy(); resolve(''); });
+    rq.on('error', () => resolve(''));
+  });
+}
+
 function pickCover(html) {
   const all = [];
   const re = /<meta[^>]+(?:property="og:image"[^>]*content="([^"]*)"|content="([^"]*)"[^>]*property="og:image")/gi;
@@ -315,7 +354,10 @@ async function handleApi(req, res, pathname) {
     if (!target) return sendJSON(res, 400, { error: '缺少 url' });
     const html = await fetchOG(target);
     if (!html) return sendJSON(res, 200, { cover: '', title: '' });
-    return sendJSON(res, 200, { cover: pickCover(html), title: ogContent(html, 'og:title') });
+    const remote = pickCover(html);
+    // 落到本地，CDN 链接过期后才不会裂图；下载失败退回原链接
+    const local = remote ? await downloadImage(remote) : '';
+    return sendJSON(res, 200, { cover: local || remote, title: ogContent(html, 'og:title') });
   }
 
   if (pathname === '/api/data' && req.method === 'GET') {
