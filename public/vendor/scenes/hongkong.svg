@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- Yukiko Noritake 手法：实心平涂色块 + 不规则斜线阴影 + 大留白 -->
+  <!-- 天空：占 58% 的留白 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 太平山：低而宽的剪影，压在楼后面 -->
+  <path d="M0 520 L0 470 C120 448 240 402 360 392 C470 383 560 404 660 420 C790 441 900 428 1010 404 C1140 375 1290 392 1420 418 C1500 434 1560 452 1600 462 L1600 520 Z" fill="#93a091"/>
+
+  <!-- 楼群：实心矩形，右侧一道斜切阴影 -->
+  <g>
+    <rect x="36" y="432" width="112" height="168" fill="#c0a894"/>
+    <path d="M126 432 L148 446 L148 600 L126 600 Z" fill="#a8917c"/>
+
+    <rect x="150" y="356" width="88" height="244" fill="#a3b0b8"/>
+    <path d="M216 356 L238 372 L238 600 L216 600 Z" fill="#8d9aa2"/>
+
+    <rect x="240" y="292" width="132" height="308" fill="#b08f7c"/>
+    <path d="M348 292 L372 310 L372 600 L348 600 Z" fill="#967766"/>
+
+    <rect x="374" y="398" width="82" height="202" fill="#97a5ac"/>
+    <path d="M436 398 L456 412 L456 600 L436 600 Z" fill="#7f8d95"/>
+
+    <rect x="452" y="338" width="148" height="262" fill="#c9b39e"/>
+    <path d="M578 338 L600 354 L600 600 L578 600 Z" fill="#ac9781"/>
+
+    <rect x="600" y="388" width="96" height="212" fill="#8f9d95"/>
+    <path d="M676 388 L696 402 L696 600 L676 600 Z" fill="#78867e"/>
+
+    <rect x="698" y="316" width="122" height="284" fill="#b59a88"/>
+    <path d="M798 316 L820 332 L820 600 L798 600 Z" fill="#987f6f"/>
+
+    <rect x="822" y="418" width="88" height="182" fill="#a8b4bb"/>
+    <path d="M890 418 L910 432 L910 600 L890 600 Z" fill="#8d99a1"/>
+
+    <rect x="910" y="366" width="140" height="234" fill="#c0a894"/>
+    <path d="M1028 366 L1050 382 L1050 600 L1028 600 Z" fill="#a8917c"/>
+
+    <rect x="1048" y="306" width="112" height="294" fill="#a3b0b8"/>
+    <path d="M1138 306 L1160 322 L1160 600 L1138 600 Z" fill="#8d9aa2"/>
+
+    <rect x="1158" y="398" width="132" height="202" fill="#b08f7c"/>
+    <path d="M1268 398 L1290 414 L1290 600 L1268 600 Z" fill="#967766"/>
+
+    <rect x="1288" y="348" width="98" height="252" fill="#c9b39e"/>
+    <path d="M1364 348 L1386 364 L1386 600 L1364 600 Z" fill="#ac9781"/>
+
+    <rect x="1386" y="428" width="178" height="172" fill="#97a5ac"/>
+    <path d="M1542 428 L1564 442 L1564 600 L1542 600 Z" fill="#7f8d95"/>
+  </g>
+
+  <!-- 少量墨线细节：只在三栋楼上，别把细节铺满 -->
+  <g stroke="#3a3733" stroke-width="2.2" opacity=".34" fill="none">
+    <path d="M262 330 L352 330"/><path d="M262 356 L352 356"/>
+    <path d="M474 372 L580 372"/><path d="M474 398 L580 398"/>
+    <path d="M1070 340 L1140 340"/><path d="M1070 366 L1140 366"/>
+  </g>
+  <!-- 中银大厦式的斜切高光 -->
+  <path d="M240 292 L306 292 L306 600 L240 600 Z" fill="#c09a86" opacity=".55"/>
+  <path d="M306 292 L372 340 L372 600 L306 600 Z" fill="#9c7a68" opacity=".5"/>
+
+  <!-- 海面 -->
+  <rect x="0" y="600" width="1600" height="300" fill="#aebcc2"/>
+  <g stroke="#8fa3ac" stroke-width="3" stroke-linecap="round" opacity=".8" fill="none">
+    <path d="M80 660 C220 654 340 666 470 658"/>
+    <path d="M620 690 C760 684 880 696 1010 688"/>
+    <path d="M1180 654 C1310 648 1420 660 1540 652"/>
+    <path d="M200 740 C340 734 470 746 600 738"/>
+    <path d="M900 770 C1040 764 1180 776 1320 768"/>
+  </g>
+  <!-- 天星小轮：一笔带过 -->
+  <path d="M560 700 L700 700 L686 726 L574 726 Z" fill="#e8dcc8"/>
+  <rect x="606" y="678" width="52" height="24" fill="#c9b39e"/>
+  <path d="M560 726 L700 726" stroke="#3a3733" stroke-width="2.4" opacity=".4"/>
+</svg>

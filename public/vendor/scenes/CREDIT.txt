@@ -1,6 +1,5 @@
-hongkong.jpg
-  标题: Victoria Harbour skyscrapers.jpg
-  作者: Wilfredor (Wikimedia Commons)
-  授权: CC0 1.0 Universal Public Domain Dedication（公共领域，无需署名）
-  来源: https://commons.wikimedia.org/wiki/File:Victoria_Harbour_skyscrapers.jpg
-  处理: 通过 SVG #paintly 滤镜做平涂化处理（降饱和、暖调偏移、离散量化）
+hongkong.svg
+  手绘平涂插画，参考 Yukiko Noritake 的丙烯手法
+  （实心色块 + 不规则斜线阴影 + 大留白）
+  主题：维多利亚港天际线与天星小轮
+  配色取自项目日法融合调色板，无外部素材
