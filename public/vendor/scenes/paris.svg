@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 巴黎：埃菲尔铁塔与塞纳河。平涂色块 + 斜切阴影 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远景奥斯曼建筑 -->
+  <g fill="#d8cbb4">
+    <rect x="40" y="440" width="180" height="230"/>
+    <rect x="240" y="470" width="140" height="200"/>
+    <rect x="1180" y="450" width="170" height="220"/>
+    <rect x="1370" y="480" width="180" height="190"/>
+  </g>
+  <g fill="#bfae94">
+    <rect x="196" y="440" width="24" height="230"/>
+    <rect x="356" y="470" width="24" height="200"/>
+    <rect x="1326" y="450" width="24" height="220"/>
+    <rect x="1526" y="480" width="24" height="190"/>
+  </g>
+  <g fill="#aebcc2">
+    <rect x="70" y="478" width="30" height="40"/><rect x="122" y="478" width="30" height="40"/><rect x="174" y="478" width="30" height="40"/>
+    <rect x="70" y="546" width="30" height="40"/><rect x="122" y="546" width="30" height="40"/><rect x="174" y="546" width="30" height="40"/>
+    <rect x="266" y="506" width="28" height="38"/><rect x="314" y="506" width="28" height="38"/>
+    <rect x="266" y="570" width="28" height="38"/><rect x="314" y="570" width="28" height="38"/>
+    <rect x="1206" y="486" width="30" height="40"/><rect x="1258" y="486" width="30" height="40"/><rect x="1310" y="486" width="30" height="40"/>
+    <rect x="1206" y="554" width="30" height="40"/><rect x="1258" y="554" width="30" height="40"/><rect x="1310" y="554" width="30" height="40"/>
+    <rect x="1396" y="516" width="30" height="38"/><rect x="1448" y="516" width="30" height="38"/><rect x="1500" y="516" width="30" height="38"/>
+  </g>
+  <g fill="#3a3733" opacity=".45">
+    <rect x="62" y="524" width="150" height="6"/><rect x="1198" y="532" width="150" height="6"/>
+  </g>
+
+  <!-- 埃菲尔铁塔 -->
+  <g>
+    <!-- 塔身：四条腿收分成尖顶，用两组梯形近似 -->
+    <path d="M560 670 L640 240 L660 240 L700 400 L740 240 L760 240 L840 670 L780 670 L720 470 L720 670 Z" fill="#9d8266"/>
+    <path d="M660 240 L700 150 L740 240 Z" fill="#9d8266"/>
+    <rect x="696" y="96" width="8" height="56" fill="#8d7a62"/>
+    <!-- 一层平台 -->
+    <rect x="546" y="600" width="308" height="22" fill="#8d7a62"/>
+    <rect x="560" y="622" width="280" height="10" fill="#7a6852"/>
+    <!-- 二层平台 -->
+    <rect x="636" y="424" width="128" height="18" fill="#8d7a62"/>
+    <rect x="646" y="442" width="108" height="8" fill="#7a6852"/>
+    <!-- 三层平台 -->
+    <rect x="672" y="286" width="56" height="14" fill="#8d7a62"/>
+    <!-- 拱门 -->
+    <path d="M612 670 C612 606 656 578 700 578 C744 578 788 606 788 670 L756 670 C756 622 728 606 700 606 C672 606 644 622 644 670 Z" fill="#ece2d2"/>
+    <!-- 格构纹理 -->
+    <g stroke="#8d7a62" stroke-width="3" opacity=".5">
+      <path d="M596 660 L640 560"/><path d="M640 660 L672 560"/>
+      <path d="M760 660 L716 560"/><path d="M816 660 L784 560"/>
+      <path d="M660 420 L700 340"/><path d="M740 420 L700 340"/>
+    </g>
+  </g>
+
+  <!-- 战神广场绿带 -->
+  <rect x="0" y="670" width="1600" height="60" fill="#8b9a7e"/>
+  <g fill="#6f7d66">
+    <circle cx="120" cy="676" r="40"/><circle cx="220" cy="682" r="34"/><circle cx="330" cy="678" r="38"/>
+    <circle cx="1120" cy="678" r="38"/><circle cx="1230" cy="684" r="34"/><circle cx="1340" cy="678" r="40"/>
+  </g>
+
+  <!-- 塞纳河 -->
+  <rect x="0" y="730" width="1600" height="170" fill="#aebcc2"/>
+  <rect x="0" y="730" width="1600" height="14" fill="#c2d0d5"/>
+  <g opacity=".24">
+    <path d="M560 744 L840 744 L790 800 L610 800 Z" fill="#9d8266"/>
+    <rect x="40" y="744" width="180" height="30" fill="#d8cbb4"/>
+    <rect x="1180" y="744" width="170" height="28" fill="#d8cbb4"/>
+  </g>
+  <g stroke="#8fa3ac" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+    <path d="M100 800 C280 794 440 806 620 798"/>
+    <path d="M880 832 C1060 826 1220 838 1400 830"/>
+    <path d="M240 872 C420 866 580 878 760 870"/>
+  </g>
+
+  <!-- 贡多拉 -->
+  <path d="M980 792 L1160 792 L1140 822 L1000 822 Z" fill="#3a3733"/>
+  <path d="M980 792 L1040 792 L1024 822 L1000 822 Z" fill="#5a4a40"/>
+  <rect x="1064" y="768" width="8" height="26" fill="#8d7a62"/>
+  <path d="M1040 770 C1056 758 1076 758 1092 770" stroke="#8d7a62" stroke-width="5" fill="none" stroke-linecap="round"/>
+
+  <!-- 云 -->
+  <g fill="#f7f3ea">
+    <path d="M900 168 C900 146 918 130 942 130 C956 110 978 100 1002 100 C1038 100 1066 122 1072 154 C1094 158 1112 174 1112 196 C1112 218 1094 234 1070 234 L934 234 C914 234 900 220 900 200 Z"/>
+  </g>
+</svg>
