@@ -1172,13 +1172,24 @@ textarea { resize: vertical; min-height: 60px; }
   .main { margin-left: 0; }
   .tabbar { display: flex; }
 
-  .topbar { padding: 13px 16px; }
+  /* backdrop-filter 会把顶栏变成 fixed 子元素的包含块，右下角浮动按钮会被困在里面 */
+  .topbar { padding: 13px 16px; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .topbar-trip { display: inline-flex; }
   .topbar-titles { gap: 1px; }
   .page-title { font-size: 24px; }
   .topbar-actions .btn { padding: 7px 12px; font-size: 16.5px; }
+  /* 导出/导入挪到右下角：挤在顶栏会把页面标题压成竖排 */
+  .topbar-actions [data-action="export"],
+  .topbar-actions [data-action="import"] {
+    position: fixed;
+    right: 14px;
+    z-index: 31;
+    box-shadow: var(--shadow-sm);
+  }
+  .topbar-actions [data-action="export"] { bottom: 96px; }
+  .topbar-actions [data-action="import"] { bottom: 141px; }
 
-  .content { padding: 16px 14px 96px; }
+  .content { padding: 16px 14px 196px; }
   .dash-grid { grid-template-columns: 1fr; gap: 14px; }
   .dash-grid > .span-4,
   .dash-grid > .span-5,
