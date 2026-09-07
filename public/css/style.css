@@ -3,14 +3,6 @@
    清新优雅 · 跨端响应式（电脑 / 平板 / 手机）
    ============================================================ */
 
-@font-face {
-  font-family: 'LongCang';
-  src: url('../vendor/fonts/LongCang-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   /* 日法融合调色板：纸色打底，赭陶/鼠尾草/雾蓝/灰玫瑰/芥黄做点缀 */
   --bg: #f2ece0;
@@ -68,8 +60,8 @@
   /* 不对称圆角：四角半径各不相同，模拟徒手画的方框 */
   --radius-doodle: 255px 15px 225px 15px / 15px 225px 15px 255px;
   --sidebar-w: 272px;
-  --font: 'LongCang', 'ZCOOL KuaiLe', 'LXGW WenKai', 'Kaiti SC', 'KaiTi', '楷体', 'STKaiti',
-    -apple-system, BlinkMacSystemFont, sans-serif;
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
