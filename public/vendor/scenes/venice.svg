@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 威尼斯：圣马可钟楼、总督府与运河贡多拉。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 圣马可钟楼 -->
+  <g>
+    <rect x="200" y="200" width="120" height="480" fill="#c4714b"/>
+    <rect x="296" y="200" width="24" height="480" fill="#a2523a"/>
+    <rect x="186" y="168" width="148" height="36" fill="#d8cbb4"/>
+    <rect x="196" y="120" width="128" height="48" fill="#e8dcc8"/>
+    <g fill="#aebcc2">
+      <rect x="214" y="130" width="30" height="30"/><rect x="256" y="130" width="30" height="30"/><rect x="298" y="130" width="30" height="30"/>
+    </g>
+    <path d="M206 120 L260 46 L314 120 Z" fill="#8b9a7e"/>
+    <path d="M260 46 L314 120 L260 120 Z" fill="#6f7d66"/>
+    <circle cx="260" cy="38" r="11" fill="#d4a24c"/>
+    <g fill="#e8dcc8">
+      <rect x="224" y="240" width="26" height="34"/><rect x="270" y="240" width="26" height="34"/>
+      <rect x="224" y="320" width="26" height="34"/><rect x="270" y="320" width="26" height="34"/>
+      <rect x="224" y="400" width="26" height="34"/><rect x="270" y="400" width="26" height="34"/>
+    </g>
+  </g>
+
+  <!-- 总督府（威尼斯哥特立面） -->
+  <g>
+    <rect x="380" y="380" width="520" height="300" fill="#e8dcc8"/>
+    <rect x="876" y="380" width="24" height="300" fill="#d0c3ad"/>
+    <!-- 上层菱形纹（简化为交错色块） -->
+    <g fill="#d8c8b0" opacity=".8">
+      <rect x="400" y="400" width="40" height="40" transform="rotate(45 420 420)"/>
+      <rect x="480" y="400" width="40" height="40" transform="rotate(45 500 420)"/>
+      <rect x="560" y="400" width="40" height="40" transform="rotate(45 580 420)"/>
+      <rect x="640" y="400" width="40" height="40" transform="rotate(45 660 420)"/>
+      <rect x="720" y="400" width="40" height="40" transform="rotate(45 740 420)"/>
+      <rect x="800" y="400" width="40" height="40" transform="rotate(45 820 420)"/>
+      <rect x="440" y="450" width="40" height="40" transform="rotate(45 460 470)"/>
+      <rect x="520" y="450" width="40" height="40" transform="rotate(45 540 470)"/>
+      <rect x="600" y="450" width="40" height="40" transform="rotate(45 620 470)"/>
+      <rect x="680" y="450" width="40" height="40" transform="rotate(45 700 470)"/>
+      <rect x="760" y="450" width="40" height="40" transform="rotate(45 780 470)"/>
+    </g>
+    <rect x="380" y="496" width="520" height="12" fill="#c3b7a2"/>
+    <!-- 下层连拱 -->
+    <g fill="#aebcc2">
+      <path d="M404 680 L404 590 C404 572 420 562 440 562 C460 562 476 572 476 590 L476 680 Z"/>
+      <path d="M496 680 L496 590 C496 572 512 562 532 562 C552 562 568 572 568 590 L568 680 Z"/>
+      <path d="M588 680 L588 590 C588 572 604 562 624 562 C644 562 660 572 660 590 L660 680 Z"/>
+      <path d="M680 680 L680 590 C680 572 696 562 716 562 C736 562 752 572 752 590 L752 680 Z"/>
+      <path d="M772 680 L772 590 C772 572 788 562 808 562 C828 562 844 572 844 590 L844 680 Z"/>
+    </g>
+    <rect x="380" y="508" width="520" height="14" fill="#c3b7a2"/>
+  </g>
+
+  <!-- 叹息桥（远景连接） -->
+  <g>
+    <path d="M900 440 L1080 440 L1080 520 L900 520 Z" fill="#d8cbb4"/>
+    <path d="M900 440 C950 404 1030 404 1080 440 Z" fill="#c9b39e"/>
+    <rect x="960" y="452" width="24" height="34" fill="#aebcc2"/>
+    <rect x="1010" y="452" width="24" height="34" fill="#aebcc2"/>
+    <rect x="1060" y="440" width="20" height="180" fill="#c9b39e"/>
+  </g>
+
+  <!-- 右侧彩色房子 -->
+  <g>
+    <rect x="1180" y="420" width="130" height="260" fill="#c9b39e"/>
+    <rect x="1286" y="420" width="24" height="260" fill="#ac9781"/>
+    <rect x="1204" y="452" width="30" height="40" fill="#aebcc2"/>
+    <rect x="1252" y="452" width="30" height="40" fill="#aebcc2"/>
+    <rect x="1204" y="530" width="30" height="40" fill="#aebcc2"/>
+    <rect x="1252" y="530" width="30" height="40" fill="#aebcc2"/>
+
+    <rect x="1330" y="380" width="140" height="300" fill="#d8cbb4"/>
+    <rect x="1446" y="380" width="24" height="300" fill="#bfae94"/>
+    <rect x="1354" y="414" width="32" height="42" fill="#aebcc2"/>
+    <rect x="1404" y="414" width="32" height="42" fill="#aebcc2"/>
+    <rect x="1354" y="496" width="32" height="42" fill="#aebcc2"/>
+    <rect x="1404" y="496" width="32" height="42" fill="#aebcc2"/>
+    <rect x="1354" y="578" width="32" height="42" fill="#aebcc2"/>
+    <rect x="1404" y="578" width="32" height="42" fill="#aebcc2"/>
+  </g>
+
+  <!-- 运河 -->
+  <rect x="0" y="680" width="1600" height="220" fill="#7fc0c4"/>
+  <rect x="0" y="680" width="1600" height="14" fill="#a5d4d6"/>
+  <g opacity=".26">
+    <rect x="200" y="694" width="120" height="46" fill="#c4714b"/>
+    <rect x="400" y="694" width="480" height="34" fill="#e8dcc8"/>
+    <rect x="1200" y="694" width="260" height="30" fill="#d8cbb4"/>
+  </g>
+  <g stroke="#5fa8ad" stroke-width="3.5" stroke-linecap="round" opacity=".8">
+    <path d="M100 754 C280 748 440 760 620 752"/>
+    <path d="M880 794 C1060 788 1220 800 1400 792"/>
+    <path d="M240 848 C420 842 580 854 760 846"/>
+    <path d="M1000 878 C1180 872 1340 884 1520 876"/>
+  </g>
+
+  <!-- 贡多拉两艘 -->
+  <g>
+    <path d="M300 792 L520 792 L496 826 L324 826 Z" fill="#3a3733"/>
+    <path d="M300 792 L368 792 L348 826 L324 826 Z" fill="#5a4a40"/>
+    <rect x="404" y="762" width="9" height="32" fill="#8d7a62"/>
+    <path d="M378 764 C394 752 414 752 430 764" stroke="#8d7a62" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M1020 840 L1240 840 L1216 872 L1044 872 Z" fill="#3a3733"/>
+    <path d="M1020 840 L1088 840 L1068 872 L1044 872 Z" fill="#5a4a40"/>
+    <rect x="1124" y="812" width="9" height="30" fill="#8d7a62"/>
+    <path d="M1098 814 C1114 802 1134 802 1150 814" stroke="#8d7a62" stroke-width="5" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

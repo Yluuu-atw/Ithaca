@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 瑞士：少女峰、齿轮火车与木屋。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 主峰（少女峰） -->
+  <path d="M280 600 L700 150 L1120 600 Z" fill="#8d9aa2"/>
+  <path d="M700 150 L840 296 L796 304 L750 274 L700 312 L650 278 L604 306 L560 296 Z" fill="#f7f4ee"/>
+  <path d="M560 296 L700 150 L750 274 L700 312 L650 278 Z" fill="#eceae4"/>
+  <path d="M700 150 L1120 600 L880 600 L700 306 Z" fill="#78867e" opacity=".5"/>
+
+  <!-- 次峰 -->
+  <path d="M980 600 L1200 340 L1420 600 Z" fill="#9aa8b0"/>
+  <path d="M1200 340 L1272 414 L1244 420 L1218 398 L1192 420 L1166 414 Z" fill="#f7f4ee"/>
+  <path d="M1200 340 L1420 600 L1300 600 L1200 418 Z" fill="#8d99a1" opacity=".45"/>
+
+  <!-- 左侧小峰 -->
+  <path d="M40 600 L220 420 L400 600 Z" fill="#a8b4bb"/>
+  <path d="M220 420 L264 466 L246 470 L228 456 L210 470 L192 466 Z" fill="#f7f4ee"/>
+
+  <!-- 前景草甸 -->
+  <path d="M0 600 C240 578 460 596 700 600 C940 604 1160 588 1400 596 C1500 599 1560 602 1600 600 L1600 900 L0 900 Z" fill="#8b9a7e"/>
+  <path d="M0 700 C260 680 500 696 760 700 C1020 704 1240 690 1480 696 C1540 698 1580 700 1600 698 L1600 900 L0 900 Z" fill="#7a8a70"/>
+
+  <!-- 齿轮火车 -->
+  <g>
+    <!-- 轨道 -->
+    <path d="M0 720 L1600 690" stroke="#8d7a62" stroke-width="7" fill="none"/>
+    <path d="M0 736 L1600 706" stroke="#8d7a62" stroke-width="7" fill="none"/>
+    <g stroke="#8d7a62" stroke-width="5">
+      <path d="M60 722 L60 738"/><path d="M200 719 L200 735"/><path d="M340 716 L340 732"/>
+      <path d="M480 713 L480 729"/><path d="M620 710 L620 726"/><path d="M760 708 L760 724"/>
+      <path d="M900 705 L900 721"/><path d="M1040 702 L1040 718"/><path d="M1180 700 L1180 716"/>
+      <path d="M1320 697 L1320 713"/><path d="M1460 694 L1460 710"/>
+    </g>
+    <!-- 车厢 -->
+    <rect x="560" y="618" width="340" height="76" rx="10" fill="#c4714b"/>
+    <rect x="576" y="634" width="308" height="34" fill="#e8dcc8"/>
+    <rect x="576" y="634" width="60" height="34" fill="#aebcc2"/>
+    <rect x="652" y="634" width="60" height="34" fill="#aebcc2"/>
+    <rect x="728" y="634" width="60" height="34" fill="#aebcc2"/>
+    <rect x="804" y="634" width="60" height="34" fill="#aebcc2"/>
+    <rect x="560" y="606" width="340" height="14" rx="6" fill="#a2523a"/>
+    <rect x="560" y="686" width="340" height="12" fill="#8d7a62"/>
+    <circle cx="620" cy="702" r="14" fill="#3a3733"/>
+    <circle cx="700" cy="702" r="14" fill="#3a3733"/>
+    <circle cx="780" cy="702" r="14" fill="#3a3733"/>
+    <circle cx="860" cy="702" r="14" fill="#3a3733"/>
+  </g>
+
+  <!-- 瑞士木屋 -->
+  <g>
+    <rect x="1230" y="560" width="200" height="130" fill="#c9b39e"/>
+    <rect x="1406" y="560" width="24" height="130" fill="#ac9781"/>
+    <path d="M1206 560 L1454 560 L1424 506 L1236 506 Z" fill="#8d7a62"/>
+    <path d="M1206 560 L1236 506 L1272 512 L1242 564 Z" fill="#6f5a44"/>
+    <!-- 屋顶积雪 -->
+    <path d="M1206 560 L1454 560 L1446 548 L1214 548 Z" fill="#f7f4ee"/>
+    <rect x="1262" y="590" width="44" height="50" fill="#aebcc2"/>
+    <rect x="1330" y="590" width="30" height="50" fill="#8d99a1"/>
+    <!-- 阳台 -->
+    <rect x="1250" y="646" width="160" height="8" fill="#8d7a62"/>
+    <g fill="#8d7a62">
+      <rect x="1256" y="646" width="6" height="20"/><rect x="1290" y="646" width="6" height="20"/>
+      <rect x="1324" y="646" width="6" height="20"/><rect x="1358" y="646" width="6" height="20"/>
+      <rect x="1392" y="646" width="6" height="20"/>
+    </g>
+  </g>
+
+  <!-- 花（前景几点） -->
+  <g fill="#c4714b">
+    <circle cx="140" cy="812" r="9"/><circle cx="200" cy="840" r="8"/><circle cx="264" cy="808" r="9"/>
+    <circle cx="330" cy="846" r="8"/><circle cx="1180" cy="828" r="9"/><circle cx="1250" cy="856" r="8"/>
+  </g>
+  <g stroke="#6f7d66" stroke-width="4" fill="none">
+    <path d="M140 812 L140 846"/><path d="M200 840 L200 872"/><path d="M264 808 L264 842"/>
+    <path d="M330 846 L330 878"/><path d="M1180 828 L1180 862"/><path d="M1250 856 L1250 886"/>
+  </g>
+
+  <!-- 云 -->
+  <g fill="#f7f4ee">
+    <path d="M120 176 C120 154 138 138 162 138 C176 118 198 108 222 108 C258 108 286 130 292 162 C314 166 332 182 332 204 C332 226 314 242 290 242 L154 242 C134 242 120 228 120 208 Z"/>
+    <path d="M1240 156 C1240 138 1256 124 1276 124 C1288 108 1306 100 1326 100 C1356 100 1378 118 1384 144 C1402 148 1416 162 1416 180 C1416 198 1400 212 1380 212 L1268 212 C1252 212 1240 200 1240 184 Z"/>
+  </g>
+</svg>
