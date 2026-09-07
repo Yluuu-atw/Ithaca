@@ -584,6 +584,16 @@ window.Render = (() => {
           ${editMeta ? `
           <form class="grid-form" data-form="meta">
             <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
+            <label>主题色
+              <div class="theme-pick">
+                <div class="theme-swatches">
+                  ${['#6f9e8f', ...Store.CONST.colorChoices].map(c => `
+                    <button type="button" class="theme-swatch ${((m.theme || '#6f9e8f').toLowerCase() === c.toLowerCase()) ? 'is-on' : ''}"
+                      data-action="theme-pick" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('')}
+                </div>
+                <input type="color" name="theme" class="theme-custom" value="${esc(m.theme || '#6f9e8f')}" aria-label="自定义颜色">
+              </div>
+            </label>
             <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
           </form>` : metaSummary(s)}
         </section>

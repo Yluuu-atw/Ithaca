@@ -1015,6 +1015,33 @@ textarea { resize: vertical; min-height: 60px; }
 .color-opt { height: 30px; padding: 0; background: var(--swatch); border-radius: 8px; }
 .color-opt.active { outline: 2px solid var(--text); outline-offset: 2px; }
 
+/* ---------------- 旅行主题色 ---------------- */
+.theme-pick { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.theme-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.theme-swatch {
+  width: 30px; height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--sw);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08);
+  transition: transform .12s ease;
+}
+.theme-swatch:hover { transform: scale(1.12); }
+.theme-swatch.is-on { outline: 2px solid var(--sw); outline-offset: 2px; }
+.theme-custom {
+  width: 34px; height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+.theme-custom::-webkit-color-swatch-wrapper { padding: 2px; }
+.theme-custom::-webkit-color-swatch { border: none; border-radius: 50%; }
+
 /* ---------------- 底部标签栏（手机） ---------------- */
 /* 背景的隆起曲线由 canvas 逐帧绘制，不用 CSS 画 */
 .tabbar {
