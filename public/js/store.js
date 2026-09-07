@@ -151,6 +151,8 @@ window.Store = (() => {
     tracks: [], photos: [], places: [], bookings: [], guides: [],
   };
   function getState() { return tripById(currentTripId()) || EMPTY_TRIP; }
+  // 备忘录是文档级的，跟当前是哪趟旅行无关
+  function listMemos() { return ((state && state.memos) || []).slice(); }
 
   // ---------------- 旅行列表 ----------------
   function listTrips() { return ((state && state.trips) || []).slice(); }
@@ -273,7 +275,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler,
-    getState, getIdentity, setIdentity, uploadPhoto,
+    getState, listMemos, getIdentity, setIdentity, uploadPhoto,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getBoardOpen, setBoardOpen,
   };

@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false };
+  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth() };
   let dockKick = null;
 
   // 页面配色：只存一个底色，其余全部由它派生，选什么底色全站都协调
@@ -97,6 +97,25 @@ window.App = (() => {
     }
     render();
     maybeAskIdentity();
+  }
+
+  function showCalendar() {
+    const body = `<div class="cal">${Render.renderCalendar(Store.listTrips(), current.calY, current.calM)}</div>`;
+    openModal('旅行日历', body);
+  }
+  function shiftMonth(delta) {
+    const d = new Date(current.calY, current.calM + delta, 1);
+    current.calY = d.getFullYear();
+    current.calM = d.getMonth();
+    showCalendar();
+  }
+
+  function showMemos() {
+    openModal('备忘录', `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button type="button" class="btn btn-primary btn-sm" data-action="memo-new">＋ 新建</button>
+      </div>
+      ${Render.renderMemos(Store.listMemos(), Store.listTrips())}`);
   }
 
   // wttr.in 按 IP 推断城市，无需 key。失败就静默降级，不阻塞页面。
@@ -229,6 +248,65 @@ window.App = (() => {
       case 'welcome-home':
         setView('welcome');
         break;
+
+      case 'welcome-calendar':
+        showCalendar();
+        break;
+
+      case 'cal-prev':
+        shiftMonth(-1);
+        break;
+
+      case 'cal-next':
+        shiftMonth(1);
+        break;
+
+      case 'cal-day': {
+        const date = el.dataset.date;
+        const trips = Store.listTrips();
+        const lines = [];
+        trips.forEach((t) => {
+          const day = (t.itinerary || []).find(d => d && d.date === date);
+          if (!day) return;
+          const name = (t.meta && t.meta.tripName) || '未命名';
+          const items = (day.items || []).map(i => `${i.time ? i.time + ' ' : ''}${i.title || ''}${i.location ? '（' + i.location + '）' : ''}`).join('<br>') || '（当天没有具体安排）';
+          lines.push(`<div style="margin-bottom:10px"><b>${Render.esc(name)}</b><br><span style="color:var(--muted)">${items}</span></div>`);
+        });
+        openModal(date, lines.join('') || '这天没有旅行安排');
+        break;
+      }
+
+      case 'welcome-memo':
+        showMemos();
+        break;
+
+      case 'memo-new':
+        openModal('新建备忘录', Render.formMemo(null, Store.listTrips()));
+        break;
+
+      case 'memo-edit': {
+        const m = Store.listMemos().find(x => x.id === el.dataset.id);
+        if (m) openModal('编辑备忘录', Render.formMemo(m, Store.listTrips()));
+        break;
+      }
+
+      case 'memo-del': {
+        const id = el.dataset.id;
+        openModal('删除这条备忘录？', `
+          <p style="color:var(--muted);margin:0 0 14px">删除后无法恢复。</p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" data-action="modal-close">取消</button>
+            <button type="button" class="btn btn-primary" data-action="memo-del-ok" data-id="${Render.esc(id)}">确认删除</button>
+          </div>`);
+        break;
+      }
+
+      case 'memo-del-ok': {
+        const id = el.dataset.id;
+        doDocOp(() => Store.mutateDoc(d => { d.memos = (d.memos || []).filter(x => x.id !== id); }), '已删除')
+          .then(showMemos);
+        break;
+      }
 
       case 'nav':
         current.tab = el.dataset.tab;
@@ -632,6 +710,38 @@ window.App = (() => {
       // 只写当前这趟旅行，别的旅行各管各的背景色
       if (bg) doMutate(d => { d.meta.theme = bg; }, '背景色已更新');
       closeModal();
+      return;
+    }
+
+    if (kind === 'memo') {
+      const id = (fd.get('id') || '').trim();
+      const text = (fd.get('text') || '').trim();
+      const tripId = (fd.get('tripId') || '').trim();
+      const keep = fd.get('keep') != null;
+      const files = fd.getAll('file').filter(f => f && f.size);
+      const existing = id ? (Store.listMemos().find(x => x.id === id) || {}) : {};
+      const carried = (id && keep) ? (existing.photos || []) : [];
+      closeModal();
+      (async () => {
+        if (files.length) toast('照片上传中…', 'info');
+        const uploaded = [];
+        for (const f of files) {
+          try { uploaded.push(await Store.uploadPhoto(f)); }
+          catch (_) { toast('有照片上传失败，其余已保存', 'error'); }
+        }
+        const photos = carried.concat(uploaded);
+        await doDocOp(() => Store.mutateDoc(d => {
+          d.memos = d.memos || [];
+          const i = id ? d.memos.findIndex(x => x.id === id) : -1;
+          const rec = {
+            id: id || Store.uid('memo'),
+            text, photos, tripId,
+            createdAt: i >= 0 ? d.memos[i].createdAt : new Date().toISOString(),
+          };
+          if (i >= 0) d.memos[i] = rec; else d.memos.unshift(rec);
+        }), '备忘录已保存');
+        showMemos();
+      })();
       return;
     }
 

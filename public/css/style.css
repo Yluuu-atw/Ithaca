@@ -1339,6 +1339,64 @@ body:not(.is-welcome) .welcome { display: none; }
   box-shadow: var(--shadow-sm);
 }
 
+/* ---------------- 旅行日历 ---------------- */
+.cal { width: 100%; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.cal-title { font-size: 20px; font-weight: 700; }
+.cal-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+.cal-week span { text-align: center; font-size: 13.5px; color: var(--muted); padding: 4px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-cell {
+  min-height: 74px;
+  padding: 6px 6px 8px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.cal-cell.is-blank { border: none; background: none; }
+.cal-cell.is-today { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.cal-cell.has-trip { cursor: pointer; }
+.cal-cell.has-trip:hover { border-color: var(--primary); }
+.cal-num { font-size: 15.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-dots { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.cal-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--muted)); display: inline-block; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.cal-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.cal-legend-name { font-weight: 600; }
+.cal-legend-days { color: var(--muted); font-size: 13.5px; }
+.cal-empty { color: var(--muted); font-size: 15px; }
+
+@media (max-width: 520px) {
+  .cal-cell { min-height: 48px; padding: 4px 2px 6px; border-radius: 9px; }
+  .cal-num { font-size: 13.5px; }
+  .cal-dot { width: 7px; height: 7px; }
+  .cal-grid, .cal-week { gap: 3px; }
+  .cal-title { font-size: 17.5px; }
+}
+
+/* ---------------- 备忘录 ---------------- */
+.memo-empty { color: var(--muted); font-size: 16px; line-height: 1.8; padding: 24px 6px; text-align: center; }
+.memo-list { display: flex; flex-direction: column; gap: 12px; }
+.memo-card { border: 2px solid var(--border); border-radius: 14px; padding: 12px 14px; background: var(--surface); }
+.memo-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 6px; }
+.memo-time { font-size: 13.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.memo-trip { font-size: 13.5px; color: var(--primary-600); font-weight: 600; }
+.memo-acts { margin-left: auto; display: flex; gap: 6px; }
+.memo-text { font-size: 17px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+.memo-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.memo-photo { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
+.memo-keep { font-size: 14.5px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  .memo-photo { width: 78px; height: 78px; }
+  .memo-text { font-size: 16px; }
+  .memo-acts { margin-left: 0; width: 100%; }
+}
+
 /* 仅手机端出现的控件：桌面有侧栏，手机侧栏隐藏需要顶栏补位 */
 .only-mobile { display: none; }
 @media (max-width: 767px) { .only-mobile { display: inline-flex; } }

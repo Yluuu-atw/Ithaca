@@ -1520,6 +1520,128 @@ window.Render = (() => {
       </div>`;
   }
 
+  // ---------------- 旅行日历 ----------------
+  // 每趟旅行一个色，同一日期可能有多趟旅行重叠，格子里并排显示色点
+  const TRIP_COLORS = ['#c4714b', '#8b9a7e', '#6f8fa8', '#a88bb0', '#c9a24a', '#b0748a', '#5f9e93', '#9a8b6f'];
+
+  function calendarDays(trips) {
+    const map = {};
+    (trips || []).forEach((t, i) => {
+      const color = TRIP_COLORS[i % TRIP_COLORS.length];
+      const name = (t.meta && t.meta.tripName) || '未命名';
+      (t.itinerary || []).forEach(d => {
+        if (!d || !d.date) return;
+        (map[d.date] = map[d.date] || []).push({ idx: i, name, color });
+      });
+    });
+    return map;
+  }
+
+  function renderCalendar(trips, year, month) {
+    const map = calendarDays(trips);
+    const list = trips || [];
+    const legend = list.map((t, i) => {
+      const name = (t.meta && t.meta.tripName) || '未命名';
+      const color = TRIP_COLORS[i % TRIP_COLORS.length];
+      const days = (t.itinerary || []).filter(d => d && d.date).length;
+      return { name, color, days };
+    });
+
+    const first = new Date(year, month, 1);
+    const startDow = first.getDay();                 // 本月 1 号是周几
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const ymd = (d) => `${year}-${pad(month + 1)}-${pad(d)}`;
+
+    const cells = [];
+    for (let i = 0; i < startDow; i++) cells.push('<div class="cal-cell is-blank"></div>');
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = ymd(d);
+      const hits = map[date] || [];
+      const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+      const dots = hits.map(h => `<span class="cal-dot" style="--c:${h.color}" title="${esc(h.name)}"></span>`).join('');
+      cells.push(`<div class="cal-cell${isToday ? ' is-today' : ''}${hits.length ? ' has-trip' : ''}"
+        ${hits.length ? `data-action="cal-day" data-date="${date}"` : ''}>
+        <span class="cal-num">${d}</span>
+        ${dots ? `<span class="cal-dots">${dots}</span>` : ''}
+      </div>`);
+    }
+
+    return `
+      <div class="cal-head">
+        <button type="button" class="btn btn-ghost btn-sm" data-action="cal-prev">‹</button>
+        <div class="cal-title">${year} 年 ${month + 1} 月</div>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="cal-next">›</button>
+      </div>
+      <div class="cal-week">${['日', '一', '二', '三', '四', '五', '六'].map(w => `<span>${w}</span>`).join('')}</div>
+      <div class="cal-grid">${cells.join('')}</div>
+      <div class="cal-legend">
+        ${legend.length ? legend.map(l => `
+          <span class="cal-legend-item">
+            <span class="cal-dot" style="--c:${l.color}"></span>
+            <span class="cal-legend-name">${esc(l.name)}</span>
+            <span class="cal-legend-days">${l.days} 天</span>
+          </span>`).join('') : '<span class="cal-empty">还没有旅行，先去建一趟吧</span>'}
+      </div>`;
+  }
+
+  // ---------------- 备忘录 ----------------
+  function fmtDateTime(s) {
+    if (!s) return '';
+    const d = new Date(s);
+    if (isNaN(d)) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function renderMemos(memos, trips) {
+    const list = (memos || []).slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const tripName = (id) => {
+      if (!id) return '';
+      const t = (trips || []).find(x => x.id === id);
+      return t ? (t.meta && t.meta.tripName) || '未命名' : '';
+    };
+    if (!list.length) {
+      return `<div class="memo-empty">还没有备忘录。旅途中的想法、偶遇、小发现，随手记下来。</div>`;
+    }
+    return `<div class="memo-list">${list.map(m => {
+      const name = tripName(m.tripId);
+      const photos = (m.photos || []).map(u => `<img class="memo-photo" src="${esc(u)}" alt="" loading="lazy">`).join('');
+      return `<article class="memo-card">
+        <header class="memo-head">
+          <span class="memo-time">${esc(fmtDateTime(m.createdAt))}</span>
+          ${name ? `<span class="memo-trip">${emo('🧳')} ${esc(name)}</span>` : ''}
+          <span class="memo-acts">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="memo-edit" data-id="${esc(m.id)}">编辑</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="memo-del" data-id="${esc(m.id)}">删除</button>
+          </span>
+        </header>
+        <div class="memo-text">${esc(m.text).replace(/\n/g, '<br>')}</div>
+        ${photos ? `<div class="memo-photos">${photos}</div>` : ''}
+      </article>`;
+    }).join('')}</div>`;
+  }
+
+  function formMemo(memo, trips) {
+    const m = memo || {};
+    const opts = [`<option value="">不关联旅行</option>`]
+      .concat((trips || []).map(t => {
+        const name = (t.meta && t.meta.tripName) || '未命名';
+        return `<option value="${esc(t.id)}" ${m.tripId === t.id ? 'selected' : ''}>${esc(name)}</option>`;
+      })).join('');
+    const has = (m.photos || []).length ? `<div class="memo-photos">${(m.photos || []).map(u => `<img class="memo-photo" src="${esc(u)}" alt="">`).join('')}</div>
+      <label class="memo-keep"><input type="checkbox" name="keep" checked> 保留已有照片（取消勾选则清空）</label>` : '';
+    return `<form data-form="memo">
+      <input type="hidden" name="id" value="${esc(m.id || '')}">
+      <label>内容<textarea name="text" rows="5" required placeholder="记下此刻的想法…">${esc(m.text || '')}</textarea></label>
+      <label>关联旅行<select name="tripId">${opts}</select></label>
+      ${has}
+      <label>添加照片<input type="file" name="file" accept="image/*" multiple></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
+    </form>`;
+  }
+
   // ---------------- 背景色选择 ----------------
   // 页面底色必须是浅调：卡片色由底色派生在近白区间，底色过饱和会和卡片打架
   const BG_PRESETS = ['#f2ece0', '#e9e4d6', '#efe2d8', '#e4e9de', '#dfe6ea', '#f0e2e2', '#f3ead6', '#e8e2ea'];
@@ -1601,5 +1723,8 @@ window.Render = (() => {
     themePicker,
     doodleFor,
     renderWelcome,
+    renderCalendar,
+    renderMemos,
+    formMemo,
   };
 })();

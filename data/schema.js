@@ -72,10 +72,25 @@ function defaultTrip() {
 }
 
 // 文档级元信息只管乐观并发，其余全在 trips 里
+function defaultMemo() {
+  return { id: uid('memo'), text: '', photos: [], tripId: '', createdAt: new Date().toISOString() };
+}
+function normalizeMemo(raw) {
+  const m = defaultMemo();
+  const s = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+  if (typeof s.id === 'string' && s.id) m.id = s.id;
+  if (typeof s.text === 'string') m.text = s.text;
+  if (Array.isArray(s.photos)) m.photos = s.photos.filter(p => typeof p === 'string' && p);
+  if (typeof s.tripId === 'string') m.tripId = s.tripId;
+  if (typeof s.createdAt === 'string' && s.createdAt) m.createdAt = s.createdAt;
+  return m;
+}
+
 function defaultDoc() {
   return {
     meta: { version: 1, updatedAt: new Date().toISOString() },
     trips: [defaultTrip()],
+    memos: [],
   };
 }
 
@@ -143,6 +158,9 @@ function normalize(doc) {
 
   const rawTrips = Array.isArray(source.trips) ? source.trips : [];
   d.trips = rawTrips.length ? rawTrips.map(normalizeTrip) : [defaultTrip()];
+
+  // 备忘录是文档级的，不属于任何一趟旅行；tripId 只是可选关联
+  d.memos = Array.isArray(source.memos) ? source.memos.map(normalizeMemo) : [];
 
   for (const k of Object.keys(source)) {
     if (!(k in d) && !warnedUnknown.has(k)) {
