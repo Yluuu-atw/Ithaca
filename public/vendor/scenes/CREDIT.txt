@@ -7,6 +7,10 @@ scenes/ 下为手绘平涂插画，参考 Yukiko Noritake 的丙烯手法
   beijing.svg         天安门城楼：重檐庑殿顶、朱红城墙与华表
   shanghai.svg        陆家嘴天际线：东方明珠与三件套、黄浦江
   xian.svg            大雁塔与古城墙
+  chengdu.svg         大熊猫与竹林
+  chongqing.svg       山城吊脚楼层层叠叠与长江索道
+  hangzhou.svg        西湖断桥、雷峰塔与柳枝
+  harbin.svg          圣索菲亚教堂洋葱顶与飘雪
 
 大区兜底（没有专属插画时按地貌/文化圈回落）
   region-asia.svg     亚洲风情：寺庙翘檐与红灯笼

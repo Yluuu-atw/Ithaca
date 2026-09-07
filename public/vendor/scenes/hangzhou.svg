@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 杭州：西湖断桥与雷峰塔。平涂色块 + 大留白 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远山（南屏） -->
+  <path d="M0 500 C140 452 260 470 380 456 C500 442 580 462 680 470 L680 500 Z" fill="#b9c2ac"/>
+  <path d="M980 500 C1100 456 1220 472 1340 458 C1460 444 1540 464 1600 470 L1600 500 Z" fill="#b9c2ac"/>
+
+  <!-- 雷峰塔（远景右） -->
+  <g>
+    <rect x="1216" y="446" width="120" height="18" fill="#a8917c"/>
+    <rect x="1228" y="392" width="96" height="54" fill="#c9b39e"/>
+    <rect x="1210" y="376" width="132" height="16" fill="#b0654c"/>
+    <rect x="1238" y="330" width="76" height="46" fill="#c9b39e"/>
+    <rect x="1222" y="316" width="108" height="14" fill="#b0654c"/>
+    <rect x="1248" y="278" width="56" height="38" fill="#c9b39e"/>
+    <rect x="1234" y="266" width="84" height="12" fill="#b0654c"/>
+    <rect x="1256" y="234" width="40" height="32" fill="#c9b39e"/>
+    <rect x="1246" y="224" width="60" height="10" fill="#b0654c"/>
+    <rect x="1268" y="196" width="16" height="28" fill="#a8917c"/>
+    <path d="M1262 196 L1276 168 L1290 196 Z" fill="#8d7a62"/>
+  </g>
+
+  <!-- 湖心亭（远景左） -->
+  <g>
+    <rect x="240" y="452" width="90" height="14" fill="#b5a995"/>
+    <rect x="256" y="416" width="58" height="36" fill="#d8cbb4"/>
+    <path d="M232 416 L318 416 L300 384 L250 384 Z" fill="#b0654c"/>
+    <path d="M232 416 L250 384 L262 387 L244 419 Z" fill="#8b4a38"/>
+  </g>
+
+  <!-- 断桥 -->
+  <g>
+    <path d="M180 600 C400 566 620 556 800 556 C980 556 1200 566 1420 600 L1420 640 C1200 606 980 596 800 596 C620 596 400 606 180 640 Z" fill="#d8cbb4"/>
+    <path d="M180 600 C400 566 620 556 800 556 C980 556 1200 566 1420 600" stroke="#bfae94" stroke-width="6" fill="none"/>
+    <!-- 桥拱 -->
+    <path d="M300 640 C300 606 340 592 380 592 C420 592 460 606 460 640 Z" fill="#aebcc2"/>
+    <path d="M700 632 C700 596 744 582 790 582 C836 582 880 596 880 632 Z" fill="#aebcc2"/>
+    <path d="M1120 640 C1120 606 1160 592 1200 592 C1240 592 1280 606 1280 640 Z" fill="#aebcc2"/>
+    <!-- 桥栏 -->
+    <g fill="#bfae94">
+      <rect x="200" y="576" width="10" height="24"/><rect x="300" y="564" width="10" height="26"/>
+      <rect x="420" y="556" width="10" height="26"/><rect x="560" y="550" width="10" height="26"/>
+      <rect x="720" y="548" width="10" height="26"/><rect x="880" y="550" width="10" height="26"/>
+      <rect x="1040" y="556" width="10" height="26"/><rect x="1180" y="564" width="10" height="26"/>
+      <rect x="1320" y="576" width="10" height="24"/>
+    </g>
+  </g>
+
+  <!-- 柳枝（左前景） -->
+  <g stroke="#8b9a7e" stroke-width="5" fill="none" stroke-linecap="round">
+    <path d="M60 0 C70 90 60 170 30 250"/>
+    <path d="M130 0 C142 110 136 200 108 290"/>
+    <path d="M200 0 C210 80 206 150 182 220"/>
+  </g>
+  <g fill="#8b9a7e">
+    <path d="M30 250 C10 262 -14 264 -34 256 C-8 250 12 246 32 240 Z"/>
+    <path d="M30 250 C46 268 50 288 44 308 C36 286 28 268 22 252 Z"/>
+    <path d="M108 290 C88 302 64 304 44 296 C70 290 90 286 110 280 Z"/>
+    <path d="M108 290 C124 308 128 328 122 348 C114 326 106 308 100 292 Z"/>
+    <path d="M182 220 C164 232 142 234 124 226 C148 220 166 216 184 210 Z"/>
+    <path d="M182 220 C196 238 200 256 194 274 C186 254 178 238 174 222 Z"/>
+    <path d="M60 120 C42 132 20 134 2 126 C26 120 44 116 62 110 Z"/>
+    <path d="M140 150 C122 162 100 164 82 156 C106 150 124 146 142 140 Z"/>
+    <path d="M206 80 C190 92 170 94 154 86 C176 80 192 76 208 70 Z"/>
+  </g>
+
+  <!-- 湖面 -->
+  <rect x="0" y="640" width="1600" height="260" fill="#aebcc2"/>
+  <rect x="0" y="640" width="1600" height="14" fill="#c2d0d5"/>
+  <!-- 塔与桥的倒影 -->
+  <g opacity=".26">
+    <rect x="1228" y="654" width="96" height="46" fill="#c9b39e"/>
+    <rect x="1248" y="700" width="56" height="26" fill="#c9b39e"/>
+    <path d="M300 654 L460 654 L440 690 L320 690 Z" fill="#d8cbb4"/>
+  </g>
+  <g stroke="#8fa3ac" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+    <path d="M120 706 C300 700 460 712 640 704"/>
+    <path d="M820 746 C1000 740 1160 752 1340 744"/>
+    <path d="M260 802 C440 796 600 808 780 800"/>
+    <path d="M960 848 C1140 842 1300 854 1480 846"/>
+  </g>
+
+  <!-- 手划船 -->
+  <path d="M420 760 L600 760 L582 790 L438 790 Z" fill="#e8dcc8"/>
+  <path d="M420 760 L476 760 L462 790 L438 790 Z" fill="#c9b39e"/>
+  <rect x="500" y="738" width="8" height="24" fill="#8d7a62"/>
+  <path d="M470 736 C486 726 502 726 518 736" stroke="#8d7a62" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>
