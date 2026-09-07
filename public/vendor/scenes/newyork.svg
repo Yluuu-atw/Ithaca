@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 纽约：自由女神与曼哈顿天际线。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 曼哈顿天际线（远景右） -->
+  <g fill="#9aa8b0">
+    <rect x="820" y="380" width="90" height="280"/>
+    <rect x="930" y="300" width="110" height="360"/>
+    <rect x="1060" y="240" width="80" height="420"/>
+    <rect x="1160" y="330" width="120" height="330"/>
+    <rect x="1300" y="280" width="90" height="380"/>
+    <rect x="1410" y="360" width="110" height="300"/>
+  </g>
+  <g fill="#7f8d95">
+    <rect x="890" y="380" width="20" height="280"/>
+    <rect x="1020" y="300" width="20" height="360"/>
+    <rect x="1120" y="240" width="20" height="420"/>
+    <rect x="1260" y="330" width="20" height="330"/>
+    <rect x="1370" y="280" width="20" height="380"/>
+    <rect x="1500" y="360" width="20" height="300"/>
+  </g>
+  <!-- 帝国大厦式尖顶 -->
+  <path d="M1060 240 L1100 150 L1140 240 Z" fill="#8d99a1"/>
+  <rect x="1094" y="110" width="12" height="42" fill="#7f8d95"/>
+  <g fill="#dfe6ea">
+    <rect x="948" y="340" width="30" height="20"/><rect x="990" y="340" width="30" height="20"/>
+    <rect x="948" y="392" width="30" height="20"/><rect x="990" y="392" width="30" height="20"/>
+    <rect x="948" y="444" width="30" height="20"/><rect x="990" y="444" width="30" height="20"/>
+    <rect x="948" y="496" width="30" height="20"/><rect x="990" y="496" width="30" height="20"/>
+    <rect x="1178" y="370" width="34" height="20"/><rect x="1226" y="370" width="34" height="20"/>
+    <rect x="1178" y="424" width="34" height="20"/><rect x="1226" y="424" width="34" height="20"/>
+    <rect x="1178" y="478" width="34" height="20"/><rect x="1226" y="478" width="34" height="20"/>
+    <rect x="1318" y="320" width="28" height="18"/><rect x="1318" y="372" width="28" height="18"/>
+    <rect x="1318" y="424" width="28" height="18"/><rect x="1318" y="476" width="28" height="18"/>
+  </g>
+
+  <!-- 自由女神 -->
+  <g>
+    <!-- 基座 -->
+    <path d="M280 660 L620 660 L660 730 L240 730 Z" fill="#c3b7a2"/>
+    <rect x="240" y="730" width="420" height="18" fill="#ab9d86"/>
+    <path d="M330 660 L330 500 L570 500 L570 660 Z" fill="#b5a995"/>
+    <rect x="322" y="486" width="256" height="16" fill="#a8917c"/>
+    <g fill="#9d917c">
+      <rect x="360" y="530" width="30" height="46"/><rect x="412" y="530" width="30" height="46"/>
+      <rect x="464" y="530" width="30" height="46"/><rect x="516" y="530" width="30" height="46"/>
+    </g>
+    <!-- 身体（长袍） -->
+    <path d="M396 486 L410 300 L490 300 L504 486 Z" fill="#7fc0a8"/>
+    <path d="M490 300 L504 300 L504 486 L490 486 Z" fill="#63a892"/>
+    <!-- 褶皱 -->
+    <g stroke="#63a892" stroke-width="4" opacity=".6">
+      <path d="M420 470 L428 320"/><path d="M450 476 L452 316"/><path d="M478 470 L476 320"/>
+    </g>
+    <!-- 头与冠 -->
+    <circle cx="450" cy="272" r="34" fill="#7fc0a8"/>
+    <g fill="#7fc0a8">
+      <path d="M410 250 L400 224 L418 236 Z"/><path d="M426 240 L422 210 L440 228 Z"/>
+      <path d="M450 236 L450 204 L462 230 Z"/><path d="M474 240 L482 210 L480 228 Z"/>
+      <path d="M490 250 L500 224 L482 236 Z"/>
+    </g>
+    <!-- 右臂与火炬 -->
+    <path d="M490 300 L520 200 L544 206 L514 306 Z" fill="#7fc0a8"/>
+    <rect x="508" y="176" width="48" height="26" rx="8" fill="#d4a24c"/>
+    <path d="M516 176 C524 154 536 154 544 176 Z" fill="#c4714b"/>
+    <circle cx="532" cy="150" r="10" fill="#d4a24c"/>
+    <!-- 左臂与法典 -->
+    <path d="M410 300 L366 380 L388 392 L424 312 Z" fill="#7fc0a8"/>
+    <rect x="340" y="366" width="52" height="66" rx="4" fill="#e8dcc8" transform="rotate(-12 366 399)"/>
+  </g>
+
+  <!-- 港湾水面 -->
+  <rect x="0" y="748" width="1600" height="152" fill="#aebcc2"/>
+  <rect x="0" y="748" width="1600" height="12" fill="#c2d0d5"/>
+  <g opacity=".24">
+    <rect x="300" y="760" width="300" height="34" fill="#b5a995"/>
+    <rect x="930" y="760" width="560" height="28" fill="#9aa8b0"/>
+  </g>
+  <g stroke="#8fa3ac" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+    <path d="M100 812 C280 806 440 818 620 810"/>
+    <path d="M880 848 C1060 842 1220 854 1400 846"/>
+    <path d="M240 880 C420 874 580 886 760 878"/>
+  </g>
+  <!-- 渡轮 -->
+  <path d="M1120 800 L1300 800 L1280 830 L1140 830 Z" fill="#e8dcc8"/>
+  <rect x="1190" y="778" width="48" height="22" fill="#c9b39e"/>
+</svg>

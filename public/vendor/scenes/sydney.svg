@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 悉尼：歌剧院与海港大桥。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 海港大桥 -->
+  <g>
+    <path d="M60 470 C300 260 620 260 860 470" fill="none" stroke="#8d9aa2" stroke-width="26"/>
+    <path d="M60 470 C300 300 620 300 860 470" fill="none" stroke="#a8b4bb" stroke-width="12"/>
+    <g stroke="#8d9aa2" stroke-width="7">
+      <path d="M160 400 L160 470"/><path d="M260 330 L260 470"/><path d="M360 296 L360 470"/>
+      <path d="M460 288 L460 470"/><path d="M560 296 L560 470"/><path d="M660 330 L660 470"/>
+      <path d="M760 400 L760 470"/>
+    </g>
+    <!-- 桥面 -->
+    <rect x="40" y="470" width="840" height="20" fill="#9aa8b0"/>
+    <!-- 桥塔 -->
+    <rect x="60" y="330" width="60" height="160" fill="#c3b7a2"/>
+    <rect x="52" y="316" width="76" height="18" fill="#ab9d86"/>
+    <rect x="800" y="330" width="60" height="160" fill="#c3b7a2"/>
+    <rect x="792" y="316" width="76" height="18" fill="#ab9d86"/>
+  </g>
+
+  <!-- 歌剧院（贝壳屋顶） -->
+  <g>
+    <!-- 基座 -->
+    <path d="M900 640 L1560 640 L1600 690 L860 690 Z" fill="#c3b7a2"/>
+    <rect x="860" y="690" width="740" height="16" fill="#ab9d86"/>
+    <!-- 三组贝壳 -->
+    <path d="M960 640 C960 470 1030 360 1140 330 C1090 400 1060 500 1060 640 Z" fill="#f4f0e8"/>
+    <path d="M1060 640 C1060 480 1130 380 1230 356 C1180 420 1156 512 1156 640 Z" fill="#e8e4da"/>
+    <path d="M1156 640 C1156 500 1216 414 1300 396 C1262 448 1244 528 1244 640 Z" fill="#f4f0e8"/>
+    <path d="M1244 640 C1244 520 1296 450 1364 436 C1334 478 1320 542 1320 640 Z" fill="#e8e4da"/>
+    <!-- 贝壳背光面 -->
+    <path d="M1060 640 C1060 500 1104 410 1180 372 C1140 440 1122 520 1122 640 Z" fill="#d8d4c8" opacity=".7"/>
+    <path d="M1244 640 C1244 528 1288 466 1340 448 C1312 486 1300 546 1300 640 Z" fill="#d8d4c8" opacity=".7"/>
+    <!-- 玻璃幕墙 -->
+    <g fill="#aebcc2" opacity=".8">
+      <path d="M980 640 L980 590 C1010 540 1036 500 1050 470 L1050 640 Z"/>
+      <path d="M1076 640 L1076 600 C1104 556 1128 522 1142 496 L1142 640 Z"/>
+    </g>
+  </g>
+
+  <!-- 远景城市 -->
+  <g fill="#c2ccd2">
+    <rect x="1400" y="520" width="70" height="120"/>
+    <rect x="1490" y="546" width="60" height="94"/>
+  </g>
+
+  <!-- 海湾 -->
+  <rect x="0" y="706" width="1600" height="194" fill="#aebcc2"/>
+  <rect x="0" y="706" width="1600" height="14" fill="#c2d0d5"/>
+  <g opacity=".24">
+    <path d="M960 720 L1560 720 L1500 762 L1020 762 Z" fill="#f4f0e8"/>
+    <path d="M60 720 L900 720 L860 748 L100 748 Z" fill="#8d9aa2"/>
+  </g>
+  <g stroke="#8fa3ac" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+    <path d="M100 776 C280 770 440 782 620 774"/>
+    <path d="M880 818 C1060 812 1220 824 1400 816"/>
+    <path d="M240 862 C420 856 580 868 760 860"/>
+    <path d="M1000 886 C1180 880 1340 892 1500 884"/>
+  </g>
+  <!-- 帆船 -->
+  <g>
+    <path d="M420 800 L620 800 L596 834 L444 834 Z" fill="#e8dcc8"/>
+    <rect x="510" y="716" width="9" height="86" fill="#8d7a62"/>
+    <path d="M519 720 L592 794 L519 794 Z" fill="#f4f0e8"/>
+    <path d="M501 736 L444 794 L501 794 Z" fill="#e8e4da"/>
+  </g>
+
+  <!-- 云 -->
+  <g fill="#f7f3ea">
+    <path d="M900 148 C900 126 918 110 942 110 C956 90 978 80 1002 80 C1038 80 1066 102 1072 134 C1094 138 1112 154 1112 176 C1112 198 1094 214 1070 214 L934 214 C914 214 900 200 900 180 Z"/>
+  </g>
+</svg>

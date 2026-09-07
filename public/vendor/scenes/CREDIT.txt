@@ -23,6 +23,10 @@ scenes/ 下为手绘平涂插画，参考 Yukiko Noritake 的丙烯手法
   venice.svg          圣马可钟楼、总督府与贡多拉
   london.svg          大本钟、议会大厦与伦敦眼
   swiss.svg           少女峰、齿轮火车与木屋
+  newyork.svg         自由女神与曼哈顿天际线
+  sydney.svg          歌剧院贝壳屋顶与海港大桥
+  dubai.svg           帆船酒店与哈利法塔
+  turkey.svg          卡帕多奇亚热气球与仙人烟囱
 
 大区兜底（没有专属插画时按地貌/文化圈回落）
   region-asia.svg     亚洲风情：寺庙翘檐与红灯笼
