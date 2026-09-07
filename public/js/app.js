@@ -55,6 +55,9 @@ window.App = (() => {
     root.setProperty('--primary', hslHex(h, sat, 0.62));
     root.setProperty('--primary-600', hslHex(h, sat, 0.4));
     root.setProperty('--primary-soft', hslHex(h, sat * 0.55, 0.93));
+    // 单序列图表（打包进度环、每日花费柱）用 chart-1，跟主题走；
+    // 甜甜圈多序列仍用 2-6 的固定色相，否则各块分不出来
+    root.setProperty('--chart-1', hslHex(h, sat, 0.55));
     const dot = document.getElementById('themeDot');
     if (dot) dot.style.background = rgbHex(rgb);
     if (dockKick) dockKick();

@@ -84,7 +84,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   position: fixed;
   left: 0; top: 0; bottom: 0;
   width: var(--sidebar-w);
-  background: var(--surface);
+  background: var(--bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -153,7 +153,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   justify-content: space-between;
   gap: 12px;
   padding: 18px 32px;
-  background: rgba(246, 244, 239, .86);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   z-index: 20;
