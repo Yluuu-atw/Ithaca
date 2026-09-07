@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 东京：富士山与东京塔同框。平涂色块 + 斜切阴影 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 富士山（远景中央偏右） -->
+  <path d="M780 560 L1180 176 L1580 560 Z" fill="#9aa8b0"/>
+  <!-- 雪顶 -->
+  <path d="M1180 176 L1300 292 L1262 300 L1222 272 L1180 306 L1138 276 L1100 300 L1060 292 Z" fill="#f4f0e8"/>
+  <path d="M1060 292 L1180 176 L1222 272 L1180 306 L1138 276 Z" fill="#e8e6e2"/>
+  <!-- 山体阴影 -->
+  <path d="M1180 176 L1580 560 L1360 560 L1180 300 Z" fill="#8d99a1" opacity=".5"/>
+
+  <!-- 远景楼群 -->
+  <g fill="#c2ccd2">
+    <rect x="40" y="480" width="80" height="150"/>
+    <rect x="140" y="510" width="64" height="120"/>
+    <rect x="230" y="490" width="72" height="140"/>
+    <rect x="1420" y="470" width="88" height="160"/>
+    <rect x="1520" y="510" width="66" height="120"/>
+  </g>
+
+  <!-- 东京塔 -->
+  <g>
+    <!-- 塔身（格构简化为收分梯形） -->
+    <path d="M420 630 L520 236 L548 236 L648 630 L600 630 L534 300 L534 630 Z" fill="#c4714b"/>
+    <path d="M470 630 L534 340 L534 630 Z" fill="#e0865c"/>
+    <!-- 主瞭望台 -->
+    <rect x="452" y="452" width="164" height="52" fill="#b0563c"/>
+    <rect x="464" y="466" width="140" height="24" fill="#e8dcc8"/>
+    <!-- 上瞭望台 -->
+    <rect x="500" y="300" width="68" height="34" fill="#b0563c"/>
+    <rect x="508" y="308" width="52" height="18" fill="#e8dcc8"/>
+    <!-- 天线 -->
+    <rect x="524" y="150" width="20" height="88" fill="#c4714b"/>
+    <path d="M520 150 L534 92 L548 150 Z" fill="#b0563c"/>
+    <rect x="524" y="196" width="20" height="8" fill="#e8dcc8"/>
+    <rect x="524" y="236" width="20" height="8" fill="#e8dcc8"/>
+    <!-- 基座 -->
+    <path d="M396 630 L672 630 L690 668 L378 668 Z" fill="#a8917c"/>
+  </g>
+
+  <!-- 樱花树（左前景） -->
+  <g>
+    <path d="M180 668 C176 592 168 520 150 456 L172 450 C192 514 200 590 204 668 Z" fill="#8d7a62"/>
+    <g fill="#e8c4cc">
+      <circle cx="150" cy="420" r="76"/>
+      <circle cx="96" cy="452" r="58"/>
+      <circle cx="212" cy="450" r="62"/>
+      <circle cx="140" cy="366" r="52"/>
+    </g>
+    <g fill="#d9a8b4">
+      <circle cx="188" cy="418" r="46"/>
+      <circle cx="120" cy="392" r="34"/>
+    </g>
+  </g>
+
+  <!-- 地面 -->
+  <rect x="0" y="668" width="1600" height="232" fill="#c3b7a2"/>
+  <path d="M0 668 C260 654 520 666 800 670 C1080 674 1340 660 1600 666 L1600 692 L0 692 Z" fill="#8b9a7e"/>
+  <g stroke="#ab9d86" stroke-width="4" stroke-linecap="round" opacity=".8">
+    <path d="M120 752 C320 746 500 758 700 750"/>
+    <path d="M900 796 C1100 790 1280 802 1480 794"/>
+    <path d="M300 852 C500 846 680 858 880 850"/>
+  </g>
+
+  <!-- 落樱 -->
+  <g fill="#e8c4cc" opacity=".9">
+    <circle cx="300" cy="330" r="6"/><circle cx="380" cy="452" r="5"/>
+    <circle cx="250" cy="540" r="6"/><circle cx="340" cy="620" r="5"/>
+    <circle cx="90" cy="300" r="5"/><circle cx="420" cy="380" r="4"/>
+  </g>
+</svg>

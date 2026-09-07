@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 北海道：富良野薰衣草田。平涂色块 + 大留白 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远山 -->
+  <path d="M0 470 L200 366 L380 434 L540 372 L700 470 Z" fill="#b9c2ac"/>
+  <path d="M900 470 L1080 386 L1250 440 L1420 372 L1600 470 Z" fill="#b9c2ac"/>
+
+  <!-- 白桦林（远景） -->
+  <g>
+    <rect x="120" y="330" width="12" height="150" fill="#e8e6e2"/>
+    <rect x="120" y="366" width="12" height="7" fill="#8d7a62"/>
+    <rect x="120" y="410" width="12" height="7" fill="#8d7a62"/>
+    <rect x="176" y="300" width="12" height="180" fill="#e8e6e2"/>
+    <rect x="176" y="340" width="12" height="7" fill="#8d7a62"/>
+    <rect x="176" y="396" width="12" height="7" fill="#8d7a62"/>
+    <rect x="232" y="348" width="12" height="132" fill="#e8e6e2"/>
+    <rect x="232" y="386" width="12" height="7" fill="#8d7a62"/>
+    <rect x="1400" y="316" width="12" height="164" fill="#e8e6e2"/>
+    <rect x="1400" y="352" width="12" height="7" fill="#8d7a62"/>
+    <rect x="1400" y="404" width="12" height="7" fill="#8d7a62"/>
+    <rect x="1456" y="340" width="12" height="140" fill="#e8e6e2"/>
+    <rect x="1456" y="380" width="12" height="7" fill="#8d7a62"/>
+  </g>
+  <g fill="#8b9a7e">
+    <circle cx="126" cy="318" r="40"/><circle cx="182" cy="288" r="48"/><circle cx="238" cy="336" r="36"/>
+    <circle cx="1406" cy="304" r="42"/><circle cx="1462" cy="328" r="38"/>
+  </g>
+
+  <!-- 小屋（远景） -->
+  <g>
+    <rect x="640" y="404" width="110" height="76" fill="#d8cbb4"/>
+    <rect x="732" y="404" width="18" height="76" fill="#bfae94"/>
+    <path d="M626 404 L760 404 L740 366 L646 366 Z" fill="#b0654c"/>
+    <rect x="668" y="428" width="30" height="34" fill="#aebcc2"/>
+    <rect x="710" y="428" width="20" height="34" fill="#8d99a1"/>
+  </g>
+
+  <!-- 薰衣草田：条带透视 -->
+  <g>
+    <rect x="0" y="480" width="1600" height="30" fill="#9aaa8c"/>
+    <rect x="0" y="510" width="1600" height="38" fill="#9d8bb8"/>
+    <rect x="0" y="548" width="1600" height="46" fill="#8b7aa8"/>
+    <rect x="0" y="594" width="1600" height="56" fill="#9d8bb8"/>
+    <rect x="0" y="650" width="1600" height="68" fill="#8b7aa8"/>
+    <rect x="0" y="718" width="1600" height="82" fill="#9d8bb8"/>
+    <rect x="0" y="800" width="1600" height="100" fill="#8b7aa8"/>
+  </g>
+  <!-- 田垄分隔与高光 -->
+  <g stroke="#7a6a96" stroke-width="3" opacity=".5">
+    <path d="M0 548 L1600 548"/>
+    <path d="M0 594 L1600 594"/>
+    <path d="M0 650 L1600 650"/>
+    <path d="M0 718 L1600 718"/>
+    <path d="M0 800 L1600 800"/>
+  </g>
+  <g stroke="#b3a3cc" stroke-width="3" opacity=".55" stroke-linecap="round">
+    <path d="M120 530 C280 526 420 534 580 528"/>
+    <path d="M820 574 C980 570 1120 578 1280 572"/>
+    <path d="M200 630 C380 626 540 634 720 628"/>
+    <path d="M900 700 C1080 696 1240 704 1420 698"/>
+    <path d="M140 776 C340 772 520 780 720 774"/>
+    <path d="M860 862 C1060 858 1240 866 1440 860"/>
+  </g>
+
+  <!-- 薰衣草花穗（前景几株） -->
+  <g>
+    <g stroke="#6f7d66" stroke-width="5" fill="none" stroke-linecap="round">
+      <path d="M240 900 C244 850 240 810 228 776"/>
+      <path d="M320 900 C326 840 322 796 308 760"/>
+      <path d="M400 900 C404 856 400 820 390 790"/>
+    </g>
+    <g fill="#8b7aa8">
+      <ellipse cx="228" cy="762" rx="16" ry="34"/>
+      <ellipse cx="308" cy="746" rx="17" ry="36"/>
+      <ellipse cx="390" cy="776" rx="15" ry="32"/>
+    </g>
+    <g fill="#9d8bb8">
+      <ellipse cx="232" cy="748" rx="11" ry="20"/>
+      <ellipse cx="312" cy="732" rx="12" ry="22"/>
+      <ellipse cx="394" cy="762" rx="10" ry="18"/>
+    </g>
+    <g fill="#6f7d66">
+      <path d="M240 856 C214 842 190 842 168 852 C194 856 218 860 240 866 Z"/>
+      <path d="M320 830 C294 816 270 816 248 826 C274 830 298 834 320 840 Z"/>
+    </g>
+  </g>
+
+  <!-- 几笔云 -->
+  <g fill="#f7f3ea">
+    <path d="M220 180 C220 158 238 142 262 142 C276 122 298 112 322 112 C358 112 386 134 392 166 C414 170 432 186 432 208 C432 230 414 246 390 246 L254 246 C234 246 220 232 220 212 Z"/>
+    <path d="M1180 148 C1180 130 1196 116 1216 116 C1228 100 1246 92 1266 92 C1296 92 1318 110 1324 136 C1342 140 1356 154 1356 172 C1356 190 1340 204 1320 204 L1208 204 C1192 204 1180 192 1180 176 Z"/>
+  </g>
+</svg>
