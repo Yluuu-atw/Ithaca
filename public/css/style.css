@@ -3,59 +3,73 @@
    清新优雅 · 跨端响应式（电脑 / 平板 / 手机）
    ============================================================ */
 
+@font-face {
+  font-family: 'ZCOOL KuaiLe';
+  src: url('../vendor/fonts/ZCOOLKuaiLe-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --bg: #f6f4ef;
-  --surface: #ffffff;
-  --surface-2: #faf9f5;
-  --border: #eae6dd;
-  --text: #3c403c;
-  --muted: #6b7268;
-  --primary: #6f9e8f;
-  --primary-600: #4f786c;
-  --primary-soft: #e6efe9;
-  --accent: #e6a877;
-  --accent-soft: #fbeedd;
-  --danger: #c43939;
-  --danger-soft: #fbeaea;
+  /* 日法融合调色板：纸色打底，赭陶/鼠尾草/雾蓝/灰玫瑰/芥黄做点缀 */
+  --bg: #f2ece0;
+  --surface: #fbf8f1;
+  --surface-2: #f0e9dc;
+  --border: #d8cdba;
+  /* 手绘描边：比 border 深一档，画出来的线才有笔触感 */
+  --line: #a8997f;
+  --text: #3a3733;
+  --muted: #7d7468;
+  --primary: #c4714b;
+  --primary-600: #a15734;
+  --primary-soft: #f4e2d6;
+  --accent: #d4a44c;
+  --accent-soft: #f6ecd4;
+  --danger: #b5544c;
+  --danger-soft: #f4dfdc;
   /* 图表调色板，与 store.js 的 trackColors 同源，保证地图/票据/图表一致 */
-  --chart-1: #6f9e8f;
-  --chart-2: #e6a877;
-  --chart-3: #7c9fd9;
-  --chart-4: #c98bb8;
-  --chart-5: #8fb6a0;
-  --chart-6: #d9a577;
+  --chart-1: #c4714b;
+  --chart-2: #8b9a7e;
+  --chart-3: #7d94a8;
+  --chart-4: #c08e8e;
+  --chart-5: #d4a44c;
+  --chart-6: #a89478;
   /* 票据类型色，取自 chart 调色板同一批色相，soft 用于图标底 */
-  --cat-flight: #7c9fd9;
-  --cat-flight-soft: #e9f0fa;
-  --cat-train: #6f9e8f;
-  --cat-train-soft: #e7f0ec;
-  --cat-bus: #d9a577;
-  --cat-bus-soft: #f9f0e7;
-  --cat-hotel: #c98bb8;
-  --cat-hotel-soft: #f9ebf3;
-  --cat-other: #8fb6a0;
-  --cat-other-soft: #ecf3ef;
+  --cat-flight: #7d94a8;
+  --cat-flight-soft: #e8eef3;
+  --cat-train: #8b9a7e;
+  --cat-train-soft: #eaeee4;
+  --cat-bus: #d4a44c;
+  --cat-bus-soft: #f7eed9;
+  --cat-hotel: #c08e8e;
+  --cat-hotel-soft: #f5e6e6;
+  --cat-other: #a89478;
+  --cat-other-soft: #f0eae0;
   /* 攻略/行程分类色，与票据类型色共用同一批色相 */
-  --cat-stay: #c98bb8;
-  --cat-stay-soft: #f9ebf3;
-  --cat-food: #e6a877;
-  --cat-food-soft: #fbeedd;
-  --cat-scenic: #6f9e8f;
-  --cat-scenic-soft: #e7f0ec;
-  --cat-traffic: #7c9fd9;
-  --cat-traffic-soft: #e9f0fa;
-  --cat-shop: #d9a577;
-  --cat-shop-soft: #f9f0e7;
-  --cat-fun: #8fb6a0;
-  --cat-fun-soft: #ecf3ef;
-  --shadow: 0 1px 2px rgba(60, 60, 50, .05), 0 6px 16px rgba(60, 60, 50, .07), 0 18px 44px rgba(60, 60, 50, .07);
-  --shadow-sm: 0 1px 2px rgba(60, 60, 50, .06), 0 3px 10px rgba(60, 60, 50, .06), 0 10px 24px rgba(60, 60, 50, .05);
-  --shadow-lift: 0 2px 4px rgba(60, 60, 50, .06), 0 12px 28px rgba(60, 60, 50, .1), 0 28px 64px rgba(60, 60, 50, .09);
-  --radius: 20px;
-  --radius-sm: 12px;
+  --cat-stay: #c08e8e;
+  --cat-stay-soft: #f5e6e6;
+  --cat-food: #c4714b;
+  --cat-food-soft: #f4e2d6;
+  --cat-scenic: #8b9a7e;
+  --cat-scenic-soft: #eaeee4;
+  --cat-traffic: #7d94a8;
+  --cat-traffic-soft: #e8eef3;
+  --cat-shop: #d4a44c;
+  --cat-shop-soft: #f7eed9;
+  --cat-fun: #a89478;
+  --cat-fun-soft: #f0eae0;
+  /* 手绘感：硬边偏移阴影，像贴纸压在纸上，不用柔和高斯模糊 */
+  --shadow: 4px 5px 0 rgba(58, 55, 51, .14);
+  --shadow-sm: 3px 3px 0 rgba(58, 55, 51, .12);
+  --shadow-lift: 6px 7px 0 rgba(58, 55, 51, .18);
+  --radius: 14px;
+  --radius-sm: 9px;
+  /* 不对称圆角：四角半径各不相同，模拟徒手画的方框 */
+  --radius-doodle: 255px 15px 225px 15px / 15px 225px 15px 255px;
   --sidebar-w: 272px;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  --font: 'ZCOOL KuaiLe', 'LXGW WenKai', 'Kaiti SC', 'KaiTi', '楷体', 'STKaiti',
+    -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -63,11 +77,13 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  /* 纸张颗粒：SVG 噪点叠在底色上，手账才有纸的质感 */
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
   color: var(--text);
   font-family: var(--font);
   font-size: 19px;
-  line-height: 1.55;
+  line-height: 1.62;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -175,20 +191,43 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 
 /* ---------------- 卡片 ---------------- */
 .card {
+  position: relative;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  /* 顶边一道内高光，卡片才有厚度感，不至于像贴纸 */
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, .75);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-doodle);
+  box-shadow: var(--shadow-sm);
   padding: 15px 17px;
-  transition: box-shadow .2s ease, transform .2s ease;
+  transition: box-shadow .16s ease, transform .16s ease;
 }
+/* 和纸胶带：斜贴在卡片顶端，手账里把票根按住的那一条 */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 68px;
+  height: 16px;
+  transform: translateX(-50%) rotate(-1.6deg);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  pointer-events: none;
+}
+/* 抬起时往左上挪，硬阴影跟着变长，像把贴纸从纸上揭起一点 */
 .card:hover {
-  box-shadow: var(--shadow-lift), inset 0 1px 0 rgba(255, 255, 255, .75);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+  transform: translate(-2px, -2px);
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.card-head h2 { margin: 0; font-size: 17.5px; font-weight: 700; }
+/* 手绘波浪下划线，替代规整的实线 */
+.card-head h2 {
+  margin: 0;
+  font-size: 17.5px;
+  text-decoration: underline wavy var(--primary-soft);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 5px;
+  text-decoration-skip-ink: none;
+}
 .spend-note { font-size: 15.5px; color: var(--muted); }
 
 .page-stack { display: flex; flex-direction: column; gap: 14px; }
@@ -367,17 +406,22 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 16px;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  font-size: 17.5px;
-  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--radius-doodle);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 17px;
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .05s ease;
+  box-shadow: 2px 2px 0 rgba(58, 55, 51, .16);
+  transition: transform .1s ease, box-shadow .1s ease, background .15s ease;
   white-space: nowrap;
 }
-.btn:active { transform: scale(.97); }
-.btn-primary { background: var(--primary); color: #fff; }
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 rgba(58, 55, 51, .2); }
+/* 压进阴影里，位移量等于阴影偏移，才有实体按键的手感 */
+.btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 rgba(58, 55, 51, 0); }
+.btn-primary { background: var(--primary); border-color: var(--primary-600); color: #fff; }
 .btn-primary:hover { background: var(--primary-600); }
 .btn-ghost { background: var(--surface); border-color: var(--border); color: var(--text); }
 .btn-ghost:hover { border-color: var(--primary); color: var(--primary-600); }

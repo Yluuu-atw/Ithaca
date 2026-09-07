@@ -30,13 +30,13 @@ window.Store = (() => {
     bookingStatus: ['待订', '已订', '已完成', '已取消'],
     guideTags: ['美食', '景点', '住宿', '交通', '购物', '避坑', '行程', '其他'],
     avatarChoices: ['😎', '🥰', '🐻', '🐱', '🐶', '🦊', '🐰', '🐼', '🦁', '🐸', '🦄', '🌸', '🍀', '⭐', '🍉', '🎈'],
-    // 前两个即默认的橙/绿
-    colorChoices: ['#e6a877', '#6f9e8f', '#7c9fd9', '#c98bb8', '#d9a577', '#8fb6a0', '#d97c7c', '#a8a8d9'],
+    // 前两个是新成员的默认标识色，取自日法融合调色板
+    colorChoices: ['#c4714b', '#8b9a7e', '#7d94a8', '#c08e8e', '#d4a44c', '#a89478', '#b07d5a', '#8a7fa0'],
     currencySymbol: {
       CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
       KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
     },
-    trackColors: ['#e6a877', '#6f9e8f', '#7c9fd9', '#c98bb8', '#8fb6a0', '#d9a577'],
+    trackColors: ['#c4714b', '#8b9a7e', '#7d94a8', '#c08e8e', '#d4a44c', '#a89478'],
   };
 
   let state = null;          // 整份文档 { meta, trips }

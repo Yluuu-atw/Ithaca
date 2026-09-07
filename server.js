@@ -135,6 +135,9 @@ const MIME = {
   '.webp': 'image/webp',
   '.heic': 'image/heic',
   '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+  '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.txt': 'text/plain; charset=utf-8',
 };

@@ -1433,9 +1433,9 @@ window.Render = (() => {
 
   // ---------------- 背景色选择 ----------------
   // 页面底色必须是浅调：卡片色由底色派生在近白区间，底色过饱和会和卡片打架
-  const BG_PRESETS = ['#f6f4ef', '#e8eef5', '#f5e9ef', '#e9f2ec', '#f8eee1', '#eeeaf6', '#eef1e6', '#f7eaea'];
+  const BG_PRESETS = ['#f2ece0', '#e9e4d6', '#efe2d8', '#e4e9de', '#dfe6ea', '#f0e2e2', '#f3ead6', '#e8e2ea'];
   function themePicker(current) {
-    const cur = (current || '#f6f4ef').toLowerCase();
+    const cur = (current || '#f2ece0').toLowerCase();
     const sw = BG_PRESETS.map(c => `
       <button type="button" class="theme-swatch ${c === cur ? 'is-on' : ''}"
         data-action="theme-pick" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('');

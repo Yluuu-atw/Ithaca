@@ -11,7 +11,7 @@ window.App = (() => {
   let dockKick = null;
 
   // 页面配色：只存一个底色，其余全部由它派生，选什么底色全站都协调
-  const DEFAULT_BG = '#f6f4ef';
+  const DEFAULT_BG = '#f2ece0';
   function hexRgb(hex) {
     const h = String(hex || '').replace('#', '');
     const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
@@ -520,7 +520,7 @@ window.App = (() => {
       }
 
       case 'theme-open': {
-        const bg = (Store.getState().meta && Store.getState().meta.theme) || '#f6f4ef';
+        const bg = (Store.getState().meta && Store.getState().meta.theme) || '#f2ece0';
         openModal('页面背景', Render.themePicker(bg));
         break;
       }
@@ -973,7 +973,7 @@ window.App = (() => {
     });
 
     for (const { day, item } of points) {
-      const color = colorByDate[day.date] || '#6f9e8f';
+      const color = colorByDate[day.date] || '#c4714b';
       const icon = L.divIcon({
         className: 'journey-marker',
         html: `<span class="jm-dot" style="background:${color}"></span>`,
@@ -1027,7 +1027,7 @@ window.App = (() => {
     if (!el) return;
     const dates = data.itinerary.map(d => d.date).filter(d => d);
     el.innerHTML = dates.map(d => {
-      const c = colorByDate[d] || '#6f9e8f';
+      const c = colorByDate[d] || '#c4714b';
       return `<span class="legend-item"><span class="legend-dot" style="background:${c}"></span>${Render.fmtDate(d)}</span>`;
     }).join('');
   }
@@ -1222,7 +1222,7 @@ window.App = (() => {
           ctx.font = `600 ${(LABEL * (1 + f * 0.35)).toFixed(1)}px ${cssVar('--font') || 'sans-serif'}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          ctx.fillStyle = i === act ? (cssVar('--primary-600') || '#4f786c') : (cssVar('--muted') || '#6b7268');
+          ctx.fillStyle = i === act ? (cssVar('--primary-600') || '#a15734') : (cssVar('--muted') || '#7d7468');
           ctx.globalAlpha = i === act ? 1 : 0.55 + 0.45 * f;
           ctx.fillText(t.label, c, labelY);
           ctx.globalAlpha = 1;
