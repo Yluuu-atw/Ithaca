@@ -12,8 +12,9 @@
   <link rel="stylesheet" href="vendor/fonts/chiron-goround-tc/chiron-goround-tc.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="is-welcome">
   <div class="doodle-bg" id="doodleBg" aria-hidden="true"><img alt=""></div>
+  <section class="welcome" id="welcome" aria-label="开启页"></section>
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
@@ -23,6 +24,7 @@
       <div class="board-wrap" id="board"></div>
       <nav class="nav" id="nav"></nav>
       <div class="sidebar-footer">
+        <button type="button" class="btn btn-ghost btn-sm" data-action="welcome-home" style="width:100%;margin-bottom:8px">🏠 回到首页</button>
         <span class="status"><span class="dot" id="statusDot"></span><span id="statusText">连接中…</span></span>
       </div>
     </aside>
@@ -37,6 +39,7 @@
           <h1 class="page-title" id="pageTitle"></h1>
         </div>
         <div class="topbar-actions">
+          <button class="btn btn-ghost only-mobile" data-action="welcome-home" title="回到首页">🏠</button>
           <button class="btn btn-ghost" data-action="switch-identity"><img class="emo" src="vendor/fluent-emoji/1f464.png" alt="👤"> 身份</button>
           <button class="btn btn-ghost" data-action="theme-open" title="更换页面背景色"><span class="theme-dot" id="themeDot"></span> 背景</button>
           <button class="btn btn-ghost" data-action="export">导出</button>
@@ -67,6 +70,7 @@
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="js/store.js"></script>
+  <script src="js/quotes.js"></script>
   <script src="js/render.js"></script>
   <script src="js/app.js"></script>
 </body>

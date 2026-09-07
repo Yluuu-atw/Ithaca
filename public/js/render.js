@@ -1484,6 +1484,42 @@ window.Render = (() => {
     return hit ? hit.file : 'scenes/sky.svg';
   }
 
+  // ---------------- 开启页 ----------------
+  // 语料按「一年中的第几天」取模，同一天内稳定、隔天换一条
+  const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
+  function quoteOfToday() {
+    const q = window.JOURNEY_QUOTES || [];
+    if (!q.length) return null;
+    const now = new Date();
+    const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+    return q[doy % q.length];
+  }
+
+  function renderWelcome() {
+    const now = new Date();
+    const dateText = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+    const quote = quoteOfToday();
+    return `
+      <div class="welcome-art"><img src="vendor/scenes/welcome.svg" alt="世界各地的地标建筑"></div>
+      <div class="welcome-meta">
+        <div class="welcome-when">
+          <b>${esc(dateText)}</b>
+          <span>星期${WEEKDAY[now.getDay()]}</span>
+          <span class="welcome-weather" id="welcomeWeather">正在获取天气…</span>
+        </div>
+        ${quote ? `<blockquote class="welcome-quote">${esc(quote[1])}
+          <span class="q-place">📍 ${esc(quote[0])}</span>
+        </blockquote>` : ''}
+      </div>
+      <div class="welcome-actions">
+        <button type="button" class="welcome-main" data-action="welcome-enter">🧭 我的旅行</button>
+        <div class="welcome-sub">
+          <button type="button" class="btn btn-ghost" data-action="welcome-calendar">📅 旅行日历</button>
+          <button type="button" class="btn btn-ghost" data-action="welcome-memo">📝 备忘录</button>
+        </div>
+      </div>`;
+  }
+
   // ---------------- 背景色选择 ----------------
   // 页面底色必须是浅调：卡片色由底色派生在近白区间，底色过饱和会和卡片打架
   const BG_PRESETS = ['#f2ece0', '#e9e4d6', '#efe2d8', '#e4e9de', '#dfe6ea', '#f0e2e2', '#f3ead6', '#e8e2ea'];
@@ -1564,5 +1600,6 @@ window.Render = (() => {
     emojiSrc,
     themePicker,
     doodleFor,
+    renderWelcome,
   };
 })();

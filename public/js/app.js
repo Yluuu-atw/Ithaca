@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false };
+  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false };
   let dockKick = null;
 
   // 页面配色：只存一个底色，其余全部由它派生，选什么底色全站都协调
@@ -86,8 +86,50 @@ window.App = (() => {
     toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
   }
 
+  // ---------------- 开启页视图切换 ----------------
+  function setView(view) {
+    current.view = view;
+    document.body.classList.toggle('is-welcome', view === 'welcome');
+    if (view === 'welcome') {
+      $('#welcome').innerHTML = Render.renderWelcome();
+      fetchWeather();
+      return;
+    }
+    render();
+    maybeAskIdentity();
+  }
+
+  // wttr.in 按 IP 推断城市，无需 key。失败就静默降级，不阻塞页面。
+  const WEATHER_ICON = [
+    [/^(113)$/, '☀️'], [/^(116)$/, '⛅'], [/^(119|122)$/, '☁️'],
+    [/^(143|248|260)$/, '🌫️'],
+    [/^(176|263|266|293|296|299|302|305|308|311|314|353|356|359)$/, '🌧️'],
+    [/^(179|182|185|227|230|317|320|323|326|329|332|335|338|350|362|365|368|371|374|377)$/, '🌨️'],
+    [/^(386|389|392|395)$/, '⛈️'],
+  ];
+  async function fetchWeather() {
+    const el = () => document.getElementById('welcomeWeather');
+    try {
+      const res = await fetch('https://wttr.in/?format=j1', { signal: AbortSignal.timeout(9000) });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      const cur = (j.current_condition || [])[0];
+      if (!cur) throw new Error('no data');
+      const code = String(cur.weatherCode || '');
+      const icon = (WEATHER_ICON.find(([re]) => re.test(code)) || [null, '🌤️'])[1];
+      const area = ((j.nearest_area || [])[0].areaName || [])[0];
+      const city = area && area.value ? area.value : '';
+      const node = el();
+      if (node) node.innerHTML = `${icon} ${Render.esc(cur.temp_C)}°C${cur.weatherDesc && cur.weatherDesc[0] ? ' ' + Render.esc(cur.weatherDesc[0].value) : ''}${city ? ' · ' + Render.esc(city) : ''}`;
+    } catch (_) {
+      const node = el();
+      if (node) node.textContent = '天气暂不可用';
+    }
+  }
+
   // ---------------- 渲染 ----------------
   function render() {
+    if (current.view === 'welcome') return;   // 开启页有自己的渲染路径
     const data = Store.getState();
     if (!data) return;
     applyTheme(data.meta && data.meta.theme);
@@ -180,6 +222,14 @@ window.App = (() => {
     const action = el.dataset.action;
 
     switch (action) {
+      case 'welcome-enter':
+        setView('app');
+        break;
+
+      case 'welcome-home':
+        setView('welcome');
+        break;
+
       case 'nav':
         current.tab = el.dataset.tab;
         render();
@@ -1307,7 +1357,7 @@ window.App = (() => {
       else if (st === 'reconnecting') setStatus(false, '重连中…');
     });
 
-    render();
+    setView('welcome');
     Store.load()
       .then(() => {
         setStatus(true, '已连接');
@@ -1318,8 +1368,10 @@ window.App = (() => {
     Store.connect();
   }
 
-  // 首次访问（未选择身份）时，弹出「你是谁」选择器
+  // 首次访问（未选择身份）时，弹出「你是谁」选择器。
+  // 开启页视图下不弹，等用户点进旅行页再问，否则弹窗会盖住开启页。
   function maybeAskIdentity() {
+    if (current.view === 'welcome') return;
     if (Store.getIdentity() != null) return;
     const ms = members();
     if (!ms || ms.length < 2) return;

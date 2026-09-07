@@ -1240,3 +1240,113 @@ textarea { resize: vertical; min-height: 60px; }
   .modal-backdrop { align-items: center; padding: 24px; }
   .modal-card { border-radius: 20px; }
 }
+
+/* ============================================================
+   开启页：打开网址第一眼看到的整屏
+   ============================================================ */
+body.is-welcome .app { display: none; }
+body.is-welcome .tabbar { display: none; }
+body.is-welcome .doodle-bg { display: none; }
+body:not(.is-welcome) .welcome { display: none; }
+
+.welcome {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 28px 20px calc(28px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.welcome-art {
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-doodle);
+  overflow: hidden;
+  border: 2px solid var(--line);
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+.welcome-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.welcome-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 640px;
+}
+.welcome-when {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 17px;
+  color: var(--muted);
+}
+.welcome-when b { color: var(--text); font-size: 19px; font-weight: 700; }
+.welcome-weather { display: inline-flex; align-items: center; gap: 6px; }
+.welcome-weather .emo { width: 22px; height: 22px; }
+
+.welcome-quote {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.welcome-quote .q-place {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  color: var(--primary-600);
+  font-weight: 600;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+}
+.welcome-main {
+  width: 100%;
+  padding: 18px 24px;
+  font-size: 22px;
+  font-weight: 700;
+  border-radius: var(--radius-doodle);
+  border: 2px solid var(--line);
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: box-shadow .16s ease, transform .16s ease;
+}
+.welcome-main:hover { box-shadow: var(--shadow-lift); transform: translate(-1px, -2px); }
+
+.welcome-sub { display: flex; gap: 12px; width: 100%; }
+.welcome-sub .btn {
+  flex: 1;
+  padding: 14px 12px;
+  font-size: 17px;
+  border-radius: var(--radius-doodle);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 仅手机端出现的控件：桌面有侧栏，手机侧栏隐藏需要顶栏补位 */
+.only-mobile { display: none; }
+@media (max-width: 767px) { .only-mobile { display: inline-flex; } }
+
+@media (max-width: 520px) {
+  .welcome { gap: 18px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .welcome-art { aspect-ratio: 4 / 3; }
+  .welcome-quote { font-size: 17.5px; }
+  .welcome-main { font-size: 20px; padding: 16px 18px; }
+  .welcome-sub .btn { font-size: 16px; padding: 12px 10px; }
+}

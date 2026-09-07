@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 开启页主视觉：世界地标组合。平涂色块 + 斜切阴影 + 大留白 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 云（远景，三笔） -->
+  <g fill="#f7f3ea">
+    <path d="M120 150 C120 128 138 112 162 112 C176 92 198 82 222 82 C258 82 286 104 292 136 C314 140 332 156 332 178 C332 200 314 216 290 216 L154 216 C134 216 120 202 120 182 Z"/>
+    <path d="M1240 128 C1240 110 1256 96 1276 96 C1288 80 1306 72 1326 72 C1356 72 1378 90 1384 116 C1402 120 1416 134 1416 152 C1416 170 1400 184 1380 184 L1268 184 C1252 184 1240 172 1240 156 Z"/>
+  </g>
+
+  <!-- 富士山（中央远景） -->
+  <path d="M640 560 L900 236 L1160 560 Z" fill="#9aa8b0"/>
+  <path d="M900 236 L1010 344 L976 350 L940 324 L900 358 L860 328 L824 350 L790 344 Z" fill="#f7f4ee"/>
+  <path d="M790 344 L900 236 L940 324 L900 358 L860 328 Z" fill="#eceae4"/>
+  <path d="M900 236 L1160 560 L1010 560 L900 352 Z" fill="#8d99a1" opacity=".5"/>
+
+  <!-- 金字塔（右远景） -->
+  <path d="M1280 560 L1420 400 L1560 560 Z" fill="#d6c3a4"/>
+  <path d="M1420 400 L1560 560 L1420 560 Z" fill="#c0ac8c"/>
+  <path d="M1180 560 L1270 458 L1360 560 Z" fill="#e0cfb4"/>
+  <path d="M1270 458 L1360 560 L1270 560 Z" fill="#cbb898"/>
+
+  <!-- 长城（左侧山脊） -->
+  <path d="M0 560 L120 440 L260 500 L400 430 L540 560 Z" fill="#b9c2ac"/>
+  <g fill="#8d8271">
+    <rect x="60" y="470" width="46" height="60"/>
+    <rect x="52" y="458" width="62" height="16"/>
+    <rect x="200" y="486" width="46" height="60"/>
+    <rect x="192" y="474" width="62" height="16"/>
+    <rect x="348" y="452" width="46" height="60"/>
+    <rect x="340" y="440" width="62" height="16"/>
+  </g>
+  <path d="M106 500 L200 516 L246 516 L152 500 Z" fill="#a8917c"/>
+  <path d="M246 516 L348 482 L394 482 L292 516 Z" fill="#a8917c"/>
+  <path d="M14 496 L60 486 L60 500 L14 510 Z" fill="#a8917c"/>
+
+  <!-- 埃菲尔铁塔（中左） -->
+  <g>
+    <path d="M340 620 L400 260 L416 260 L448 400 L480 260 L496 260 L556 620 L512 620 L464 450 L464 620 Z" fill="#9d8266"/>
+    <path d="M416 260 L448 190 L480 260 Z" fill="#9d8266"/>
+    <rect x="444" y="146" width="8" height="46" fill="#8d7a62"/>
+    <rect x="330" y="560" width="236" height="18" fill="#8d7a62"/>
+    <rect x="340" y="578" width="216" height="8" fill="#7a6852"/>
+    <rect x="396" y="416" width="100" height="14" fill="#8d7a62"/>
+    <rect x="404" y="430" width="84" height="6" fill="#7a6852"/>
+    <rect x="424" y="316" width="44" height="11" fill="#8d7a62"/>
+    <path d="M378 620 C378 566 412 544 448 544 C484 544 518 566 518 620 L492 620 C492 582 470 568 448 568 C426 568 404 582 404 620 Z" fill="#ece2d2"/>
+  </g>
+
+  <!-- 大本钟（中右） -->
+  <g>
+    <rect x="640" y="330" width="118" height="290" fill="#c9b39e"/>
+    <rect x="734" y="330" width="24" height="290" fill="#ac9781"/>
+    <path d="M634 330 L764 330 L750 292 L648 292 Z" fill="#8b9a7e"/>
+    <path d="M648 292 L750 292 L699 224 Z" fill="#6f7d66"/>
+    <rect x="693" y="196" width="12" height="30" fill="#8d7a62"/>
+    <circle cx="699" cy="190" r="8" fill="#d4a24c"/>
+    <circle cx="699" cy="404" r="52" fill="#f4f0e8"/>
+    <circle cx="699" cy="404" r="52" fill="none" stroke="#8d7a62" stroke-width="6"/>
+    <path d="M699 404 L699 372 M699 404 L724 416" stroke="#3a3733" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <circle cx="699" cy="404" r="6" fill="#3a3733"/>
+    <g fill="#aebcc2">
+      <rect x="658" y="484" width="24" height="36"/><rect x="694" y="484" width="24" height="36"/><rect x="730" y="484" width="14" height="36"/>
+    </g>
+    <rect x="640" y="460" width="118" height="8" fill="#b5a48c"/>
+    <rect x="640" y="560" width="118" height="8" fill="#b5a48c"/>
+  </g>
+
+  <!-- 议会大厦（大本钟旁） -->
+  <g>
+    <rect x="758" y="440" width="200" height="180" fill="#d8cbb4"/>
+    <rect x="934" y="440" width="24" height="180" fill="#bfae94"/>
+    <path d="M758 440 L958 440 L952 420 L764 420 Z" fill="#8b9a7e"/>
+    <g fill="#aebcc2">
+      <rect x="780" y="462" width="20" height="30"/><rect x="812" y="462" width="20" height="30"/>
+      <rect x="844" y="462" width="20" height="30"/><rect x="876" y="462" width="20" height="30"/>
+      <rect x="800" y="524" width="20" height="30"/><rect x="832" y="524" width="20" height="30"/>
+      <rect x="864" y="524" width="20" height="30"/><rect x="896" y="524" width="20" height="30"/>
+    </g>
+    <g fill="#8b9a7e">
+      <path d="M790 420 L800 386 L810 420 Z"/><path d="M850 420 L860 378 L870 420 Z"/>
+      <path d="M910 420 L920 390 L930 420 Z"/>
+    </g>
+  </g>
+
+  <!-- 自由女神（右） -->
+  <g>
+    <path d="M1080 620 L1200 620 L1230 660 L1050 660 Z" fill="#c3b7a2"/>
+    <path d="M1104 620 L1104 512 L1176 512 L1176 620 Z" fill="#b5a995"/>
+    <rect x="1098" y="502" width="84" height="12" fill="#a8917c"/>
+    <path d="M1120 502 L1128 380 L1152 380 L1160 502 Z" fill="#7fc0a8"/>
+    <path d="M1152 380 L1160 380 L1160 502 L1152 502 Z" fill="#63a892"/>
+    <g stroke="#63a892" stroke-width="3" opacity=".6">
+      <path d="M1130 490 L1134 392"/><path d="M1140 494 L1140 390"/><path d="M1150 490 L1148 392"/>
+    </g>
+    <circle cx="1140" cy="362" r="22" fill="#7fc0a8"/>
+    <g fill="#7fc0a8">
+      <path d="M1116 348 L1110 332 L1120 340 Z"/><path d="M1126 342 L1124 324 L1134 336 Z"/>
+      <path d="M1140 340 L1140 320 L1148 334 Z"/><path d="M1154 342 L1158 324 L1158 336 Z"/>
+      <path d="M1164 348 L1170 332 L1160 340 Z"/>
+    </g>
+    <path d="M1152 380 L1172 316 L1188 320 L1168 384 Z" fill="#7fc0a8"/>
+    <rect x="1162" y="300" width="32" height="18" rx="6" fill="#d4a24c"/>
+    <path d="M1168 300 C1172 286 1180 286 1184 300 Z" fill="#c4714b"/>
+    <circle cx="1178" cy="282" r="7" fill="#d4a24c"/>
+    <path d="M1128 380 L1100 432 L1114 440 L1138 388 Z" fill="#7fc0a8"/>
+    <rect x="1082" y="422" width="36" height="46" rx="3" fill="#e8dcc8" transform="rotate(-10 1100 445)"/>
+  </g>
+
+  <!-- 悉尼歌剧院（左下前景） -->
+  <g>
+    <path d="M120 620 L400 620 L424 652 L96 652 Z" fill="#c3b7a2"/>
+    <path d="M150 620 C150 540 178 490 224 474 C204 510 190 556 190 620 Z" fill="#f4f0e8"/>
+    <path d="M190 620 C190 552 216 508 258 494 C238 528 226 568 226 620 Z" fill="#e8e4da"/>
+    <path d="M226 620 C226 566 250 528 288 516 C270 544 260 578 260 620 Z" fill="#f4f0e8"/>
+    <path d="M260 620 C260 578 282 548 314 540 C300 560 292 586 292 620 Z" fill="#e8e4da"/>
+  </g>
+
+  <!-- 前景地面 -->
+  <path d="M0 620 C240 604 460 620 700 624 C940 628 1160 612 1400 620 C1500 623 1560 626 1600 624 L1600 900 L0 900 Z" fill="#8b9a7e"/>
+  <path d="M0 700 C260 686 500 700 760 704 C1020 708 1240 694 1480 700 C1540 702 1580 704 1600 702 L1600 900 L0 900 Z" fill="#7a8a70"/>
+  <g stroke="#a3b096" stroke-width="3.5" opacity=".6" stroke-linecap="round">
+    <path d="M100 676 C300 668 480 680 680 674"/>
+    <path d="M900 760 C1100 752 1280 764 1480 758"/>
+    <path d="M240 838 C440 830 620 842 820 836"/>
+  </g>
+  <!-- 前景几点小花 -->
+  <g fill="#c4714b">
+    <circle cx="380" cy="792" r="8"/><circle cx="452" cy="828" r="7"/>
+    <circle cx="1120" cy="806" r="8"/><circle cx="1196" cy="842" r="7"/>
+  </g>
+  <g stroke="#6f7d66" stroke-width="4" fill="none">
+    <path d="M380 792 L380 822"/><path d="M452 828 L452 858"/>
+    <path d="M1120 806 L1120 836"/><path d="M1196 842 L1196 872"/>
+  </g>
+</svg>
