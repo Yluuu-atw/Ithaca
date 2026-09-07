@@ -584,16 +584,6 @@ window.Render = (() => {
           ${editMeta ? `
           <form class="grid-form" data-form="meta">
             <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
-            <label>主题色
-              <div class="theme-pick">
-                <div class="theme-swatches">
-                  ${['#6f9e8f', ...Store.CONST.colorChoices].map(c => `
-                    <button type="button" class="theme-swatch ${((m.theme || '#6f9e8f').toLowerCase() === c.toLowerCase()) ? 'is-on' : ''}"
-                      data-action="theme-pick" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('')}
-                </div>
-                <input type="color" name="theme" class="theme-custom" value="${esc(m.theme || '#6f9e8f')}" aria-label="自定义颜色">
-              </div>
-            </label>
             <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
           </form>` : metaSummary(s)}
         </section>
@@ -1441,6 +1431,24 @@ window.Render = (() => {
     </div>`;
   }
 
+  // ---------------- 背景色选择 ----------------
+  // 页面底色必须是浅调，卡片是纯白，底色过饱和会和卡片打架
+  const BG_PRESETS = ['#f6f4ef', '#eef2f5', '#f5eff3', '#eef4f0', '#f8f1e8', '#f1f0f6', '#f0f2ed', '#f7eff0'];
+  function themePicker(current) {
+    const cur = (current || '#f6f4ef').toLowerCase();
+    const sw = BG_PRESETS.map(c => `
+      <button type="button" class="theme-swatch ${c === cur ? 'is-on' : ''}"
+        data-action="theme-pick" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('');
+    return `<form data-form="theme">
+      <input type="hidden" name="bg" value="${esc(cur)}">
+      <div class="theme-pick">
+        <div class="theme-swatches">${sw}</div>
+        <input type="color" name="custom" class="theme-custom" value="${esc(cur)}" aria-label="自定义颜色">
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
+    </form>`;
+  }
+
   // ---------------- 身份选择器 ----------------
   function identityPicker(trip) {
     const meta = (trip && trip.meta) || {};
@@ -1501,5 +1509,6 @@ window.Render = (() => {
     formMember,
     renderTripBoard,
     emojiSrc,
+    themePicker,
   };
 })();

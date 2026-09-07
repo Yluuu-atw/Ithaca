@@ -10,8 +10,8 @@ window.App = (() => {
   const current = { tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false };
   let dockKick = null;
 
-  // 主题色：一趟旅行一个基色，派生出 primary 三件套，改一处全站跟着变
-  const DEFAULT_THEME = '#6f9e8f';
+  // 页面背景色：一趟旅行一个底色。surface-2 是卡片内的浅填充，跟着底色走才协调
+  const DEFAULT_BG = '#f6f4ef';
   function hexRgb(hex) {
     const h = String(hex || '').replace('#', '');
     const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
@@ -20,13 +20,13 @@ window.App = (() => {
   }
   const rgbHex = (r) => '#' + r.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
   function applyTheme(base) {
-    const rgb = hexRgb(base) || hexRgb(DEFAULT_THEME);
-    const toward = (target, t) => rgb.map((v, i) => v + (target - v) * t);
+    const rgb = hexRgb(base) || hexRgb(DEFAULT_BG);
+    const toward = (target, t) => rgb.map(v => v + (target - v) * t);
     const root = document.documentElement.style;
-    // 600 是更深的文字/描边色，soft 是大面积浅底，两者都从基色推导，避免手选三色不协调
-    root.setProperty('--primary', rgbHex(rgb));
-    root.setProperty('--primary-600', rgbHex(toward(0, 0.22)));
-    root.setProperty('--primary-soft', rgbHex(toward(255, 0.86)));
+    root.setProperty('--bg', rgbHex(rgb));
+    root.setProperty('--surface-2', rgbHex(toward(255, 0.55)));
+    const dot = document.getElementById('themeDot');
+    if (dot) dot.style.background = rgbHex(rgb);
     // Dock 画布的颜色是绘制时才读 CSS 变量的，主题变了要补一帧
     if (dockKick) dockKick();
   }
@@ -478,12 +478,18 @@ window.App = (() => {
 
       case 'theme-pick': {
         const form = el.closest('form');
-        const input = form && form.querySelector('[name=theme]');
+        const input = form && form.querySelector('[name=bg]');
         if (input) input.value = el.dataset.color;
         el.closest('.theme-swatches').querySelectorAll('.theme-swatch').forEach(c => c.classList.remove('is-on'));
         el.classList.add('is-on');
         // 先看效果再保存，改错了不落库
         applyTheme(el.dataset.color);
+        break;
+      }
+
+      case 'theme-open': {
+        const bg = (Store.getState().meta && Store.getState().meta.theme) || '#f6f4ef';
+        openModal('页面背景', Render.themePicker(bg));
         break;
       }
 
@@ -525,11 +531,16 @@ window.App = (() => {
       // 目的地与起止日期改由行程推算，币种在花费区单独改，成员走身份弹窗
       doMutate(d => {
         d.meta.tripName = (fd.get('tripName') || '').trim() || '我们的旅行';
-        const theme = (fd.get('theme') || '').trim();
-        if (theme) d.meta.theme = theme;
       }, '行程信息已保存');
       current.editMeta = false;
       render();
+      return;
+    }
+
+    if (kind === 'theme') {
+      const bg = (fd.get('bg') || '').trim();
+      if (bg) doMutate(d => { d.meta.theme = bg; }, '背景色已更新');
+      closeModal();
       return;
     }
 
@@ -1078,12 +1089,15 @@ window.App = (() => {
         render();
       }, 250);
     });
-    // 主题色自定义取色器：拖动时实时预览，松手前不落库
+    // 背景色自定义取色器：拖动时实时预览，松手前不落库
     document.addEventListener('input', (e) => {
       if (!e.target || !e.target.classList || !e.target.classList.contains('theme-custom')) return;
       applyTheme(e.target.value);
-      const sw = e.target.closest('form');
-      if (sw) sw.querySelectorAll('.theme-swatch').forEach(c => c.classList.remove('is-on'));
+      const form = e.target.closest('form');
+      if (!form) return;
+      const hidden = form.querySelector('[name=bg]');
+      if (hidden) hidden.value = e.target.value;
+      form.querySelectorAll('.theme-swatch').forEach(c => c.classList.remove('is-on'));
     });
     modal().addEventListener('click', (e) => { if (e.target === modal()) closeModal(); });
 
