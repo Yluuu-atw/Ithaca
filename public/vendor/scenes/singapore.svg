@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 新加坡：鱼尾狮与滨海湾金沙。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远景楼群 -->
+  <g fill="#c2ccd2">
+    <rect x="40" y="440" width="76" height="200"/>
+    <rect x="130" y="470" width="62" height="170"/>
+    <rect x="210" y="430" width="80" height="210"/>
+    <rect x="1420" y="450" width="86" height="190"/>
+    <rect x="1520" y="480" width="66" height="160"/>
+  </g>
+
+  <!-- 滨海湾金沙：三座塔顶一艘船 -->
+  <g>
+    <!-- 三塔 -->
+    <path d="M700 640 L716 300 L784 300 L800 640 Z" fill="#a8b4bb"/>
+    <path d="M784 300 L800 300 L800 640 L784 640 Z" fill="#8d99a1"/>
+    <path d="M860 640 L876 300 L944 300 L960 640 Z" fill="#a8b4bb"/>
+    <path d="M944 300 L960 300 L960 640 L944 640 Z" fill="#8d99a1"/>
+    <path d="M1020 640 L1036 300 L1104 300 L1120 640 Z" fill="#a8b4bb"/>
+    <path d="M1104 300 L1120 300 L1120 640 L1104 640 Z" fill="#8d99a1"/>
+    <!-- 顶部船形空中花园 -->
+    <path d="M660 300 L1160 300 L1180 262 L640 262 Z" fill="#8b9a7e"/>
+    <path d="M640 262 L1180 262 L1180 250 L640 250 Z" fill="#6f7d66"/>
+    <ellipse cx="900" cy="244" rx="180" ry="14" fill="#8b9a7e"/>
+    <!-- 无边泳池水色 -->
+    <rect x="676" y="266" width="468" height="10" fill="#7fc0c4"/>
+    <!-- 塔身窗带 -->
+    <g fill="#dfe6ea">
+      <rect x="726" y="340" width="44" height="16"/><rect x="726" y="384" width="44" height="16"/>
+      <rect x="726" y="428" width="44" height="16"/><rect x="726" y="472" width="44" height="16"/>
+      <rect x="726" y="516" width="44" height="16"/><rect x="726" y="560" width="44" height="16"/>
+      <rect x="886" y="340" width="44" height="16"/><rect x="886" y="384" width="44" height="16"/>
+      <rect x="886" y="428" width="44" height="16"/><rect x="886" y="472" width="44" height="16"/>
+      <rect x="886" y="516" width="44" height="16"/><rect x="886" y="560" width="44" height="16"/>
+      <rect x="1046" y="340" width="44" height="16"/><rect x="1046" y="384" width="44" height="16"/>
+      <rect x="1046" y="428" width="44" height="16"/><rect x="1046" y="472" width="44" height="16"/>
+      <rect x="1046" y="516" width="44" height="16"/><rect x="1046" y="560" width="44" height="16"/>
+    </g>
+  </g>
+
+  <!-- 摩天轮（左） -->
+  <g>
+    <circle cx="380" cy="380" r="132" fill="none" stroke="#9aa8b0" stroke-width="10"/>
+    <circle cx="380" cy="380" r="98" fill="none" stroke="#b8c2c8" stroke-width="5"/>
+    <g fill="#c4714b">
+      <circle cx="380" cy="248" r="15"/><circle cx="473" cy="287" r="15"/><circle cx="512" cy="380" r="15"/>
+      <circle cx="473" cy="473" r="15"/><circle cx="380" cy="512" r="15"/><circle cx="287" cy="473" r="15"/>
+      <circle cx="248" cy="380" r="15"/><circle cx="287" cy="287" r="15"/>
+    </g>
+    <g stroke="#9aa8b0" stroke-width="4">
+      <path d="M380 380 L380 248"/><path d="M380 380 L512 380"/><path d="M380 380 L380 512"/><path d="M380 380 L248 380"/>
+      <path d="M380 380 L473 287"/><path d="M380 380 L473 473"/><path d="M380 380 L287 473"/><path d="M380 380 L287 287"/>
+    </g>
+    <circle cx="380" cy="380" r="16" fill="#8d99a1"/>
+    <path d="M300 640 L380 396 L460 640 Z" fill="#9aa8b0" opacity=".8"/>
+  </g>
+
+  <!-- 鱼尾狮（前景右） -->
+  <g>
+    <!-- 基座 -->
+    <path d="M1120 760 L1440 760 L1470 812 L1090 812 Z" fill="#c3b7a2"/>
+    <rect x="1090" y="812" width="380" height="18" fill="#ab9d86"/>
+    <!-- 身体 -->
+    <path d="M1180 760 C1180 640 1230 560 1300 520 L1300 760 Z" fill="#e8e6e2"/>
+    <path d="M1300 520 C1370 560 1420 640 1420 760 L1300 760 Z" fill="#d8d6d0"/>
+    <!-- 鱼尾 -->
+    <path d="M1180 760 C1150 720 1130 690 1128 660 C1160 686 1186 716 1200 744 Z" fill="#d8d6d0"/>
+    <path d="M1420 760 C1450 720 1470 690 1472 660 C1440 686 1414 716 1400 744 Z" fill="#c8c6c0"/>
+    <!-- 鬃毛 -->
+    <g fill="#c4714b">
+      <path d="M1250 528 C1240 494 1252 466 1280 452 C1268 478 1266 504 1272 528 Z"/>
+      <path d="M1300 516 C1300 478 1318 452 1348 444 C1328 468 1318 494 1318 520 Z"/>
+      <path d="M1350 532 C1360 500 1382 482 1408 480 C1388 498 1376 518 1372 540 Z"/>
+    </g>
+    <!-- 头与口 -->
+    <path d="M1262 520 C1250 470 1268 428 1306 414 C1344 428 1362 470 1350 520 Z" fill="#e8e6e2"/>
+    <ellipse cx="1306" cy="452" rx="20" ry="14" fill="#c4714b"/>
+    <circle cx="1288" cy="486" r="7" fill="#3a3733"/>
+    <circle cx="1326" cy="486" r="7" fill="#3a3733"/>
+    <!-- 喷泉水柱 -->
+    <path d="M1306 452 C1280 420 1240 396 1180 388 L1180 404 C1236 412 1272 436 1294 462 Z" fill="#aebcc2" opacity=".8"/>
+    <g fill="#c2d0d5" opacity=".8">
+      <circle cx="1160" cy="384" r="8"/><circle cx="1136" cy="376" r="6"/><circle cx="1112" cy="372" r="5"/>
+    </g>
+  </g>
+
+  <!-- 滨海湾水面 -->
+  <rect x="0" y="640" width="1600" height="260" fill="#aebcc2"/>
+  <rect x="0" y="640" width="1600" height="14" fill="#c2d0d5"/>
+  <g opacity=".24">
+    <rect x="700" y="654" width="420" height="40" fill="#a8b4bb"/>
+    <rect x="660" y="654" width="520" height="14" fill="#8b9a7e"/>
+  </g>
+  <g stroke="#8fa3ac" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+    <path d="M100 716 C280 710 440 722 620 714"/>
+    <path d="M880 760 C1060 754 1220 766 1400 758"/>
+    <path d="M240 824 C420 818 580 830 760 822"/>
+    <path d="M1000 868 C1180 862 1340 874 1500 866"/>
+  </g>
+</svg>

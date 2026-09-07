@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 首尔：景福宫勤政殿与南山首尔塔。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 南山首尔塔（远景右） -->
+  <g>
+    <path d="M1330 470 L1348 250 L1360 250 L1378 470 Z" fill="#9aa8b0"/>
+    <ellipse cx="1354" cy="238" rx="34" ry="20" fill="#c4714b"/>
+    <rect x="1348" y="196" width="12" height="42" fill="#8d99a1"/>
+    <path d="M1342 196 L1354 160 L1366 196 Z" fill="#7f8d95"/>
+    <path d="M1240 470 C1300 440 1360 434 1420 442 C1480 450 1530 462 1560 470 Z" fill="#b9c2ac"/>
+  </g>
+
+  <!-- 远山 -->
+  <path d="M0 470 L180 386 L340 442 L500 380 L660 470 Z" fill="#b9c2ac"/>
+
+  <!-- 景福宫勤政殿 -->
+  <g>
+    <!-- 上层重檐 -->
+    <path d="M440 330 C570 316 700 308 800 308 C900 308 1030 316 1160 330 L1112 262 C1000 248 900 240 800 240 C700 240 600 248 488 262 Z" fill="#4f6b5e"/>
+    <path d="M440 330 L488 262 L546 268 L498 334 Z" fill="#3f584d"/>
+    <path d="M1160 330 L1112 262 L1054 268 L1102 334 Z" fill="#3f584d"/>
+    <rect x="510" y="330" width="580" height="20" fill="#c9b39e"/>
+    <rect x="524" y="350" width="552" height="14" fill="#8b4a38"/>
+    <!-- 上层檐下彩画（丹青，简化为赭红条） -->
+    <rect x="540" y="364" width="520" height="12" fill="#b8513f"/>
+
+    <!-- 上层柱廊与墙 -->
+    <rect x="560" y="376" width="480" height="80" fill="#d8cbb4"/>
+    <g fill="#b8513f">
+      <rect x="580" y="376" width="22" height="80"/><rect x="660" y="376" width="22" height="80"/>
+      <rect x="740" y="376" width="22" height="80"/><rect x="840" y="376" width="22" height="80"/>
+      <rect x="920" y="376" width="22" height="80"/><rect x="1000" y="376" width="22" height="80"/>
+    </g>
+    <g fill="#8d99a1">
+      <rect x="620" y="398" width="26" height="40"/><rect x="700" y="398" width="26" height="40"/>
+      <rect x="790" y="398" width="40" height="40"/><rect x="880" y="398" width="26" height="40"/>
+      <rect x="960" y="398" width="26" height="40"/>
+    </g>
+
+    <!-- 下层重檐 -->
+    <path d="M380 508 C540 492 680 484 800 484 C920 484 1060 492 1220 508 L1162 424 C1030 408 920 400 800 400 C680 400 570 408 438 424 Z" fill="#4f6b5e"/>
+    <path d="M380 508 L438 424 L502 432 L444 512 Z" fill="#3f584d"/>
+    <path d="M1220 508 L1162 424 L1098 432 L1156 512 Z" fill="#3f584d"/>
+    <rect x="450" y="508" width="700" height="22" fill="#c9b39e"/>
+    <rect x="470" y="530" width="660" height="16" fill="#8b4a38"/>
+    <rect x="486" y="546" width="628" height="12" fill="#b8513f"/>
+
+    <!-- 下层柱廊 -->
+    <rect x="500" y="558" width="600" height="122" fill="#d8cbb4"/>
+    <g fill="#b8513f">
+      <rect x="520" y="558" width="26" height="122"/><rect x="610" y="558" width="26" height="122"/>
+      <rect x="700" y="558" width="26" height="122"/><rect x="790" y="558" width="26" height="122"/>
+      <rect x="880" y="558" width="26" height="122"/><rect x="970" y="558" width="26" height="122"/>
+      <rect x="1060" y="558" width="26" height="122"/>
+    </g>
+    <g fill="#8d99a1">
+      <rect x="560" y="588" width="34" height="60"/><rect x="650" y="588" width="34" height="60"/>
+      <rect x="748" y="580" width="70" height="76"/><rect x="880" y="588" width="34" height="60"/>
+      <rect x="970" y="588" width="34" height="60"/>
+    </g>
+
+    <!-- 月台与台阶 -->
+    <path d="M440 680 L1160 680 L1210 736 L390 736 Z" fill="#c3b7a2"/>
+    <rect x="390" y="736" width="820" height="16" fill="#ab9d86"/>
+    <g stroke="#a8917c" stroke-width="3.5">
+      <path d="M460 736 L1140 736"/>
+      <path d="M430 712 L1170 712"/>
+    </g>
+  </g>
+
+  <!-- 石灯笼 -->
+  <g>
+    <rect x="250" y="640" width="46" height="76" fill="#b5a995"/>
+    <rect x="240" y="620" width="66" height="22" rx="6" fill="#a8917c"/>
+    <rect x="258" y="716" width="30" height="30" fill="#9d917c"/>
+    <rect x="1304" y="640" width="46" height="76" fill="#b5a995"/>
+    <rect x="1294" y="620" width="66" height="22" rx="6" fill="#a8917c"/>
+    <rect x="1312" y="716" width="30" height="30" fill="#9d917c"/>
+  </g>
+
+  <!-- 广场 -->
+  <rect x="0" y="752" width="1600" height="148" fill="#c9b39e"/>
+  <g stroke="#b5a48c" stroke-width="3.5" opacity=".8">
+    <path d="M120 810 C320 804 500 816 700 808"/>
+    <path d="M900 852 C1100 846 1280 858 1480 850"/>
+  </g>
+</svg>

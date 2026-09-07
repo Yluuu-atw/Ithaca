@@ -16,6 +16,10 @@ scenes/ 下为手绘平涂插画，参考 Yukiko Noritake 的丙烯手法
   okinawa.svg         首里城守礼门、琉璃狮子与碧海
   paris.svg           埃菲尔铁塔、塞纳河与奥斯曼建筑
   rome.svg            斗兽场三层拱券与意大利石松
+  seoul.svg           景福宫勤政殿与南山首尔塔
+  bangkok.svg         郑王庙尖塔与守护夜叉
+  singapore.svg       鱼尾狮、滨海湾金沙与摩天轮
+  bali.svg            海神庙岩基与梯田
 
 大区兜底（没有专属插画时按地貌/文化圈回落）
   region-asia.svg     亚洲风情：寺庙翘檐与红灯笼
