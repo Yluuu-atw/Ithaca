@@ -84,6 +84,9 @@ html, body {
   font-family: var(--font);
   font-size: 20.5px;
   line-height: 1.62;
+  /* 龙藏只有常规一个字重，用描边补粗细；正文吃得多，值要小否则糊 */
+  -webkit-text-stroke: .38px currentColor;
+  paint-order: stroke fill;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -231,34 +234,29 @@ input, select, textarea { font-family: inherit; font-size: 20px; color: var(--te
 }
 .spend-note { font-size: 15.5px; color: var(--muted); }
 
-/* ---------------- 手绘插画横幅 ---------------- */
-/* 按目的地挑的平涂插画，边缘淡出贴在纸底上，像手账里贴的那张画 */
-.doodle-banner {
-  position: relative;
-  height: 168px;
-  margin-bottom: 14px;
+/* ---------------- 手绘插画背景 ---------------- */
+/* 按目的地挑的平涂插画铺在视口底部，纸色卡片浮在画上面 */
+.doodle-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
   overflow: hidden;
-  border: 2px solid var(--line);
-  border-radius: var(--radius-doodle);
-  background: var(--surface-2);
-  box-shadow: var(--shadow-sm);
 }
-.doodle-banner img {
+.doodle-bg img {
   position: absolute;
-  right: 0; bottom: 0;
-  height: 100%;
-  width: auto;
-  max-width: none;
-  object-fit: cover;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: max(100%, 1100px);
+  height: auto;
+  opacity: .42;
   mix-blend-mode: multiply;
-  opacity: .95;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 26%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 26%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 34%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 34%);
 }
-@media (max-width: 767px) {
-  .doodle-banner { height: 116px; }
-  .doodle-banner img { -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 40%); mask-image: linear-gradient(90deg, transparent 0%, #000 40%); }
-}
+.doodle-bg img:not([src]) { display: none; }
+.app { position: relative; z-index: 1; }
 
 .page-stack { display: flex; flex-direction: column; gap: 14px; }
 /* 概览仪表盘：12 列网格，卡片按需跨列，形成横竖错落 */

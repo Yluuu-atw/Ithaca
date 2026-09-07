@@ -91,6 +91,12 @@ window.App = (() => {
     const data = Store.getState();
     if (!data) return;
     applyTheme(data.meta && data.meta.theme);
+    // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
+    const doodleImg = document.querySelector('#doodleBg img');
+    if (doodleImg) {
+      const want = `vendor/doodles/${Render.doodleFor(data)}`;
+      if (doodleImg.getAttribute('src') !== want) doodleImg.setAttribute('src', want);
+    }
     $('#nav').innerHTML = Render.renderNav(current.tab);
     if (!$('#tabItems').children.length) $('#tabItems').innerHTML = Render.renderTabbar(current.tab);
     else $('#tabItems').querySelectorAll('.tab-item').forEach((b) => {

@@ -573,9 +573,6 @@ window.Render = (() => {
     const bookingN = (s.bookings || []).length;
 
     return `
-      <div class="doodle-banner" role="presentation">
-        <img src="vendor/doodles/${doodleFor(s)}" alt="" loading="lazy">
-      </div>
       <div class="dash-grid">
         <section class="card span-8">
           <div class="card-head">
@@ -1530,5 +1527,6 @@ window.Render = (() => {
     renderTripBoard,
     emojiSrc,
     themePicker,
+    doodleFor,
   };
 })();
