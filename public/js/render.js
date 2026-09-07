@@ -1500,22 +1500,32 @@ window.Render = (() => {
     const dateText = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
     const quote = quoteOfToday();
     return `
-      <div class="welcome-art"><img src="vendor/scenes/welcome.svg" alt="世界各地的地标建筑"></div>
-      <div class="welcome-meta">
-        <div class="welcome-when">
-          <b>${esc(dateText)}</b>
-          <span>星期${WEEKDAY[now.getDay()]}</span>
-          <span class="welcome-weather" id="welcomeWeather">正在获取天气…</span>
+      <div class="welcome-bg" aria-hidden="true"><img src="vendor/scenes/welcome.svg" alt=""></div>
+      <div class="welcome-inner">
+        <div class="welcome-head">
+          <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
+          <div class="welcome-when">
+            <b>${esc(dateText)}</b>
+            <span>星期${WEEKDAY[now.getDay()]}</span>
+            <span class="welcome-weather" id="welcomeWeather">正在获取天气…</span>
+          </div>
         </div>
-        ${quote ? `<blockquote class="welcome-quote">${esc(quote[1])}
-          <span class="q-place">📍 ${esc(quote[0])}</span>
+        ${quote ? `<blockquote class="welcome-bubble">
+          <span class="bubble-place">📍 ${esc(quote[0])}</span>
+          <span class="bubble-text">${esc(quote[1])}</span>
         </blockquote>` : ''}
-      </div>
-      <div class="welcome-actions">
-        <button type="button" class="welcome-main" data-action="welcome-enter">🧭 我的旅行</button>
-        <div class="welcome-sub">
-          <button type="button" class="btn btn-ghost" data-action="welcome-calendar">📅 旅行日历</button>
-          <button type="button" class="btn btn-ghost" data-action="welcome-memo">📝 备忘录</button>
+        <div class="welcome-actions">
+          <button type="button" class="welcome-main" data-action="welcome-enter">
+            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> 我的旅行
+          </button>
+          <div class="welcome-sub">
+            <button type="button" class="welcome-mini" data-action="welcome-calendar">
+              <img class="emo" src="vendor/fluent-emoji/1f4c5.png" alt=""> 旅行日历
+            </button>
+            <button type="button" class="welcome-mini" data-action="welcome-memo">
+              <img class="emo" src="vendor/fluent-emoji/1f5d3.png" alt=""> 备忘录
+            </button>
+          </div>
         </div>
       </div>`;
   }

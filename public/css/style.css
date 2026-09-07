@@ -1257,36 +1257,45 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 
 .welcome {
+  position: relative;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  padding: 28px 20px calc(28px + env(safe-area-inset-bottom));
-  text-align: center;
+  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
 }
-
-.welcome-art {
+/* 全屏铺底，插画本身就是主视觉，不再装进卡片里 */
+.welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.welcome-bg img { width: 100%; height: 100%; object-fit: cover; object-position: center 62%; display: block; }
+/* 淡雾压一层保证文字可读，越往下越实 */
+.welcome-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(236, 226, 210, .30) 0%,
+    rgba(236, 226, 210, .46) 45%,
+    rgba(236, 226, 210, .72) 100%);
+}
+.welcome-inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 720px;
-  aspect-ratio: 16 / 9;
-  border-radius: var(--radius-doodle);
-  overflow: hidden;
-  border: 2px solid var(--line);
-  box-shadow: var(--shadow);
-  background: var(--surface);
-}
-.welcome-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.welcome-meta {
+  max-width: 560px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  max-width: 640px;
+  gap: 18px;
+  text-align: center;
 }
+.welcome-head { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.welcome-brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 30px; font-weight: 700; letter-spacing: .5px;
+  color: var(--text);
+}
+.welcome-brand .emo { width: 30px; height: 30px; }
 .welcome-when {
   display: flex;
   align-items: center;
@@ -1300,51 +1309,96 @@ body:not(.is-welcome) .welcome { display: none; }
 .welcome-weather { display: inline-flex; align-items: center; gap: 6px; }
 .welcome-weather .emo { width: 22px; height: 22px; }
 
-.welcome-quote {
+/* 语录气泡：不规则圆角 + 墨线描边 + 偏移硬阴影，手账里贴便签的感觉 */
+.welcome-bubble {
+  position: relative;
   margin: 0;
-  font-size: 19px;
-  line-height: 1.7;
-  color: var(--text);
-}
-.welcome-quote .q-place {
-  display: block;
-  margin-top: 4px;
-  font-size: 15px;
-  color: var(--primary-600);
-  font-weight: 600;
-}
-
-.welcome-actions {
+  padding: 18px 22px 20px;
+  background: #fffdf8;
+  border: 2.5px solid var(--line);
+  border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  max-width: 520px;
+  gap: 7px;
+  text-align: center;
 }
+/* 小尾巴：指向下方的按钮 */
+.welcome-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 22px; height: 14px;
+  transform: translateX(-50%);
+  background: #fffdf8;
+  border-right: 2.5px solid var(--line);
+  border-bottom: 2.5px solid var(--line);
+  border-radius: 0 0 6px 0;
+  rotate: 45deg;
+}
+.bubble-place {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--primary-600);
+  letter-spacing: .4px;
+  padding: 3px 12px;
+  border: 2px dashed var(--primary-soft);
+  border-radius: 999px;
+  background: var(--primary-soft);
+}
+.bubble-text { font-size: 18.5px; line-height: 1.75; color: var(--text); }
+
+.welcome-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+
+/* 主按钮：像手账里贴的一张大贴纸 */
 .welcome-main {
   width: 100%;
-  padding: 18px 24px;
+  padding: 19px 26px;
   font-size: 22px;
   font-weight: 700;
-  border-radius: var(--radius-doodle);
-  border: 2px solid var(--line);
-  background: var(--primary);
+  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   color: #fff;
-  cursor: pointer;
+  background: var(--primary);
+  border: 3px solid var(--line);
+  border-radius: 255px 20px 225px 20px / 20px 225px 20px 255px;
   box-shadow: var(--shadow);
+  cursor: pointer;
   transition: box-shadow .16s ease, transform .16s ease;
 }
-.welcome-main:hover { box-shadow: var(--shadow-lift); transform: translate(-1px, -2px); }
+.welcome-main .emo { width: 26px; height: 26px; }
+.welcome-main:hover { box-shadow: var(--shadow-lift); transform: translate(-2px, -3px) rotate(-.6deg); }
+.welcome-main:active { transform: translate(1px, 2px); box-shadow: 1px 1px 0 rgba(58,55,51,.16); }
 
-.welcome-sub { display: flex; gap: 12px; width: 100%; }
-.welcome-sub .btn {
+/* 两张小贴纸，各用一种手账底色 */
+.welcome-sub { display: flex; gap: 14px; width: 100%; }
+.welcome-mini {
   flex: 1;
-  padding: 14px 12px;
+  padding: 15px 12px;
   font-size: 17px;
-  border-radius: var(--radius-doodle);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--text);
+  background: #fffdf8;
+  border: 3px solid var(--line);
+  border-radius: 20px 255px 20px 225px / 225px 20px 255px 20px;
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow .16s ease, transform .16s ease;
 }
+.welcome-mini .emo { width: 22px; height: 22px; }
+.welcome-mini:hover { box-shadow: var(--shadow); transform: translate(-1px, -2px) rotate(.6deg); }
+.welcome-mini:active { transform: translate(1px, 2px); box-shadow: 1px 1px 0 rgba(58,55,51,.16); }
+.welcome-mini:nth-child(1) { background: #e8f0e6; }
+.welcome-mini:nth-child(2) { background: #e6edf2; }
 
 /* ---------------- 旅行日历 ---------------- */
 .cal { width: 100%; }
@@ -1409,9 +1463,15 @@ body:not(.is-welcome) .welcome { display: none; }
 @media (max-width: 767px) { .only-mobile { display: inline-flex; } }
 
 @media (max-width: 520px) {
-  .welcome { gap: 18px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
-  .welcome-art { aspect-ratio: 4 / 3; }
-  .welcome-quote { font-size: 17.5px; }
+  .welcome { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .welcome-inner { gap: 14px; }
+  .welcome-brand { font-size: 25px; }
+  .welcome-brand .emo { width: 25px; height: 25px; }
+  .welcome-when { font-size: 15.5px; }
+  .welcome-bubble { padding: 14px 16px 16px; }
+  .bubble-text { font-size: 16.5px; }
+  .bubble-place { font-size: 13px; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
-  .welcome-sub .btn { font-size: 16px; padding: 12px 10px; }
+  .welcome-mini { font-size: 15.5px; padding: 13px 10px; }
+  .welcome-mini .emo { width: 20px; height: 20px; }
 }
