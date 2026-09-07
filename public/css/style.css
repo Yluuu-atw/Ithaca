@@ -4,8 +4,8 @@
    ============================================================ */
 
 @font-face {
-  font-family: 'ZCOOL KuaiLe';
-  src: url('../vendor/fonts/ZCOOLKuaiLe-Regular.ttf') format('truetype');
+  font-family: 'LongCang';
+  src: url('../vendor/fonts/LongCang-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -68,7 +68,7 @@
   /* 不对称圆角：四角半径各不相同，模拟徒手画的方框 */
   --radius-doodle: 255px 15px 225px 15px / 15px 225px 15px 255px;
   --sidebar-w: 272px;
-  --font: 'ZCOOL KuaiLe', 'LXGW WenKai', 'Kaiti SC', 'KaiTi', '楷体', 'STKaiti',
+  --font: 'LongCang', 'ZCOOL KuaiLe', 'LXGW WenKai', 'Kaiti SC', 'KaiTi', '楷体', 'STKaiti',
     -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -229,6 +229,35 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   text-decoration-skip-ink: none;
 }
 .spend-note { font-size: 15.5px; color: var(--muted); }
+
+/* ---------------- 手绘插画横幅 ---------------- */
+/* 按目的地挑的平涂插画，边缘淡出贴在纸底上，像手账里贴的那张画 */
+.doodle-banner {
+  position: relative;
+  height: 168px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-doodle);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-sm);
+}
+.doodle-banner img {
+  position: absolute;
+  right: 0; bottom: 0;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+  opacity: .95;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 26%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 26%);
+}
+@media (max-width: 767px) {
+  .doodle-banner { height: 116px; }
+  .doodle-banner img { -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 40%); mask-image: linear-gradient(90deg, transparent 0%, #000 40%); }
+}
 
 .page-stack { display: flex; flex-direction: column; gap: 14px; }
 /* 概览仪表盘：12 列网格，卡片按需跨列，形成横竖错落 */
