@@ -71,11 +71,10 @@ function defaultTrip() {
   };
 }
 
-// 文档级元信息只管乐观并发与界面偏好（背景色），其余全在 trips 里
-const DEFAULT_THEME = '#f2ece0';
+// 文档级元信息只管乐观并发，其余全在 trips 里
 function defaultDoc() {
   return {
-    meta: { version: 1, updatedAt: new Date().toISOString(), theme: DEFAULT_THEME },
+    meta: { version: 1, updatedAt: new Date().toISOString() },
     trips: [defaultTrip()],
   };
 }
@@ -144,12 +143,6 @@ function normalize(doc) {
 
   const rawTrips = Array.isArray(source.trips) ? source.trips : [];
   d.trips = rawTrips.length ? rawTrips.map(normalizeTrip) : [defaultTrip()];
-
-  // 背景色是界面偏好而非旅行数据，整份文档一份；早期挂在 trip.meta 上，
-  // 首次读到时提升到文档级，保住用户当下看到的颜色
-  const inherited = (source.meta && source.meta.theme)
-    || d.trips.map(t => t.meta.theme).find(v => typeof v === 'string' && v);
-  d.meta.theme = typeof inherited === 'string' && inherited ? inherited : DEFAULT_THEME;
 
   for (const k of Object.keys(source)) {
     if (!(k in d) && !warnedUnknown.has(k)) {
