@@ -60,7 +60,7 @@
   /* 不对称圆角：四角半径各不相同，模拟徒手画的方框 */
   --radius-doodle: 255px 15px 225px 15px / 15px 225px 15px 255px;
   --sidebar-w: 272px;
-  --font: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  --font: 'Chiron GoRound TC', 'Noto Serif SC', 'Songti SC', Georgia, serif;
 }
 
 * { box-sizing: border-box; }
