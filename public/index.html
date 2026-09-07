@@ -11,6 +11,23 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- 平涂滤镜：照片先模糊再按离散档位量化，压成 Noritake 那种丙烯色块 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="paintly" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values=".72"/>
+      <feColorMatrix type="matrix" values="
+        1.06 0.02 0.00 0 0.012
+        0.01 1.01 0.01 0 0.006
+        0.00 0.02 0.94 0 0.000
+        0    0    0    1 0"/>
+      <feGaussianBlur stdDeviation="1.7"/>
+      <feComponentTransfer>
+        <feFuncR type="discrete" tableValues="0 .16 .32 .49 .66 .83 1"/>
+        <feFuncG type="discrete" tableValues="0 .16 .32 .49 .66 .83 1"/>
+        <feFuncB type="discrete" tableValues="0 .16 .32 .49 .66 .83 1"/>
+      </feComponentTransfer>
+    </filter>
+  </svg>
   <div class="doodle-bg" id="doodleBg" aria-hidden="true"><img alt=""></div>
   <div class="app">
     <aside class="sidebar">

@@ -94,8 +94,13 @@ window.App = (() => {
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');
     if (doodleImg) {
-      const want = `vendor/doodles/${Render.doodleFor(data)}`;
-      if (doodleImg.getAttribute('src') !== want) doodleImg.setAttribute('src', want);
+      const rel = Render.doodleFor(data);
+      const want = `vendor/${rel}`;
+      if (doodleImg.getAttribute('src') !== want) {
+        doodleImg.setAttribute('src', want);
+        // 真实照片要走平涂滤镜，SVG 插画本身就是色块
+        doodleImg.classList.toggle('is-photo', /\.(jpe?g|png|webp)$/i.test(rel));
+      }
     }
     $('#nav').innerHTML = Render.renderNav(current.tab);
     if (!$('#tabItems').children.length) $('#tabItems').innerHTML = Render.renderTabbar(current.tab);

@@ -256,6 +256,14 @@ input, select, textarea { font-family: inherit; font-size: 20px; color: var(--te
   mask-image: linear-gradient(180deg, transparent 0%, #000 34%);
 }
 .doodle-bg img:not([src]) { display: none; }
+/* 真实照片走平涂滤镜，SVG 插画本来就是色块不用处理 */
+.doodle-bg img.is-photo {
+  filter: url(#paintly);
+  opacity: .58;
+  mix-blend-mode: multiply;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 22%);
+}
 .app { position: relative; z-index: 1; }
 
 .page-stack { display: flex; flex-direction: column; gap: 14px; }

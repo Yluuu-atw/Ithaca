@@ -1434,18 +1434,24 @@ window.Render = (() => {
   // ---------------- 手绘插画 ----------------
   // 按目的地关键词挑一幅，平涂色块加表现性线条，对应 Yukiko Noritake 的手法
   const DOODLES = [
-    { keys: ['香港', '澳门', '深圳', '广州', '上海', '北京', '东京', '大阪', '首尔', '纽约', '巴黎', '伦敦', '城市', '都市'], file: 'city.svg' },
     { keys: ['日本', '关西', '京都', '奈良', '神社', '鸟居', '和服'], file: 'torii.svg' },
     { keys: ['海', '岛', '三亚', '厦门', '巴厘', '普吉', '冲绳', '东南亚', '沙滩', '潜水'], file: 'palms.svg' },
     { keys: ['山', '云南', '西藏', '瑞士', '阿尔卑斯', '徒步', '雪山', '高原'], file: 'mountains.svg' },
-    { keys: ['草原', '新疆', '内蒙', '草原', '自驾'], file: 'birds.svg' },
+    { keys: ['草原', '新疆', '内蒙', '自驾'], file: 'birds.svg' },
+    { keys: ['香港', '澳门', '深圳', '广州', '上海', '北京', '东京', '大阪', '首尔', '纽约', '巴黎', '伦敦', '城市', '都市'], file: 'city.svg' },
+  ];
+  // 真实照片走平涂滤镜处理，比手绘色块更像 Noritake 的丙烯质感
+  const SCENES = [
+    { keys: ['香港', '维多利亚港', '维港'], file: 'scenes/hongkong.jpg' },
   ];
   function doodleFor(trip) {
     const m = (trip && trip.meta) || {};
     const hay = [m.tripName, m.destination, ...((trip && trip.itinerary) || []).flatMap(d => (d.items || []).map(i => i.location || ''))]
       .filter(Boolean).join(' ');
+    const scene = SCENES.find(d => d.keys.some(k => hay.includes(k)));
+    if (scene) return scene.file;
     const hit = DOODLES.find(d => d.keys.some(k => hay.includes(k)));
-    return hit ? hit.file : 'sun-clouds.svg';
+    return `doodles/${hit ? hit.file : 'sun-clouds.svg'}`;
   }
 
   // ---------------- 背景色选择 ----------------
