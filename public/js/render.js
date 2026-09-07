@@ -1432,8 +1432,8 @@ window.Render = (() => {
   }
 
   // ---------------- 背景色选择 ----------------
-  // 页面底色必须是浅调，卡片是纯白，底色过饱和会和卡片打架
-  const BG_PRESETS = ['#f6f4ef', '#eef2f5', '#f5eff3', '#eef4f0', '#f8f1e8', '#f1f0f6', '#f0f2ed', '#f7eff0'];
+  // 页面底色必须是浅调：卡片色由底色派生在近白区间，底色过饱和会和卡片打架
+  const BG_PRESETS = ['#f6f4ef', '#e8eef5', '#f5e9ef', '#e9f2ec', '#f8eee1', '#eeeaf6', '#eef1e6', '#f7eaea'];
   function themePicker(current) {
     const cur = (current || '#f6f4ef').toLowerCase();
     const sw = BG_PRESETS.map(c => `

@@ -48,10 +48,11 @@
   --cat-shop-soft: #f9f0e7;
   --cat-fun: #8fb6a0;
   --cat-fun-soft: #ecf3ef;
-  --shadow: 0 1px 2px rgba(60, 60, 50, .04), 0 10px 30px rgba(60, 60, 50, .06);
-  --shadow-sm: 0 1px 2px rgba(60, 60, 50, .05);
-  --radius: 16px;
-  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(60, 60, 50, .05), 0 6px 16px rgba(60, 60, 50, .07), 0 18px 44px rgba(60, 60, 50, .07);
+  --shadow-sm: 0 1px 2px rgba(60, 60, 50, .06), 0 3px 10px rgba(60, 60, 50, .06), 0 10px 24px rgba(60, 60, 50, .05);
+  --shadow-lift: 0 2px 4px rgba(60, 60, 50, .06), 0 12px 28px rgba(60, 60, 50, .1), 0 28px 64px rgba(60, 60, 50, .09);
+  --radius: 20px;
+  --radius-sm: 12px;
   --sidebar-w: 272px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
@@ -177,8 +178,14 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  /* 顶边一道内高光，卡片才有厚度感，不至于像贴纸 */
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, .75);
   padding: 15px 17px;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.card:hover {
+  box-shadow: var(--shadow-lift), inset 0 1px 0 rgba(255, 255, 255, .75);
+  transform: translateY(-2px);
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .card-head h2 { margin: 0; font-size: 17.5px; font-weight: 700; }
