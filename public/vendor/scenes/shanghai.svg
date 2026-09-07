@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 上海：陆家嘴天际线，东方明珠 + 三件套 + 黄浦江。平涂色块 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远景楼群 -->
+  <g fill="#c2ccd2">
+    <rect x="40" y="470" width="86" height="180"/>
+    <rect x="140" y="500" width="70" height="150"/>
+    <rect x="1360" y="460" width="94" height="190"/>
+    <rect x="1470" y="500" width="76" height="150"/>
+  </g>
+
+  <!-- 金茂大厦（宝塔形） -->
+  <g fill="#9aa8b0">
+    <rect x="252" y="356" width="88" height="294"/>
+    <rect x="264" y="316" width="64" height="40"/>
+    <rect x="276" y="284" width="40" height="32"/>
+    <rect x="286" y="256" width="20" height="28"/>
+  </g>
+  <rect x="316" y="356" width="24" height="294" fill="#7f8d95"/>
+  <g fill="#dfe6ea">
+    <rect x="266" y="380" width="24" height="22"/><rect x="300" y="380" width="16" height="22"/>
+    <rect x="266" y="424" width="24" height="22"/><rect x="300" y="424" width="16" height="22"/>
+    <rect x="266" y="468" width="24" height="22"/><rect x="300" y="468" width="16" height="22"/>
+    <rect x="266" y="512" width="24" height="22"/><rect x="300" y="512" width="16" height="22"/>
+    <rect x="266" y="556" width="24" height="22"/><rect x="300" y="556" width="16" height="22"/>
+    <rect x="266" y="600" width="24" height="22"/><rect x="300" y="600" width="16" height="22"/>
+  </g>
+
+  <!-- 环球金融中心（开瓶器） -->
+  <path d="M400 650 L400 250 L470 216 L470 650 Z" fill="#8d9aa2"/>
+  <path d="M400 250 L470 216 L470 268 L400 296 Z" fill="#78867e"/>
+  <path d="M414 262 L456 240 L456 276 L414 294 Z" fill="#ece2d2"/>
+  <rect x="452" y="216" width="18" height="434" fill="#78867e"/>
+  <g fill="#dfe6ea">
+    <rect x="410" y="330" width="34" height="18"/><rect x="410" y="374" width="34" height="18"/>
+    <rect x="410" y="418" width="34" height="18"/><rect x="410" y="462" width="34" height="18"/>
+    <rect x="410" y="506" width="34" height="18"/><rect x="410" y="550" width="34" height="18"/>
+    <rect x="410" y="594" width="34" height="18"/>
+  </g>
+
+  <!-- 上海中心（螺旋，简化为收分柱体） -->
+  <path d="M520 650 L540 168 L604 152 L622 650 Z" fill="#a8b4bb"/>
+  <path d="M540 168 L604 152 L604 190 L542 204 Z" fill="#8d99a1"/>
+  <path d="M566 650 L580 176 L604 152 L622 650 Z" fill="#93a0a8"/>
+  <g fill="#dfe6ea">
+    <rect x="548" y="250" width="26" height="16"/><rect x="548" y="300" width="26" height="16"/>
+    <rect x="548" y="350" width="26" height="16"/><rect x="548" y="400" width="26" height="16"/>
+    <rect x="548" y="450" width="26" height="16"/><rect x="548" y="500" width="26" height="16"/>
+    <rect x="548" y="550" width="26" height="16"/><rect x="548" y="600" width="26" height="16"/>
+  </g>
+
+  <!-- 东方明珠 -->
+  <g>
+    <!-- 塔身斜撑 -->
+    <path d="M700 650 L742 388 L762 388 L806 650 L778 650 L752 420 L726 650 Z" fill="#9aa8b0"/>
+    <path d="M752 388 L752 236 L762 236 L762 388 Z" fill="#9aa8b0"/>
+    <!-- 大球 -->
+    <circle cx="757" cy="452" r="74" fill="#c4714b"/>
+    <path d="M757 378 A74 74 0 0 1 831 452 L757 452 Z" fill="#a2523a"/>
+    <circle cx="757" cy="452" r="52" fill="#d4a24c" opacity=".55"/>
+    <!-- 小球 -->
+    <circle cx="757" cy="286" r="46" fill="#c4714b"/>
+    <path d="M757 240 A46 46 0 0 1 803 286 L757 286 Z" fill="#a2523a"/>
+    <!-- 天线 -->
+    <rect x="750" y="150" width="14" height="92" fill="#8d99a1"/>
+    <path d="M750 150 L757 108 L764 150 Z" fill="#7f8d95"/>
+    <!-- 底球 -->
+    <circle cx="757" cy="596" r="38" fill="#c4714b"/>
+    <path d="M757 558 A38 38 0 0 1 795 596 L757 596 Z" fill="#a2523a"/>
+  </g>
+
+  <!-- 右侧群楼 -->
+  <rect x="900" y="440" width="120" height="210" fill="#9aa8b0"/>
+  <rect x="996" y="440" width="24" height="210" fill="#7f8d95"/>
+  <g fill="#dfe6ea">
+    <rect x="918" y="470" width="34" height="20"/><rect x="964" y="470" width="20" height="20"/>
+    <rect x="918" y="514" width="34" height="20"/><rect x="964" y="514" width="20" height="20"/>
+    <rect x="918" y="558" width="34" height="20"/><rect x="964" y="558" width="20" height="20"/>
+    <rect x="918" y="602" width="34" height="20"/><rect x="964" y="602" width="20" height="20"/>
+  </g>
+  <rect x="1050" y="396" width="140" height="254" fill="#8d9aa2"/>
+  <rect x="1162" y="396" width="28" height="254" fill="#78867e"/>
+  <g fill="#dfe6ea">
+    <rect x="1070" y="430" width="40" height="22"/><rect x="1122" y="430" width="24" height="22"/>
+    <rect x="1070" y="478" width="40" height="22"/><rect x="1122" y="478" width="24" height="22"/>
+    <rect x="1070" y="526" width="40" height="22"/><rect x="1122" y="526" width="24" height="22"/>
+    <rect x="1070" y="574" width="40" height="22"/><rect x="1122" y="574" width="24" height="22"/>
+  </g>
+  <rect x="1220" y="470" width="110" height="180" fill="#a8b4bb"/>
+  <rect x="1306" y="470" width="24" height="180" fill="#8d99a1"/>
+
+  <!-- 黄浦江 -->
+  <rect x="0" y="650" width="1600" height="250" fill="#aebcc2"/>
+  <rect x="0" y="650" width="1600" height="16" fill="#c2d0d5"/>
+  <!-- 倒影 -->
+  <g opacity=".28">
+    <rect x="720" y="666" width="74" height="80" fill="#c4714b"/>
+    <rect x="410" y="666" width="60" height="52" fill="#8d9aa2"/>
+    <rect x="548" y="666" width="60" height="60" fill="#a8b4bb"/>
+  </g>
+  <g stroke="#8fa3ac" stroke-width="3.5" stroke-linecap="round" opacity=".85">
+    <path d="M100 742 C280 736 440 748 620 740"/>
+    <path d="M800 782 C980 776 1140 788 1320 780"/>
+    <path d="M240 838 C420 832 580 844 760 836"/>
+    <path d="M980 862 C1160 856 1320 868 1500 860"/>
+  </g>
+  <!-- 渡轮 -->
+  <path d="M240 700 L400 700 L382 730 L258 730 Z" fill="#e8dcc8"/>
+  <rect x="300" y="676" width="46" height="24" fill="#c9b39e"/>
+</svg>

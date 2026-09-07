@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 北京：天安门城楼，重檐庑殿顶 + 朱红城墙。平涂色块 + 斜切阴影 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远处树影 -->
+  <g fill="#b9c2ac">
+    <path d="M0 620 C60 588 110 604 160 596 C210 588 250 604 300 610 L300 620 Z"/>
+    <path d="M1300 620 C1360 588 1410 604 1460 596 C1510 588 1550 604 1600 610 L1600 620 Z"/>
+  </g>
+
+  <!-- 上层重檐（庑殿顶） -->
+  <path d="M470 336 C580 322 700 312 800 312 C900 312 1020 322 1130 336 L1078 264 C980 250 890 244 800 244 C710 244 620 250 522 264 Z" fill="#d4a24c"/>
+  <path d="M470 336 L522 264 L580 270 L528 340 Z" fill="#b8863a"/>
+  <path d="M1130 336 L1078 264 L1020 270 L1072 340 Z" fill="#b8863a"/>
+  <rect x="540" y="336" width="520" height="20" fill="#c8935a"/>
+  <!-- 上层檐下斗拱（简化为暗色条） -->
+  <rect x="556" y="356" width="488" height="14" fill="#8b4a38"/>
+
+  <!-- 上层墙体 -->
+  <rect x="580" y="370" width="440" height="76" fill="#b8513f"/>
+  <rect x="960" y="370" width="60" height="76" fill="#9c4234"/>
+  <g fill="#d8cbb4">
+    <rect x="612" y="390" width="34" height="40"/><rect x="676" y="390" width="34" height="40"/>
+    <rect x="740" y="390" width="34" height="40"/><rect x="804" y="390" width="34" height="40"/>
+    <rect x="868" y="390" width="34" height="40"/><rect x="932" y="390" width="34" height="40"/>
+  </g>
+
+  <!-- 下层重檐 -->
+  <path d="M400 500 C540 484 680 474 800 474 C920 474 1060 484 1200 500 L1140 412 C1020 396 910 388 800 388 C690 388 580 396 460 412 Z" fill="#d4a24c"/>
+  <path d="M400 500 L460 412 L522 420 L462 504 Z" fill="#b8863a"/>
+  <path d="M1200 500 L1140 412 L1078 420 L1138 504 Z" fill="#b8863a"/>
+  <rect x="470" y="500" width="660" height="22" fill="#c8935a"/>
+  <rect x="490" y="522" width="620" height="16" fill="#8b4a38"/>
+
+  <!-- 下层城墙 -->
+  <rect x="500" y="538" width="600" height="128" fill="#b8513f"/>
+  <rect x="1040" y="538" width="60" height="128" fill="#9c4234"/>
+  <!-- 五个拱门 -->
+  <g fill="#8f3a2d">
+    <path d="M548 666 L548 606 C548 586 566 574 588 574 C610 574 628 586 628 606 L628 666 Z"/>
+    <path d="M644 666 L644 606 C644 586 662 574 684 574 C706 574 724 586 724 606 L724 666 Z"/>
+    <path d="M740 666 L740 600 C740 578 760 566 784 566 C808 566 828 578 828 600 L828 666 Z"/>
+    <path d="M844 666 L844 606 C844 586 862 574 884 574 C906 574 924 586 924 606 L924 666 Z"/>
+    <path d="M940 666 L940 606 C940 586 958 574 980 574 C1002 574 1020 586 1020 606 L1020 666 Z"/>
+  </g>
+  <!-- 城墙垛口 -->
+  <g fill="#b8513f">
+    <rect x="500" y="530" width="26" height="12"/><rect x="546" y="530" width="26" height="12"/>
+    <rect x="592" y="530" width="26" height="12"/><rect x="638" y="530" width="26" height="12"/>
+    <rect x="684" y="530" width="26" height="12"/><rect x="730" y="530" width="26" height="12"/>
+    <rect x="776" y="530" width="26" height="12"/><rect x="822" y="530" width="26" height="12"/>
+    <rect x="868" y="530" width="26" height="12"/><rect x="914" y="530" width="26" height="12"/>
+    <rect x="960" y="530" width="26" height="12"/><rect x="1006" y="530" width="26" height="12"/>
+    <rect x="1052" y="530" width="26" height="12"/><rect x="1098" y="530" width="26" height="12"/>
+  </g>
+
+  <!-- 台基 -->
+  <path d="M460 666 L1140 666 L1180 720 L420 720 Z" fill="#c3b7a2"/>
+  <rect x="420" y="720" width="760" height="16" fill="#ab9d86"/>
+
+  <!-- 金水桥与广场 -->
+  <rect x="0" y="736" width="1600" height="164" fill="#c9b39e"/>
+  <g stroke="#b5a48c" stroke-width="3.5" opacity=".8">
+    <path d="M120 800 C320 794 500 806 700 798"/>
+    <path d="M900 838 C1100 832 1280 844 1480 836"/>
+  </g>
+
+  <!-- 华表 -->
+  <g>
+    <rect x="352" y="560" width="18" height="150" fill="#d8cbb4"/>
+    <rect x="346" y="540" width="30" height="22" rx="6" fill="#e8dcc8"/>
+    <path d="M352 540 L361 512 L370 540 Z" fill="#d8cbb4"/>
+    <rect x="342" y="700" width="38" height="16" fill="#c3b7a2"/>
+
+    <rect x="1230" y="560" width="18" height="150" fill="#d8cbb4"/>
+    <rect x="1224" y="540" width="30" height="22" rx="6" fill="#e8dcc8"/>
+    <path d="M1230 540 L1239 512 L1248 540 Z" fill="#d8cbb4"/>
+    <rect x="1220" y="700" width="38" height="16" fill="#c3b7a2"/>
+  </g>
+</svg>

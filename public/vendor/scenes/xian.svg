@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 西安：大雁塔 + 古城墙。平涂色块 + 斜切阴影 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远山 -->
+  <path d="M0 560 L190 470 L360 530 L520 476 L680 560 Z" fill="#c2ccd2"/>
+  <path d="M980 560 L1140 486 L1300 536 L1460 476 L1600 560 Z" fill="#c2ccd2"/>
+
+  <!-- 大雁塔：方形七层，层层收分 -->
+  <g>
+    <!-- 塔基 -->
+    <rect x="580" y="612" width="360" height="46" fill="#b5a995"/>
+    <rect x="556" y="658" width="408" height="22" fill="#a8917c"/>
+    <!-- 第一层 -->
+    <rect x="612" y="522" width="296" height="90" fill="#c9b39e"/>
+    <path d="M872 522 L908 540 L908 612 L872 612 Z" fill="#ac9781"/>
+    <rect x="596" y="506" width="328" height="18" fill="#a8917c"/>
+    <!-- 拱门 -->
+    <path d="M716 612 L716 562 C716 546 732 538 760 538 C788 538 804 546 804 562 L804 612 Z" fill="#8f7a62"/>
+    <!-- 第二层 -->
+    <rect x="642" y="436" width="236" height="72" fill="#c9b39e"/>
+    <path d="M842 436 L878 452 L878 508 L842 508 Z" fill="#ac9781"/>
+    <rect x="628" y="420" width="264" height="18" fill="#a8917c"/>
+    <rect x="712" y="456" width="40" height="52" fill="#8f7a62"/>
+    <rect x="772" y="456" width="40" height="52" fill="#8f7a62"/>
+    <!-- 第三层 -->
+    <rect x="668" y="360" width="184" height="62" fill="#c9b39e"/>
+    <path d="M816 360 L852 374 L852 422 L816 422 Z" fill="#ac9781"/>
+    <rect x="656" y="346" width="208" height="16" fill="#a8917c"/>
+    <rect x="722" y="378" width="34" height="44" fill="#8f7a62"/>
+    <rect x="770" y="378" width="34" height="44" fill="#8f7a62"/>
+    <!-- 第四层 -->
+    <rect x="690" y="294" width="140" height="54" fill="#c9b39e"/>
+    <path d="M798 294 L830 306 L830 348 L798 348 Z" fill="#ac9781"/>
+    <rect x="680" y="282" width="160" height="14" fill="#a8917c"/>
+    <rect x="736" y="308" width="30" height="40" fill="#8f7a62"/>
+    <!-- 第五层 -->
+    <rect x="710" y="240" width="100" height="46" fill="#c9b39e"/>
+    <path d="M782 240 L810 250 L810 286 L782 286 Z" fill="#ac9781"/>
+    <rect x="702" y="230" width="116" height="12" fill="#a8917c"/>
+    <!-- 塔刹 -->
+    <rect x="748" y="186" width="24" height="46" fill="#a8917c"/>
+    <path d="M742 186 L760 148 L778 186 Z" fill="#8d7a62"/>
+    <circle cx="760" cy="140" r="10" fill="#c4714b"/>
+  </g>
+
+  <!-- 古城墙（前景横贯） -->
+  <rect x="0" y="664" width="1600" height="132" fill="#b5a995"/>
+  <rect x="0" y="664" width="1600" height="14" fill="#a8917c"/>
+  <rect x="0" y="796" width="1600" height="18" fill="#8f7a62"/>
+  <!-- 垛口 -->
+  <g fill="#b5a995">
+    <rect x="20" y="640" width="34" height="26"/><rect x="80" y="640" width="34" height="26"/>
+    <rect x="140" y="640" width="34" height="26"/><rect x="200" y="640" width="34" height="26"/>
+    <rect x="260" y="640" width="34" height="26"/><rect x="320" y="640" width="34" height="26"/>
+    <rect x="380" y="640" width="34" height="26"/><rect x="440" y="640" width="34" height="26"/>
+    <rect x="500" y="640" width="34" height="26"/><rect x="560" y="640" width="34" height="26"/>
+    <rect x="1020" y="640" width="34" height="26"/><rect x="1080" y="640" width="34" height="26"/>
+    <rect x="1140" y="640" width="34" height="26"/><rect x="1200" y="640" width="34" height="26"/>
+    <rect x="1260" y="640" width="34" height="26"/><rect x="1320" y="640" width="34" height="26"/>
+    <rect x="1380" y="640" width="34" height="26"/><rect x="1440" y="640" width="34" height="26"/>
+    <rect x="1500" y="640" width="34" height="26"/><rect x="1560" y="640" width="34" height="26"/>
+  </g>
+  <!-- 城楼 -->
+  <path d="M1120 546 C1180 536 1240 530 1300 530 C1360 530 1420 536 1480 546 L1450 494 C1390 484 1340 480 1300 480 C1260 480 1210 484 1150 494 Z" fill="#b0654c"/>
+  <path d="M1120 546 L1150 494 L1188 498 L1156 550 Z" fill="#8b4a38"/>
+  <path d="M1480 546 L1450 494 L1412 498 L1444 550 Z" fill="#8b4a38"/>
+  <rect x="1170" y="546" width="260" height="18" fill="#c9b39e"/>
+  <rect x="1186" y="564" width="228" height="100" fill="#b8513f"/>
+  <rect x="1400" y="564" width="30" height="100" fill="#9c4234"/>
+  <path d="M1252 664 L1252 610 C1252 596 1266 590 1300 590 C1334 590 1348 596 1348 610 L1348 664 Z" fill="#8f3a2d"/>
+
+  <!-- 地面 -->
+  <rect x="0" y="814" width="1600" height="86" fill="#c3b7a2"/>
+  <g stroke="#ab9d86" stroke-width="3.5" opacity=".8">
+    <path d="M100 856 C300 850 480 862 680 854"/>
+    <path d="M900 878 C1100 872 1280 884 1480 876"/>
+  </g>
+</svg>
