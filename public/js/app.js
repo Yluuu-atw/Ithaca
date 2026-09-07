@@ -148,7 +148,6 @@ window.App = (() => {
 
   // ---------------- 渲染 ----------------
   function render() {
-    if (current.view === 'welcome') return;   // 开启页有自己的渲染路径
     const data = Store.getState();
     if (!data) return;
     applyTheme(data.meta && data.meta.theme);
@@ -168,6 +167,8 @@ window.App = (() => {
     $('#board').innerHTML = Render.renderTripBoard();
     const tripNameEl = $('#topbarTripName');
     if (tripNameEl) tripNameEl.textContent = data.meta.tripName || 'Journey';
+    // 开启页下主内容区不渲染，但侧栏、看板、导航要保持最新
+    if (current.view === 'welcome') return;
 
     // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
     if (current.tab === 'map') {
@@ -310,7 +311,8 @@ window.App = (() => {
 
       case 'nav':
         current.tab = el.dataset.tab;
-        render();
+        // 开启页下点侧栏导航，直接进到对应页面，不必先点「我的旅行」
+        if (current.view === 'welcome') setView('app'); else render();
         break;
 
       case 'modal-close':

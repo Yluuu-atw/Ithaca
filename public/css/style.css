@@ -1244,10 +1244,17 @@ textarea { resize: vertical; min-height: 60px; }
 /* ============================================================
    开启页：打开网址第一眼看到的整屏
    ============================================================ */
-body.is-welcome .app { display: none; }
+/* 开启页：侧栏保留可直接导航，只把主内容区换成开启页 */
+body.is-welcome .main { display: none; }
+/* .app 里只剩 fixed 定位的侧栏，若不压掉 min-height 会白占一屏高 */
+body.is-welcome .app { min-height: 0; }
 body.is-welcome .tabbar { display: none; }
 body.is-welcome .doodle-bg { display: none; }
+body.is-welcome .welcome { margin-left: var(--sidebar-w); min-height: 100vh; min-height: 100dvh; }
 body:not(.is-welcome) .welcome { display: none; }
+@media (max-width: 767px) {
+  body.is-welcome .welcome { margin-left: 0; }
+}
 
 .welcome {
   min-height: 100vh;
