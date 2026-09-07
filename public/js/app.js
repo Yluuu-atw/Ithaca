@@ -90,7 +90,7 @@ window.App = (() => {
   function render() {
     const data = Store.getState();
     if (!data) return;
-    applyTheme(data.meta && data.meta.theme);
+    applyTheme(Store.getDocTheme());
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');
     if (doodleImg) {
@@ -526,7 +526,7 @@ window.App = (() => {
       }
 
       case 'theme-open': {
-        const bg = (Store.getState().meta && Store.getState().meta.theme) || '#f2ece0';
+        const bg = Store.getDocTheme() || '#f2ece0';
         openModal('页面背景', Render.themePicker(bg));
         break;
       }
@@ -577,7 +577,8 @@ window.App = (() => {
 
     if (kind === 'theme') {
       const bg = (fd.get('bg') || '').trim();
-      if (bg) doMutate(d => { d.meta.theme = bg; }, '背景色已更新');
+      // 走 mutateDoc：背景色在文档级，改一次所有旅行都生效
+      if (bg) doDocOp(() => Store.mutateDoc(d => { d.meta.theme = bg; }), '背景色已更新');
       closeModal();
       return;
     }

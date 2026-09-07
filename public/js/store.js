@@ -151,6 +151,7 @@ window.Store = (() => {
     tracks: [], photos: [], places: [], bookings: [], guides: [],
   };
   function getState() { return tripById(currentTripId()) || EMPTY_TRIP; }
+  function getDocTheme() { return (state && state.meta && state.meta.theme) || null; }
 
   // ---------------- 旅行列表 ----------------
   function listTrips() { return ((state && state.trips) || []).slice(); }
@@ -272,8 +273,8 @@ window.Store = (() => {
   }
 
   return {
-    CONST, deepClone, uid, load, mutate, connect, subscribe, setStatusHandler,
-    getState, getIdentity, setIdentity, uploadPhoto,
+    CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler,
+    getState, getDocTheme, getIdentity, setIdentity, uploadPhoto,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getBoardOpen, setBoardOpen,
   };
