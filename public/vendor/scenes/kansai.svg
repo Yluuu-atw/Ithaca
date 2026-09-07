@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 伏见稻荷 千本鸟居：实心平涂色块 + 大留白，手法与维港那张同源 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 枝叶：几团实心绿，压在鸟居后面 -->
+  <path d="M0 0 L1600 0 L1600 250 C1520 268 1440 236 1360 252 C1270 270 1190 240 1100 258 C1010 276 930 246 840 262 C750 278 670 248 580 264 C490 280 410 250 320 266 C230 282 150 252 60 268 C40 272 18 274 0 272 Z" fill="#8b9a7e"/>
+  <path d="M0 0 L1600 0 L1600 168 C1500 190 1410 156 1310 178 C1210 200 1120 166 1020 186 C920 206 830 172 730 192 C630 212 540 178 440 196 C340 214 250 182 150 200 C100 208 48 214 0 210 Z" fill="#6f7d66"/>
+
+  <!-- 鸟居列：朱红实心，每根右侧一道斜切阴影 -->
+  <g>
+    <!-- 1 -->
+    <rect x="46" y="250" width="150" height="26" rx="10" fill="#b85f42"/>
+    <rect x="60" y="304" width="122" height="16" fill="#b85f42"/>
+    <rect x="62" y="276" width="24" height="364" fill="#c4714b"/>
+    <rect x="156" y="276" width="24" height="364" fill="#c4714b"/>
+    <path d="M168 276 L180 286 L180 640 L168 640 Z" fill="#a2523a"/>
+    <rect x="62" y="596" width="24" height="44" fill="#4a3f38"/>
+    <rect x="156" y="596" width="24" height="44" fill="#4a3f38"/>
+
+    <!-- 2 -->
+    <rect x="266" y="228" width="158" height="27" rx="10" fill="#b85f42"/>
+    <rect x="281" y="284" width="128" height="16" fill="#b85f42"/>
+    <rect x="283" y="255" width="25" height="385" fill="#c4714b"/>
+    <rect x="382" y="255" width="25" height="385" fill="#c4714b"/>
+    <path d="M395 255 L407 266 L407 640 L395 640 Z" fill="#a2523a"/>
+    <rect x="283" y="596" width="25" height="44" fill="#4a3f38"/>
+    <rect x="382" y="596" width="25" height="44" fill="#4a3f38"/>
+
+    <!-- 3 -->
+    <rect x="500" y="248" width="150" height="26" rx="10" fill="#b85f42"/>
+    <rect x="514" y="302" width="122" height="16" fill="#b85f42"/>
+    <rect x="516" y="274" width="24" height="366" fill="#c4714b"/>
+    <rect x="610" y="274" width="24" height="366" fill="#c4714b"/>
+    <path d="M622 274 L634 284 L634 640 L622 640 Z" fill="#a2523a"/>
+    <rect x="516" y="596" width="24" height="44" fill="#4a3f38"/>
+    <rect x="610" y="596" width="24" height="44" fill="#4a3f38"/>
+
+    <!-- 4 -->
+    <rect x="726" y="220" width="162" height="28" rx="10" fill="#b85f42"/>
+    <rect x="742" y="278" width="130" height="17" fill="#b85f42"/>
+    <rect x="744" y="248" width="26" height="392" fill="#c4714b"/>
+    <rect x="846" y="248" width="26" height="392" fill="#c4714b"/>
+    <path d="M860 248 L872 260 L872 640 L860 640 Z" fill="#a2523a"/>
+    <rect x="744" y="596" width="26" height="44" fill="#4a3f38"/>
+    <rect x="846" y="596" width="26" height="44" fill="#4a3f38"/>
+
+    <!-- 5 -->
+    <rect x="962" y="244" width="152" height="26" rx="10" fill="#b85f42"/>
+    <rect x="976" y="298" width="124" height="16" fill="#b85f42"/>
+    <rect x="978" y="270" width="24" height="370" fill="#c4714b"/>
+    <rect x="1074" y="270" width="24" height="370" fill="#c4714b"/>
+    <path d="M1086 270 L1098 280 L1098 640 L1086 640 Z" fill="#a2523a"/>
+    <rect x="978" y="596" width="24" height="44" fill="#4a3f38"/>
+    <rect x="1074" y="596" width="24" height="44" fill="#4a3f38"/>
+
+    <!-- 6 -->
+    <rect x="1194" y="226" width="158" height="27" rx="10" fill="#b85f42"/>
+    <rect x="1209" y="282" width="128" height="16" fill="#b85f42"/>
+    <rect x="1211" y="253" width="25" height="387" fill="#c4714b"/>
+    <rect x="1310" y="253" width="25" height="387" fill="#c4714b"/>
+    <path d="M1323 253 L1335 264 L1335 640 L1323 640 Z" fill="#a2523a"/>
+    <rect x="1211" y="596" width="25" height="44" fill="#4a3f38"/>
+    <rect x="1310" y="596" width="25" height="44" fill="#4a3f38"/>
+
+    <!-- 7 -->
+    <rect x="1424" y="250" width="150" height="26" rx="10" fill="#b85f42"/>
+    <rect x="1438" y="304" width="122" height="16" fill="#b85f42"/>
+    <rect x="1440" y="276" width="24" height="364" fill="#c4714b"/>
+    <rect x="1534" y="276" width="24" height="364" fill="#c4714b"/>
+    <path d="M1546 276 L1558 286 L1558 640 L1546 640 Z" fill="#a2523a"/>
+    <rect x="1440" y="596" width="24" height="44" fill="#4a3f38"/>
+    <rect x="1534" y="596" width="24" height="44" fill="#4a3f38"/>
+  </g>
+
+  <!-- 参道：暖石色，几道横向笔触 -->
+  <rect x="0" y="640" width="1600" height="260" fill="#c3b7a2"/>
+  <g stroke="#ab9d86" stroke-width="3.5" stroke-linecap="round" opacity=".85" fill="none">
+    <path d="M60 700 C240 694 400 706 580 698"/>
+    <path d="M760 730 C940 724 1100 736 1280 728"/>
+    <path d="M180 786 C360 780 520 792 700 784"/>
+    <path d="M980 812 C1160 806 1320 818 1500 810"/>
+    <path d="M420 848 C600 842 760 854 940 846"/>
+  </g>
+  <!-- 石灯笼：一笔带过，右侧一盏 -->
+  <rect x="1330" y="700" width="54" height="90" fill="#8d8271"/>
+  <rect x="1318" y="676" width="78" height="28" rx="6" fill="#7a7060"/>
+  <rect x="1338" y="790" width="38" height="30" fill="#6f6555"/>
+</svg>

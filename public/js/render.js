@@ -1435,7 +1435,7 @@ window.Render = (() => {
   // 平涂实心色块 + 不规则斜线阴影 + 大留白，对应 Yukiko Noritake 的丙烯手法
   const DOODLES = [
     { keys: ['香港', '维多利亚港', '维港', '澳门'], file: 'scenes/hongkong.svg' },
-    { keys: ['日本', '关西', '京都', '奈良', '神社', '鸟居', '和服', '东京', '大阪'], file: 'doodles/torii.svg' },
+    { keys: ['日本', '关西', '京都', '大阪', '奈良', '神社', '伏见稻荷', '鸟居', '和服', '东京'], file: 'scenes/kansai.svg' },
     { keys: ['海', '岛', '三亚', '厦门', '巴厘', '普吉', '冲绳', '东南亚', '沙滩', '潜水'], file: 'doodles/palms.svg' },
     { keys: ['山', '云南', '西藏', '瑞士', '阿尔卑斯', '徒步', '雪山', '高原'], file: 'doodles/mountains.svg' },
     { keys: ['草原', '新疆', '内蒙', '自驾'], file: 'doodles/birds.svg' },
