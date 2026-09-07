@@ -584,6 +584,7 @@ window.Render = (() => {
           ${editMeta ? `
           <form class="grid-form" data-form="meta">
             <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
+            <label>目的地<input name="destination" value="${esc(m.destination || '')}" placeholder="如：京都·大阪 或 Paris" autocomplete="off"></label>
             <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
           </form>` : metaSummary(s)}
         </section>
@@ -1431,22 +1432,33 @@ window.Render = (() => {
     </div>`;
   }
 
-  // ---------------- 手绘插画 ----------------
-  // 平涂实心色块 + 不规则斜线阴影 + 大留白，对应 Yukiko Noritake 的丙烯手法
-  const DOODLES = [
-    { keys: ['香港', '维多利亚港', '维港', '澳门'], file: 'scenes/hongkong.svg' },
-    { keys: ['日本', '关西', '京都', '大阪', '奈良', '神社', '伏见稻荷', '鸟居', '和服', '东京'], file: 'scenes/kansai.svg' },
-    { keys: ['海', '岛', '三亚', '厦门', '巴厘', '普吉', '冲绳', '东南亚', '沙滩', '潜水'], file: 'doodles/palms.svg' },
-    { keys: ['山', '云南', '西藏', '瑞士', '阿尔卑斯', '徒步', '雪山', '高原'], file: 'doodles/mountains.svg' },
-    { keys: ['草原', '新疆', '内蒙', '自驾'], file: 'doodles/birds.svg' },
-    { keys: ['深圳', '广州', '上海', '北京', '首尔', '纽约', '巴黎', '伦敦', '城市', '都市'], file: 'doodles/city.svg' },
+  // ---------------- 背景插画 ----------------
+  // 平涂实心色块 + 不规则斜线阴影 + 大留白，对应 Yukiko Noritake 的丙烯手法。
+  // 三级：专属景点 → 大区兜底 → 天空，命中与否由预展开的关键词索引决定
+  const SCENES = [
+    // 专属：具体城市或标志性景点
+    { file: 'scenes/hongkong.svg', keys: ['维多利亚港', '维港', '香港', '澳门', 'hongkong', 'macau', 'hk'] },
+    { file: 'scenes/kansai.svg', keys: ['伏见稻荷', '千本鸟居', '金阁寺', '清水寺', '环球影城', '奈良公园', 'usj', '京都', '大阪', '奈良', '神户', '关西'] },
+
+    // 大区兜底：没有专属插画时按地貌/文化圈回落
+    { file: 'scenes/region-island.svg', keys: ['马尔代夫', '巴厘岛', '普吉岛', '长滩岛', '苏梅岛', '沙巴', '亚庇', '芽庄', '岘港', '三亚', '厦门', '青岛', '大连', '北海', '涠洲岛', '冲绳', '济州', '海岛', '沙滩', '潜水', '东南亚'] },
+    { file: 'scenes/region-alpine.svg', keys: ['阿尔卑斯', '少女峰', '稻城亚丁', '九寨沟', '张家界', '四姑娘山', '梅里雪山', '贡嘎', '珠峰', '玉龙雪山', '长白山', '西藏', '拉萨', '云南', '香格里拉', '丽江', '新疆', '瑞士', '尼泊尔', '雪山', '高原', '徒步', '登山'] },
+    { file: 'scenes/region-asia.svg', keys: ['吴哥窟', '大皇宫', '卧佛寺', '清迈', '琅勃拉邦', '蒲甘', '加德满都', '曼谷', '新加坡', '吉隆坡', '雅加达', '马尼拉', '河内', '胡志明', '金边', '暹粒', '首尔', '釜山', '韩国', '泰国', '越南', '柬埔寨', '缅甸', '印度', '寺庙', '古都'] },
+    { file: 'scenes/region-europe.svg', keys: ['圣托里尼', '佛罗伦萨', '巴塞罗那', '阿姆斯特丹', '布拉格', '维也纳', '柏林', '慕尼黑', '巴黎', '罗马', '威尼斯', '米兰', '伦敦', '爱丁堡', '里斯本', '雅典', '马德里', '法国', '意大利', '西班牙', '葡萄牙', '英国', '德国', '奥地利', '荷兰', '希腊', '欧洲'] },
+    { file: 'scenes/region-metro.svg', keys: ['曼哈顿', '东京', '横滨', '纽约', '旧金山', '洛杉矶', '芝加哥', '迪拜', '多哈', '悉尼', '墨尔本', '奥克兰', '莫斯科', '上海', '北京', '深圳', '广州', '成都', '重庆', '杭州', '南京', '武汉', '西安', '天津', '苏州', '台北', '都市', '城市'] },
   ];
+
+  // 展平成 (关键词 → 文件) 索引并按关键词长度降序：长词优先，短词才不会截胡
+  const SCENE_INDEX = SCENES
+    .flatMap(s => s.keys.map(k => ({ k, file: s.file })))
+    .sort((a, b) => b.k.length - a.k.length);
+
   function doodleFor(trip) {
     const m = (trip && trip.meta) || {};
     const hay = [m.tripName, m.destination, ...((trip && trip.itinerary) || []).flatMap(d => (d.items || []).map(i => i.location || ''))]
-      .filter(Boolean).join(' ');
-    const hit = DOODLES.find(d => d.keys.some(k => hay.includes(k)));
-    return hit ? hit.file : 'doodles/sun-clouds.svg';
+      .filter(Boolean).join(' ').toLowerCase();
+    const hit = SCENE_INDEX.find(e => hay.includes(e.k));
+    return hit ? hit.file : 'scenes/sky.svg';
   }
 
   // ---------------- 背景色选择 ----------------

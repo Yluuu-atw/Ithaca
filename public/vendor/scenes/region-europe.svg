@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 欧洲街景：奥斯曼立面 + 教堂尖塔。平涂色块 + 斜切阴影 + 大留白 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 教堂尖塔（远景） -->
+  <path d="M1180 300 L1230 168 L1280 300 Z" fill="#9aa8b0"/>
+  <rect x="1206" y="300" width="48" height="300" fill="#a8b4bb"/>
+  <rect x="1220" y="352" width="20" height="34" fill="#8d99a1"/>
+  <path d="M1226 168 L1230 148 L1234 168 Z" fill="#8d99a1"/>
+
+  <!-- 左侧建筑 -->
+  <rect x="60" y="286" width="300" height="414" fill="#d8cbb4"/>
+  <rect x="330" y="286" width="30" height="414" fill="#bfae94"/>
+  <path d="M52 286 L368 286 L360 250 L60 250 Z" fill="#a8917c"/>
+  <g fill="#aebcc2">
+    <rect x="102" y="330" width="52" height="70"/><rect x="186" y="330" width="52" height="70"/><rect x="270" y="330" width="52" height="70"/>
+    <rect x="102" y="446" width="52" height="70"/><rect x="186" y="446" width="52" height="70"/><rect x="270" y="446" width="52" height="70"/>
+    <rect x="102" y="562" width="52" height="70"/><rect x="186" y="562" width="52" height="70"/><rect x="270" y="562" width="52" height="70"/>
+  </g>
+  <g fill="#8d99a1">
+    <rect x="146" y="330" width="8" height="70"/><rect x="230" y="330" width="8" height="70"/><rect x="314" y="330" width="8" height="70"/>
+    <rect x="146" y="446" width="8" height="70"/><rect x="230" y="446" width="8" height="70"/><rect x="314" y="446" width="8" height="70"/>
+    <rect x="146" y="562" width="8" height="70"/><rect x="230" y="562" width="8" height="70"/><rect x="314" y="562" width="8" height="70"/>
+  </g>
+  <!-- 铁艺阳台 -->
+  <g fill="#3a3733" opacity=".55">
+    <rect x="96" y="404" width="232" height="7"/><rect x="96" y="520" width="232" height="7"/>
+  </g>
+
+  <!-- 中间建筑 -->
+  <rect x="380" y="352" width="330" height="348" fill="#c9b39e"/>
+  <rect x="680" y="352" width="30" height="348" fill="#ac9781"/>
+  <path d="M372 352 L718 352 L710 314 L380 314 Z" fill="#967766"/>
+  <g fill="#aebcc2">
+    <rect x="420" y="396" width="56" height="76"/><rect x="512" y="396" width="56" height="76"/><rect x="604" y="396" width="56" height="76"/>
+    <rect x="420" y="524" width="56" height="76"/><rect x="512" y="524" width="56" height="76"/><rect x="604" y="524" width="56" height="76"/>
+  </g>
+  <g fill="#8d99a1">
+    <rect x="468" y="396" width="8" height="76"/><rect x="560" y="396" width="8" height="76"/><rect x="652" y="396" width="8" height="76"/>
+    <rect x="468" y="524" width="8" height="76"/><rect x="560" y="524" width="8" height="76"/><rect x="652" y="524" width="8" height="76"/>
+  </g>
+  <rect x="408" y="476" width="276" height="7" fill="#3a3733" opacity=".55"/>
+
+  <!-- 右侧建筑 -->
+  <rect x="730" y="252" width="290" height="448" fill="#d8cbb4"/>
+  <rect x="990" y="252" width="30" height="448" fill="#bfae94"/>
+  <path d="M722 252 L1028 252 L1020 214 L730 214 Z" fill="#a8917c"/>
+  <g fill="#aebcc2">
+    <rect x="770" y="300" width="52" height="72"/><rect x="854" y="300" width="52" height="72"/><rect x="938" y="300" width="52" height="72"/>
+    <rect x="770" y="420" width="52" height="72"/><rect x="854" y="420" width="52" height="72"/><rect x="938" y="420" width="52" height="72"/>
+    <rect x="770" y="540" width="52" height="72"/><rect x="854" y="540" width="52" height="72"/><rect x="938" y="540" width="52" height="72"/>
+  </g>
+  <g fill="#8d99a1">
+    <rect x="814" y="300" width="8" height="72"/><rect x="898" y="300" width="8" height="72"/><rect x="982" y="300" width="8" height="72"/>
+    <rect x="814" y="420" width="8" height="72"/><rect x="898" y="420" width="8" height="72"/><rect x="982" y="420" width="8" height="72"/>
+    <rect x="814" y="540" width="8" height="72"/><rect x="898" y="540" width="8" height="72"/><rect x="982" y="540" width="8" height="72"/>
+  </g>
+  <rect x="760" y="376" width="244" height="7" fill="#3a3733" opacity=".55"/>
+  <rect x="760" y="496" width="244" height="7" fill="#3a3733" opacity=".55"/>
+
+  <!-- 遮阳篷 -->
+  <path d="M404 700 L700 700 L688 736 L416 736 Z" fill="#c4714b"/>
+  <path d="M404 700 L470 700 L462 736 L416 736 Z" fill="#a2523a"/>
+
+  <!-- 街道 -->
+  <rect x="0" y="700" width="1600" height="200" fill="#c3b7a2"/>
+  <g stroke="#ab9d86" stroke-width="3.5" stroke-linecap="round" opacity=".8">
+    <path d="M80 776 C260 770 420 782 600 774"/>
+    <path d="M760 828 C940 822 1100 834 1280 826"/>
+    <path d="M300 872 C480 866 640 878 820 870"/>
+  </g>
+  <!-- 街灯 -->
+  <rect x="1370" y="600" width="12" height="180" fill="#6f6555"/>
+  <path d="M1348 600 L1404 600 L1392 576 L1360 576 Z" fill="#8d8271"/>
+  <ellipse cx="1376" cy="566" rx="20" ry="16" fill="#e0cba8"/>
+</svg>

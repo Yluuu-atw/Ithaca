@@ -1,8 +1,22 @@
 scenes/ 下为手绘平涂插画，参考 Yukiko Noritake 的丙烯手法
 （实心色块 + 不规则斜线阴影 + 大留白），无外部素材。
 
-hongkong.svg   维多利亚港天际线与天星小轮
-kansai.svg     伏见稻荷大社 千本鸟居与参道
+专属景点
+  hongkong.svg        维多利亚港天际线与天星小轮
+  kansai.svg          伏见稻荷大社 千本鸟居与参道
+
+大区兜底（没有专属插画时按地貌/文化圈回落）
+  region-asia.svg     亚洲风情：寺庙翘檐与红灯笼
+  region-europe.svg   欧洲街景：奥斯曼立面与教堂尖塔
+  region-island.svg   热带海岛：棕榈、碧海与小船
+  region-alpine.svg   雪山高原：雪峰、松林与溪流
+  region-metro.svg    现代都市：玻璃幕墙楼群与天桥
+
+最终兜底
+  sky.svg             天空、云与远山
 
 配色取自项目日法融合调色板：赭陶 #c4714b、鼠尾草 #8b9a7e、
 暖沙 #c9b39e、雾蓝 #aebcc2、纸色 #ece2d2、墨 #3a3733。
+
+识别规则见 public/js/render.js 的 SCENES：
+关键词按长度降序匹配，专属优先于大区，全都不中才用 sky.svg。

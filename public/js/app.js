@@ -566,9 +566,11 @@ window.App = (() => {
     const fd = new FormData(form);
 
     if (kind === 'meta') {
-      // 目的地与起止日期改由行程推算，币种在花费区单独改，成员走身份弹窗
+      // 起止日期由行程推算，币种在花费区单独改，成员走身份弹窗
+      // 目的地是背景插画的匹配依据，新建旅行时行程还是空的，必须能显式填
       doMutate(d => {
         d.meta.tripName = (fd.get('tripName') || '').trim() || '我们的旅行';
+        d.meta.destination = (fd.get('destination') || '').trim();
       }, '行程信息已保存');
       current.editMeta = false;
       render();

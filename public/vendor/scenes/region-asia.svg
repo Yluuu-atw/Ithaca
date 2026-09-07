@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+  <!-- 亚洲风情：寺庙翘檐 + 红灯笼。平涂色块 + 斜切阴影 + 大留白 -->
+  <rect width="1600" height="900" fill="#ece2d2"/>
+
+  <!-- 远景树影 -->
+  <path d="M0 520 C90 470 150 500 230 486 C310 472 360 496 430 500 L430 520 Z" fill="#b9c2ac"/>
+  <path d="M1180 520 C1260 476 1330 500 1410 488 C1490 476 1540 498 1600 504 L1600 520 Z" fill="#b9c2ac"/>
+
+  <!-- 寺庙：上层屋檐（翘角） -->
+  <path d="M470 372 C560 356 660 340 800 340 C940 340 1040 356 1130 372 L1092 300 C1010 288 900 282 800 282 C700 282 590 288 508 300 Z" fill="#a35a44"/>
+  <path d="M470 372 L508 300 L560 304 L524 376 Z" fill="#8b4a38"/>
+  <path d="M1130 372 L1092 300 L1040 304 L1076 376 Z" fill="#8b4a38"/>
+  <rect x="560" y="372" width="480" height="26" fill="#c9b39e"/>
+
+  <!-- 上层墙体 -->
+  <rect x="600" y="398" width="400" height="96" fill="#d8cbb4"/>
+  <rect x="940" y="398" width="60" height="96" fill="#bfae94"/>
+
+  <!-- 下层屋檐 -->
+  <path d="M400 520 C520 500 660 488 800 488 C940 488 1080 500 1200 520 L1152 440 C1040 424 920 416 800 416 C680 416 560 424 448 440 Z" fill="#b0654c"/>
+  <path d="M400 520 L448 440 L504 446 L456 524 Z" fill="#8b4a38"/>
+  <path d="M1200 520 L1152 440 L1096 446 L1144 524 Z" fill="#8b4a38"/>
+
+  <!-- 柱廊 -->
+  <rect x="470" y="520" width="660" height="26" fill="#c9b39e"/>
+  <rect x="500" y="546" width="34" height="120" fill="#a8917c"/>
+  <rect x="620" y="546" width="34" height="120" fill="#b59a88"/>
+  <rect x="740" y="546" width="34" height="120" fill="#a8917c"/>
+  <rect x="860" y="546" width="34" height="120" fill="#b59a88"/>
+  <rect x="980" y="546" width="34" height="120" fill="#a8917c"/>
+  <rect x="1096" y="546" width="34" height="120" fill="#b59a88"/>
+  <rect x="500" y="546" width="630" height="120" fill="#d8cbb4" opacity=".45"/>
+  <rect x="470" y="666" width="660" height="22" fill="#a8917c"/>
+
+  <!-- 红灯笼串 -->
+  <g>
+    <path d="M560 396 L560 430" stroke="#3a3733" stroke-width="3" opacity=".5"/>
+    <ellipse cx="560" cy="452" rx="30" ry="34" fill="#c4714b"/>
+    <rect x="548" y="416" width="24" height="10" rx="3" fill="#8b4a38"/>
+    <rect x="552" y="484" width="16" height="16" fill="#8b4a38"/>
+
+    <path d="M800 396 L800 424" stroke="#3a3733" stroke-width="3" opacity=".5"/>
+    <ellipse cx="800" cy="450" rx="34" ry="38" fill="#c4714b"/>
+    <rect x="786" y="410" width="28" height="11" rx="3" fill="#8b4a38"/>
+    <rect x="791" y="486" width="18" height="18" fill="#8b4a38"/>
+
+    <path d="M1040 396 L1040 430" stroke="#3a3733" stroke-width="3" opacity=".5"/>
+    <ellipse cx="1040" cy="452" rx="30" ry="34" fill="#c4714b"/>
+    <rect x="1028" y="416" width="24" height="10" rx="3" fill="#8b4a38"/>
+    <rect x="1032" y="484" width="16" height="16" fill="#8b4a38"/>
+  </g>
+
+  <!-- 台阶 -->
+  <path d="M560 688 L1040 688 L1100 760 L500 760 Z" fill="#c3b7a2"/>
+  <path d="M500 760 L1100 760 L1160 836 L440 836 Z" fill="#b5a995"/>
+  <g stroke="#9d917c" stroke-width="3" opacity=".7">
+    <path d="M520 760 L1080 760"/>
+    <path d="M470 836 L1130 836"/>
+  </g>
+
+  <!-- 地面 -->
+  <rect x="0" y="836" width="1600" height="64" fill="#a8917c"/>
+</svg>
