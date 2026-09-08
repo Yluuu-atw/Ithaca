@@ -1306,14 +1306,33 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 .welcome-brand .emo { width: 30px; height: 30px; }
 
-/* 上下结构：日期天气一行 → 每日一句 → 按钮 */
-.welcome-meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px 14px;
+/* 方格纹信息卡：手账方格本的底纹，与语录便签的纯色底区分开 */
+.meta-card {
+  position: relative;
   width: 100%;
+  max-width: 430px;
+  padding: 16px 22px 17px;
+  background-color: #fffdf8;
+  background-image:
+    linear-gradient(rgba(118, 138, 162, .17) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(118, 138, 162, .17) 1px, transparent 1px);
+  background-size: 15px 15px;
+  border: 2.5px solid var(--line);
+  border-radius: 18px 255px 18px 225px / 225px 18px 255px 18px;
+  box-shadow: var(--shadow);
+  transform: rotate(.6deg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+.meta-card > .tape {
+  top: -10px;
+  left: 20px;
+  width: 68px;
+  height: 20px;
+  transform: rotate(-8deg);
 }
 
 /* 手账胶带：半透明斜纹压在卡片上，两端斜切像撕开的 */
@@ -1328,32 +1347,20 @@ body:not(.is-welcome) .welcome { display: none; }
   box-shadow: 0 1px 2px rgba(58, 55, 51, .12);
   clip-path: polygon(1% 6%, 99% 0, 100% 94%, 0 100%);
 }
-/* 天气卡片：比语录更抢眼，第一眼先看到天气 */
-.weather-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 15px 18px;
-  background: #fffdf8;
-  border: 3px solid var(--line);
-  border-radius: 20px 255px 20px 225px / 225px 20px 255px 20px;
-  box-shadow: var(--shadow);
-  transform: rotate(.7deg);
-}
-/* 天气：手账卡片的形保留，文字退到次要层级，能看到但不抢眼 */
-.weather-emo { font-size: 30px; line-height: 1; opacity: .9; }
-.weather-txt {
-  font-size: 16.5px;
-  font-weight: 500;
-  line-height: 1.5;
-  color: var(--muted);
-  min-width: 0;
-}
-.welcome-date {
+.meta-line {
   display: flex; align-items: baseline; justify-content: center; gap: 7px;
   font-size: 14px; color: var(--muted);
 }
-.welcome-date b { font-size: 15.5px; color: var(--text); font-weight: 600; }
+.meta-line b { font-size: 16px; color: var(--text); font-weight: 600; }
+.meta-weather { display: inline-flex; align-items: center; gap: 9px; }
+/* 天气文字退到次要层级，能看到但不抢眼 */
+.weather-emo { font-size: 26px; line-height: 1; opacity: .9; }
+.weather-txt {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--muted);
+  min-width: 0;
+}
 
 /* 语录便签：地名与正文同一个框里，胶带贴在左上角。正文走龙藏手写体 */
 .welcome-bubble {
@@ -1382,8 +1389,9 @@ body:not(.is-welcome) .welcome { display: none; }
   transform: translateX(-50%) rotate(-3deg);
 }
 .bubble-place {
-  font-size: 15px;
-  font-weight: 600;
+  font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
+  font-size: 19px;
+  font-weight: 400;
   color: var(--primary-600);
   letter-spacing: .4px;
 }
@@ -1511,14 +1519,15 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-inner { gap: 14px; }
   .welcome-brand { font-size: 25px; }
   .welcome-brand .emo { width: 25px; height: 25px; }
-  .weather-card { padding: 12px 14px; gap: 10px; }
-  .weather-emo { font-size: 26px; }
-  .weather-txt { font-size: 15px; }
-  .welcome-date { font-size: 13px; }
-  .welcome-date b { font-size: 14.5px; }
+  .meta-card { padding: 14px 16px 15px; background-size: 13px 13px; }
+  .meta-card > .tape { width: 58px; height: 18px; }
+  .meta-line { font-size: 12.5px; }
+  .meta-line b { font-size: 14.5px; }
+  .weather-emo { font-size: 23px; }
+  .weather-txt { font-size: 14.5px; }
   .welcome-bubble { padding: 16px 16px 18px; gap: 6px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
-  .bubble-place { font-size: 13.5px; }
+  .bubble-place { font-size: 17px; }
   .bubble-text { font-size: 18px; line-height: 1.8; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }

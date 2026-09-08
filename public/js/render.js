@@ -1505,12 +1505,13 @@ window.Render = (() => {
       <div class="welcome-inner">
         <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
 
-        <div class="welcome-meta">
-          <span class="welcome-date">
+        <div class="meta-card">
+          <span class="tape" aria-hidden="true"></span>
+          <div class="meta-line">
             <b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b>
             <span>星期${WEEKDAY[now.getDay()]}</span>
-          </span>
-          <div class="weather-card" id="welcomeWeather">
+          </div>
+          <div class="meta-weather" id="welcomeWeather">
             <span class="weather-emo">🌤️</span>
             <span class="weather-txt">正在获取天气…</span>
           </div>
