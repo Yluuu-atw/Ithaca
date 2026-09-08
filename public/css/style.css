@@ -1274,31 +1274,25 @@ body:not(.is-welcome) .welcome { display: none; }
   justify-content: center;
   padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
 }
-/* 插画上下两段可见，中间让给内容：用 mask 把中段切掉，露出底色 */
+/* 桌面：插画全屏铺底，薄雾只压上下两端，中间不压保证画面清楚 */
 .welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg); }
 .welcome-bg img,
 .welcome-bg svg {
   width: 100%; height: 100%;
   object-fit: cover; object-position: center 62%;
   display: block;
-  opacity: .96;
-  -webkit-mask-image: linear-gradient(180deg,
-    #000 0, #000 27%, transparent 33%,
-    transparent 67%, #000 73%, #000 100%);
-  mask-image: linear-gradient(180deg,
-    #000 0, #000 27%, transparent 33%,
-    transparent 67%, #000 73%, #000 100%);
+  opacity: .97;
 }
-/* 上下两段各压一层薄雾，保证题字与按钮可读 */
 .welcome-bg::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg) 22%, transparent) 0%,
-    transparent 26%,
-    transparent 74%,
-    color-mix(in srgb, var(--bg) 26%, transparent) 100%);
+    color-mix(in srgb, var(--bg) 30%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 10%, transparent) 22%,
+    transparent 40%,
+    color-mix(in srgb, var(--bg) 10%, transparent) 78%,
+    color-mix(in srgb, var(--bg) 34%, transparent) 100%);
 }
 .welcome-inner {
   position: relative;
@@ -1412,12 +1406,11 @@ body:not(.is-welcome) .welcome { display: none; }
   height: 24px;
   transform: translateX(-50%) rotate(-3deg);
 }
-/* 书法题字压在插画最上段，横排居中。中文行书，外国城市英文花体 */
+/* 书法题字落在背景右上角竖排（桌面）。手机端在媒体查询里改为顶部横排 */
 .brush-name {
   position: absolute;
-  top: 3%;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 5%;
+  right: 4%;
   z-index: 1;
   white-space: nowrap;
   color: var(--primary-600);
@@ -1425,10 +1418,11 @@ body:not(.is-welcome) .welcome { display: none; }
   pointer-events: none;
 }
 .brush-name.is-cjk {
+  writing-mode: vertical-rl;
   font-family: 'Zhi Mang Xing', 'Ma Shan Zheng', 'LongCang', 'Songti SC', serif;
-  font-size: 44px;
-  letter-spacing: 7px;
-  line-height: 1.1;
+  font-size: 50px;
+  letter-spacing: 8px;
+  line-height: 1;
 }
 .brush-name.is-en {
   font-family: 'Great Vibes', cursive;
@@ -1606,9 +1600,22 @@ body:not(.is-welcome) .welcome { display: none; }
   .weather-txt { font-size: 12px; }
   .welcome-bubble { padding: 15px 15px 17px; gap: 5px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
-  /* 题字横排压在插画最上段，内容在画面中间，不再整体让位 */
-  .brush-name { top: 2.5%; }
-  .brush-name.is-cjk { font-size: 31px; letter-spacing: 4px; }
+  /* 手机端：插画上下分段，中间整块留给内容；题字横排压在最上段 */
+  .welcome-bg img,
+  .welcome-bg svg {
+    -webkit-mask-image: linear-gradient(180deg,
+      #000 0, #000 26%, transparent 33%, transparent 67%, #000 74%, #000 100%);
+    mask-image: linear-gradient(180deg,
+      #000 0, #000 26%, transparent 33%, transparent 67%, #000 74%, #000 100%);
+  }
+  .welcome-bg::after {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--bg) 26%, transparent) 0%,
+      transparent 28%, transparent 72%,
+      color-mix(in srgb, var(--bg) 30%, transparent) 100%);
+  }
+  .brush-name { top: 2.5%; right: auto; left: 50%; transform: translateX(-50%); }
+  .brush-name.is-cjk { writing-mode: horizontal-tb; font-size: 31px; letter-spacing: 4px; line-height: 1.15; }
   .brush-name.is-en { font-size: 32px; }
   .bubble-place { font-size: 14px; }
   .bubble-text { font-size: 18px; line-height: 1.8; }
