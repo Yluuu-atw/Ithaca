@@ -1311,7 +1311,7 @@ body:not(.is-welcome) .welcome { display: none; }
 .meta-card {
   position: relative;
   width: 100%;
-  max-width: 560px;
+  max-width: 660px;
   padding: 16px 22px 17px;
   background-color: rgba(255, 253, 248, .54);
   background-image:
@@ -1581,12 +1581,15 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-inner { gap: 14px; }
   .welcome-brand { font-size: 25px; }
   .welcome-brand .emo { width: 25px; height: 25px; }
-  .meta-card { padding: 13px 15px 14px; background-size: 13px 13px; }
+  .meta-card { padding: 12px 13px 13px; background-size: 13px 13px; }
   .meta-card > .tape { width: 58px; height: 18px; }
-  .meta-date { font-size: 12.5px; }
-  .meta-date b { font-size: 14px; }
-  .weather-emo { font-size: 19px; }
-  .weather-txt { font-size: 13.5px; }
+  /* 手机屏宽有限，日期与天气挤进一行靠字号与间距一起收 */
+  .meta-row { gap: 3px 5px; }
+  .meta-date { font-size: 11.5px; }
+  .meta-date b { font-size: 12.5px; }
+  .meta-sep { display: none; }
+  .weather-emo { font-size: 17px; }
+  .weather-txt { font-size: 12px; }
   .welcome-bubble { padding: 15px 15px 17px; gap: 5px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
   .brush-name { top: 3%; right: 4%; }
@@ -1597,4 +1600,12 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }
   .welcome-mini .emo { width: 20px; height: 20px; }
+}
+
+/* 更窄的机器（iPhone SE 一类）再收一档，仍保持日期与天气同行 */
+@media (max-width: 374px) {
+  .meta-date { font-size: 10.5px; }
+  .meta-date b { font-size: 11.5px; }
+  .weather-emo { font-size: 15px; }
+  .weather-txt { font-size: 11px; }
 }
