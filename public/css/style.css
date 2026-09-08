@@ -1306,7 +1306,7 @@ body:not(.is-welcome) .welcome { display: none; }
   flex: 1 1 52%;
   min-width: 0;
   position: relative;
-  padding: 9px 9px 34px;
+  padding: 9px;
   background: #fffdf8;
   border: 3px solid var(--line);
   border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
@@ -1316,19 +1316,30 @@ body:not(.is-welcome) .welcome { display: none; }
 .welcome-shot img {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  height: 100%;
+  aspect-ratio: 16 / 11;
   object-fit: cover;
   border-radius: 200px 10px 180px 10px / 10px 180px 10px 200px;
 }
-/* 地名贴在图片下沿，像手账里手写的标注 */
-.welcome-shot figcaption {
+
+/* 手账胶带：半透明斜纹压在卡片上，两端斜切像撕开的 */
+.tape {
   position: absolute;
-  left: 0; right: 0; bottom: 7px;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--primary-600);
-  letter-spacing: .3px;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(-52deg,
+      rgba(242, 226, 178, .82) 0 7px,
+      rgba(236, 216, 162, .78) 7px 14px);
+  box-shadow: 0 1px 2px rgba(58, 55, 51, .12);
+  clip-path: polygon(1% 6%, 99% 0, 100% 94%, 0 100%);
+}
+.welcome-shot > .tape {
+  top: -12px;
+  left: 50%;
+  width: 104px;
+  height: 26px;
+  transform: translateX(-50%) rotate(-2.5deg);
 }
 .welcome-side {
   flex: 1 1 48%;
@@ -1349,35 +1360,55 @@ body:not(.is-welcome) .welcome { display: none; }
   box-shadow: var(--shadow);
   transform: rotate(.7deg);
 }
-.weather-emo { font-size: 34px; line-height: 1; }
+/* 天气：手账卡片的形保留，文字退到次要层级，能看到但不抢眼 */
+.weather-emo { font-size: 30px; line-height: 1; opacity: .9; }
 .weather-txt {
-  font-size: 19px;
-  font-weight: 700;
-  line-height: 1.45;
-  color: var(--text);
+  font-size: 16.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--muted);
   min-width: 0;
 }
 .welcome-date {
-  display: flex; align-items: baseline; justify-content: center; gap: 8px;
-  font-size: 15.5px; color: var(--muted);
+  display: flex; align-items: baseline; justify-content: center; gap: 7px;
+  font-size: 14px; color: var(--muted);
 }
-.welcome-date b { font-size: 18px; color: var(--text); font-weight: 700; }
+.welcome-date b { font-size: 15.5px; color: var(--text); font-weight: 600; }
 
-/* 语录：不规则圆角 + 墨线描边，手账便签的感觉。字号克制，别盖过天气 */
+/* 语录便签：地名与正文同一个框里，胶带贴在左上角 */
 .welcome-bubble {
+  position: relative;
   flex: 1;
   margin: 0;
-  padding: 14px 17px;
+  padding: 16px 17px 17px;
   background: #fffdf8;
   border: 2.5px solid var(--line);
   border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px;
   box-shadow: var(--shadow-sm);
+  transform: rotate(-.5deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+.welcome-bubble > .tape {
+  top: -10px;
+  left: 15px;
+  width: 74px;
+  height: 21px;
+  transform: rotate(-7deg);
+}
+.bubble-place {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-600);
+  letter-spacing: .3px;
+}
+.bubble-text {
   font-size: 15.5px;
   line-height: 1.72;
   color: var(--text);
-  transform: rotate(-.5deg);
-  display: flex;
-  align-items: center;
 }
 
 .welcome-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
@@ -1498,13 +1529,17 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-brand { font-size: 25px; }
   .welcome-brand .emo { width: 25px; height: 25px; }
   .welcome-split { gap: 12px; }
-  .welcome-shot { padding: 7px 7px 30px; }
-  .welcome-shot figcaption { font-size: 13px; bottom: 6px; }
-  .weather-card { padding: 13px 15px; gap: 10px; }
-  .weather-emo { font-size: 29px; }
-  .weather-txt { font-size: 16.5px; }
-  .welcome-date b { font-size: 16.5px; }
-  .welcome-bubble { font-size: 14.5px; padding: 12px 14px; }
+  .welcome-shot { padding: 7px; }
+  .welcome-shot > .tape { width: 84px; height: 21px; top: -10px; }
+  .weather-card { padding: 12px 14px; gap: 10px; }
+  .weather-emo { font-size: 26px; }
+  .weather-txt { font-size: 15px; }
+  .welcome-date { font-size: 13px; }
+  .welcome-date b { font-size: 14.5px; }
+  .welcome-bubble { padding: 14px 14px 15px; gap: 5px; }
+  .welcome-bubble > .tape { width: 62px; height: 18px; top: -9px; left: 12px; }
+  .bubble-place { font-size: 13px; }
+  .bubble-text { font-size: 14.5px; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }
   .welcome-mini .emo { width: 20px; height: 20px; }

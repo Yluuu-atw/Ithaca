@@ -1507,8 +1507,8 @@ window.Render = (() => {
 
         <div class="welcome-split">
           <figure class="welcome-shot">
+            <span class="tape" aria-hidden="true"></span>
             <img src="vendor/${esc(shot)}" alt="">
-            <figcaption>📍 ${quote ? esc(quote[0]) : ''}</figcaption>
           </figure>
 
           <div class="welcome-side">
@@ -1520,7 +1520,11 @@ window.Render = (() => {
               <b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b>
               <span>星期${WEEKDAY[now.getDay()]}</span>
             </div>
-            ${quote ? `<blockquote class="welcome-bubble">${esc(quote[1])}</blockquote>` : ''}
+            ${quote ? `<blockquote class="welcome-bubble">
+              <span class="tape" aria-hidden="true"></span>
+              <span class="bubble-place">📍 ${esc(quote[0])}</span>
+              <span class="bubble-text">${esc(quote[1])}</span>
+            </blockquote>` : ''}
           </div>
         </div>
 
