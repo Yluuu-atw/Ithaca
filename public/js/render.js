@@ -1540,6 +1540,9 @@ window.Render = (() => {
             <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> 创建我的旅行
           </button>
           <div class="welcome-sub">
+            <button type="button" class="welcome-mini" data-action="welcome-trips">
+              <img class="emo" src="vendor/fluent-emoji/1f4cc.png" alt=""> 管理旅行
+            </button>
             <button type="button" class="welcome-mini" data-action="welcome-calendar">
               <img class="emo" src="vendor/fluent-emoji/1f4c5.png" alt=""> 旅行日历
             </button>
@@ -1618,6 +1621,29 @@ window.Render = (() => {
             <span class="cal-legend-days">${l.days} 天</span>
           </span>`).join('') : '<span class="cal-empty">还没有旅行，先去建一趟吧</span>'}
       </div>`;
+  }
+
+  // ---------------- 管理旅行 ----------------
+  function renderTripsManager(trips, editing) {
+    const list = (trips || []);
+    if (!list.length) return '<div class="memo-empty">还没有旅行，先去创建一趟吧</div>';
+    const rows = list.map(t => {
+      const m = t.meta || {};
+      const days = (t.itinerary || []).length;
+      return `<div class="tripmgr-row">
+        <div class="tripmgr-main">
+          <b>${esc(m.tripName || '未命名旅行')}</b>
+          <span>${m.destination ? esc(m.destination) + ' · ' : ''}${days} 天行程</span>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm tripmgr-del" data-action="trip-del-confirm" data-id="${esc(t.id)}">删除</button>
+      </div>`;
+    }).join('');
+    return `
+      <div class="tripmgr-head">
+        <span class="tripmgr-count">共 ${list.length} 趟</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="tripmgr-edit">${editing ? '完成' : '编辑'}</button>
+      </div>
+      <div class="tripmgr-list${editing ? ' is-editing' : ''}">${rows}</div>`;
   }
 
   // ---------------- 备忘录 ----------------
@@ -1758,6 +1784,7 @@ window.Render = (() => {
     doodleFor,
     renderWelcome,
     renderCalendar,
+    renderTripsManager,
     renderMemos,
     formMemo,
   };

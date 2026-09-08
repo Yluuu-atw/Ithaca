@@ -7,7 +7,7 @@
  */
 
 window.App = (() => {
-  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth() };
+  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
 
   // 页面配色：只存一个底色，其余全部由它派生，选什么底色全站都协调
@@ -126,6 +126,9 @@ window.App = (() => {
   function showCalendar() {
     const body = `<div class="cal">${Render.renderCalendar(Store.listTrips(), current.calY, current.calM)}</div>`;
     openModal('旅行日历', body);
+  }
+  function showTripsManager() {
+    openModal('管理旅行', Render.renderTripsManager(Store.listTrips(), current.editTrips));
   }
   function shiftMonth(delta) {
     const d = new Date(current.calY, current.calM + delta, 1);
@@ -289,6 +292,37 @@ window.App = (() => {
       case 'welcome-calendar':
         showCalendar();
         break;
+
+      case 'welcome-trips':
+        current.editTrips = false;
+        showTripsManager();
+        break;
+
+      case 'tripmgr-edit':
+        current.editTrips = !current.editTrips;
+        showTripsManager();
+        break;
+
+      case 'trip-del-confirm': {
+        const id = el.dataset.id;
+        const nm = (Store.listTrips().find(t => t.id === id) || {}).meta;
+        openModal('删除这趟旅行？', `
+          <p style="color:var(--muted);margin:0 0 14px">「${Render.esc((nm && nm.tripName) || '未命名旅行')}」的行程、花费、照片都会一并删除，无法恢复。</p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" data-action="tripmgr-edit">取消</button>
+            <button type="button" class="btn btn-primary" data-action="trip-del-ok" data-id="${Render.esc(id)}">确认删除</button>
+          </div>`);
+        break;
+      }
+
+      case 'trip-del-ok': {
+        const id = el.dataset.id;
+        doDocOp(() => Store.deleteTrip(id), '已删除').then(() => {
+          current.editTrips = false;
+          showTripsManager();
+        });
+        break;
+      }
 
       case 'cal-prev':
         shiftMonth(-1);

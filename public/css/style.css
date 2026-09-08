@@ -1261,7 +1261,7 @@ textarea { resize: vertical; min-height: 60px; }
   font-weight: 400;
   line-height: 1.25;
   letter-spacing: 1.5px;
-  color: var(--text);
+  color: var(--primary-600);
 }
 .trip-title .emo { width: 26px; height: 26px; vertical-align: -1px; margin-left: 7px; }
 /* 手绘波浪线：SVG 路径平铺，赭陶色与主色呼应。龙藏只有常规字重，
@@ -1285,6 +1285,11 @@ textarea { resize: vertical; min-height: 60px; }
   width: auto;
   height: auto;
   transform: rotate(-1.4deg);
+  /* 铺满标题后胶带压在整段文字上，不透明度必须压到 .3 左右才不糊字 */
+  background: repeating-linear-gradient(-52deg,
+    rgba(242, 226, 178, .34) 0 7px,
+    rgba(236, 216, 162, .3) 7px 14px);
+  box-shadow: none;
   z-index: 0;
 }
 
@@ -1612,6 +1617,27 @@ body:not(.is-welcome) .welcome { display: none; }
   .cal-grid, .cal-week { gap: 3px; }
   .cal-title { font-size: 17.5px; }
 }
+
+/* ---------------- 管理旅行 ---------------- */
+.tripmgr-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.tripmgr-count { font-size: 15px; color: var(--muted); }
+.tripmgr-list { display: flex; flex-direction: column; gap: 10px; }
+.tripmgr-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.tripmgr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tripmgr-main b { font-size: 17px; font-weight: 600; }
+.tripmgr-main span { font-size: 14px; color: var(--muted); }
+/* 删除按钮只在编辑态出现 */
+.tripmgr-del { display: none; }
+.tripmgr-list.is-editing .tripmgr-del { display: inline-flex; }
 
 /* ---------------- 备忘录 ---------------- */
 .memo-empty { color: var(--muted); font-size: 16px; line-height: 1.8; padding: 24px 6px; text-align: center; }
