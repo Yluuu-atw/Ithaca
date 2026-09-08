@@ -162,8 +162,7 @@ window.App = (() => {
         const emo = node.querySelector('.weather-emo');
         const txt = node.querySelector('.weather-txt');
         if (emo) emo.textContent = icon;
-        if (txt) txt.textContent =
-          `${cur.temp_C}°C${cur.weatherDesc && cur.weatherDesc[0] ? ' ' + cur.weatherDesc[0].value : ''}${city ? ' · ' + city : ''}`;
+        if (txt) txt.textContent = `${cur.temp_C}°C${city ? ' · ' + city : ''}`;
       }
     } catch (_) {
       const node = el();
