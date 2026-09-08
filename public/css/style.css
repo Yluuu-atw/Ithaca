@@ -1624,13 +1624,29 @@ body:not(.is-welcome) .welcome { display: none; }
   margin-bottom: 12px;
 }
 .tripmgr-count { font-size: 15px; color: var(--muted); }
-.tripmgr-list { display: flex; flex-direction: column; gap: 10px; }
+.tripmgr-list { display: flex; flex-direction: column; gap: 12px; }
+/* 手账贴纸：不规则圆角、墨线、硬阴影，底色与左侧色点都取自该旅行的色 */
 .tripmgr-row {
+  position: relative;
   display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px;
-  border: 2px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
+  padding: 13px 16px;
+  border: 2.5px solid var(--line);
+  border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
+  box-shadow: var(--shadow-sm);
+  background: color-mix(in srgb, var(--trip-color, #c4714b) 10%, #fffdf8);
+  cursor: pointer;
+  transition: box-shadow .16s ease, transform .16s ease;
+}
+.tripmgr-row:hover { box-shadow: var(--shadow); transform: translate(-1px, -2px); }
+/* 编辑态下整行不响应点击，只留删除按钮能点 */
+.tripmgr-list.is-editing .tripmgr-row { pointer-events: none; cursor: default; }
+.tripmgr-list.is-editing .tripmgr-del { pointer-events: auto; }
+.tripmgr-dot {
+  flex: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--trip-color, #c4714b);
+  border: 2px solid var(--line);
 }
 .tripmgr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tripmgr-main b { font-size: 17px; font-weight: 600; }

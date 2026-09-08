@@ -1627,13 +1627,18 @@ window.Render = (() => {
   function renderTripsManager(trips, editing) {
     const list = (trips || []);
     if (!list.length) return '<div class="memo-empty">还没有旅行，先去创建一趟吧</div>';
-    const rows = list.map(t => {
+    const rows = list.map((t, i) => {
       const m = t.meta || {};
       const days = (t.itinerary || []).length;
-      return `<div class="tripmgr-row">
+      const d = tripDates(t);
+      const range = d.start ? `${fmtDate(d.start)} – ${fmtDate(d.end)}` : '';
+      const sub = [m.destination, range, days ? `${days} 天行程` : ''].filter(Boolean).join(' · ');
+      return `<div class="tripmgr-row" style="--trip-color:${TRIP_COLORS[i % TRIP_COLORS.length]}"
+          data-action="trip-open" data-id="${esc(t.id)}" role="button" tabindex="0">
+        <span class="tripmgr-dot" aria-hidden="true"></span>
         <div class="tripmgr-main">
           <b>${esc(m.tripName || '未命名旅行')}</b>
-          <span>${m.destination ? esc(m.destination) + ' · ' : ''}${days} 天行程</span>
+          <span>${esc(sub)}</span>
         </div>
         <button type="button" class="btn btn-ghost btn-sm tripmgr-del" data-action="trip-del-confirm" data-id="${esc(t.id)}">删除</button>
       </div>`;

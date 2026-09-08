@@ -451,7 +451,8 @@ window.App = (() => {
       case 'trip-open':
         Store.setActiveTrip(el.dataset.id);
         current.tab = 'overview';
-        // 开启页下点边栏的旅行卡片，直接进到该旅行的概览，不必先点「创建我的旅行」
+        // 从管理旅行弹窗点进来要先关弹窗；开启页下点边栏卡片则直接进该旅行
+        closeModal();
         if (current.view === 'welcome') setView('app'); else render();
         break;
 
