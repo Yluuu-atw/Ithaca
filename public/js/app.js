@@ -139,10 +139,21 @@ window.App = (() => {
       const area = ((j.nearest_area || [])[0].areaName || [])[0];
       const city = area && area.value ? area.value : '';
       const node = el();
-      if (node) node.innerHTML = `${icon} ${Render.esc(cur.temp_C)}°C${cur.weatherDesc && cur.weatherDesc[0] ? ' ' + Render.esc(cur.weatherDesc[0].value) : ''}${city ? ' · ' + Render.esc(city) : ''}`;
+      if (node) {
+        const emo = node.querySelector('.weather-emo');
+        const txt = node.querySelector('.weather-txt');
+        if (emo) emo.textContent = icon;
+        if (txt) txt.textContent =
+          `${cur.temp_C}°C${cur.weatherDesc && cur.weatherDesc[0] ? ' ' + cur.weatherDesc[0].value : ''}${city ? ' · ' + city : ''}`;
+      }
     } catch (_) {
       const node = el();
-      if (node) node.textContent = '天气暂不可用';
+      if (node) {
+        const emo = node.querySelector('.weather-emo');
+        const txt = node.querySelector('.weather-txt');
+        if (emo) emo.textContent = '☁️';
+        if (txt) txt.textContent = '天气暂不可用';
+      }
     }
   }
 

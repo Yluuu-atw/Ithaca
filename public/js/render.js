@@ -1466,9 +1466,9 @@ window.Render = (() => {
     // 大区兜底：没有专属插画时按地貌/文化圈回落
     { file: 'scenes/region-island.svg', keys: ['马尔代夫', '普吉岛', '长滩岛', '苏梅岛', '沙巴', '亚庇', '芽庄', '岘港', '三亚', '厦门', '青岛', '大连', '北海', '涠洲岛', '济州', '海岛', '沙滩', '潜水', '东南亚'] },
     { file: 'scenes/region-alpine.svg', keys: ['阿尔卑斯', '稻城亚丁', '九寨沟', '张家界', '四姑娘山', '梅里雪山', '贡嘎', '珠峰', '玉龙雪山', '长白山', '西藏', '拉萨', '云南', '香格里拉', '丽江', '新疆', '尼泊尔', '雪山', '高原', '徒步', '登山'] },
-    { file: 'scenes/region-asia.svg', keys: ['吴哥窟', '卧佛寺', '清迈', '琅勃拉邦', '蒲甘', '加德满都', '吉隆坡', '雅加达', '马尼拉', '河内', '胡志明', '金边', '暹粒', '韩国', '泰国', '越南', '柬埔寨', '缅甸', '印度', '寺庙', '古都'] },
+    { file: 'scenes/region-asia.svg', keys: ['吴哥窟', '卧佛寺', '拙政园', '留园', '清迈', '琅勃拉邦', '蒲甘', '加德满都', '吉隆坡', '雅加达', '马尼拉', '河内', '胡志明', '金边', '暹粒', '韩国', '泰国', '越南', '柬埔寨', '缅甸', '印度', '寺庙', '园林', '古都', '苏州'] },
     { file: 'scenes/region-europe.svg', keys: ['圣托里尼', '佛罗伦萨', '巴塞罗那', '阿姆斯特丹', '布拉格', '维也纳', '柏林', '慕尼黑', '米兰', '爱丁堡', '里斯本', '雅典', '马德里', '法国', '意大利', '西班牙', '葡萄牙', '英国', '德国', '奥地利', '荷兰', '希腊', '欧洲'] },
-    { file: 'scenes/region-metro.svg', keys: ['旧金山', '洛杉矶', '芝加哥', '多哈', '墨尔本', '奥克兰', '莫斯科', '深圳', '广州', '南京', '武汉', '天津', '苏州', '台北', '都市', '城市'] },
+    { file: 'scenes/region-metro.svg', keys: ['旧金山', '洛杉矶', '芝加哥', '多哈', '墨尔本', '奥克兰', '莫斯科', '深圳', '广州', '南京', '武汉', '天津', '台北', '都市', '城市'] },
   ];
 
   // 展平成 (关键词 → 文件) 索引并按关键词长度降序：长词优先，短词才不会截胡
@@ -1496,27 +1496,37 @@ window.Render = (() => {
   }
 
   function renderWelcome() {
-    const now = new Date();
-    const dateText = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
     const quote = quoteOfToday();
+    // 语料里的地名直接喂给目的地匹配，复用整套插画库
+    const shot = quote ? doodleFor({ meta: { destination: quote[0], tripName: '' }, itinerary: [] }) : 'scenes/sky.svg';
+    const now = new Date();
     return `
       <div class="welcome-bg" aria-hidden="true"><img src="vendor/scenes/welcome.svg" alt=""></div>
       <div class="welcome-inner">
-        <div class="welcome-head">
-          <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
-          <div class="welcome-when">
-            <b>${esc(dateText)}</b>
-            <span>星期${WEEKDAY[now.getDay()]}</span>
-            <span class="welcome-weather" id="welcomeWeather">正在获取天气…</span>
+        <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
+
+        <div class="welcome-split">
+          <figure class="welcome-shot">
+            <img src="vendor/${esc(shot)}" alt="">
+            <figcaption>📍 ${quote ? esc(quote[0]) : ''}</figcaption>
+          </figure>
+
+          <div class="welcome-side">
+            <div class="weather-card" id="welcomeWeather">
+              <span class="weather-emo">🌤️</span>
+              <span class="weather-txt">正在获取天气…</span>
+            </div>
+            <div class="welcome-date">
+              <b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b>
+              <span>星期${WEEKDAY[now.getDay()]}</span>
+            </div>
+            ${quote ? `<blockquote class="welcome-bubble">${esc(quote[1])}</blockquote>` : ''}
           </div>
         </div>
-        ${quote ? `<blockquote class="welcome-bubble">
-          <span class="bubble-place">📍 ${esc(quote[0])}</span>
-          <span class="bubble-text">${esc(quote[1])}</span>
-        </blockquote>` : ''}
+
         <div class="welcome-actions">
           <button type="button" class="welcome-main" data-action="welcome-enter">
-            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> 我的旅行
+            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> 创建我的旅行
           </button>
           <div class="welcome-sub">
             <button type="button" class="welcome-mini" data-action="welcome-calendar">
