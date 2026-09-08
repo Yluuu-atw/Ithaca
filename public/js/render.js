@@ -1501,32 +1501,26 @@ window.Render = (() => {
     const shot = quote ? doodleFor({ meta: { destination: quote[0], tripName: '' }, itinerary: [] }) : 'scenes/sky.svg';
     const now = new Date();
     return `
-      <div class="welcome-bg" aria-hidden="true"><img src="vendor/scenes/welcome.svg" alt=""></div>
+      <div class="welcome-bg" aria-hidden="true"><img src="vendor/${esc(shot)}" alt=""></div>
       <div class="welcome-inner">
         <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
 
-        <div class="welcome-split">
-          <figure class="welcome-shot">
-            <span class="tape" aria-hidden="true"></span>
-            <img src="vendor/${esc(shot)}" alt="">
-          </figure>
-
-          <div class="welcome-side">
-            <div class="weather-card" id="welcomeWeather">
-              <span class="weather-emo">🌤️</span>
-              <span class="weather-txt">正在获取天气…</span>
-            </div>
-            <div class="welcome-date">
-              <b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b>
-              <span>星期${WEEKDAY[now.getDay()]}</span>
-            </div>
-            ${quote ? `<blockquote class="welcome-bubble">
-              <span class="tape" aria-hidden="true"></span>
-              <span class="bubble-place">📍 ${esc(quote[0])}</span>
-              <span class="bubble-text">${esc(quote[1])}</span>
-            </blockquote>` : ''}
+        <div class="welcome-meta">
+          <span class="welcome-date">
+            <b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b>
+            <span>星期${WEEKDAY[now.getDay()]}</span>
+          </span>
+          <div class="weather-card" id="welcomeWeather">
+            <span class="weather-emo">🌤️</span>
+            <span class="weather-txt">正在获取天气…</span>
           </div>
         </div>
+
+        ${quote ? `<blockquote class="welcome-bubble">
+          <span class="tape" aria-hidden="true"></span>
+          <span class="bubble-place">📍 ${esc(quote[0])}</span>
+          <span class="bubble-text">${esc(quote[1])}</span>
+        </blockquote>` : ''}
 
         <div class="welcome-actions">
           <button type="button" class="welcome-main" data-action="welcome-enter">

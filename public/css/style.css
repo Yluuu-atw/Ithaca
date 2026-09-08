@@ -3,6 +3,15 @@
    清新优雅 · 跨端响应式（电脑 / 平板 / 手机）
    ============================================================ */
 
+/* 龙藏手写体：只给开启页的每日一句用，正文仍走系统衬线 */
+@font-face {
+  font-family: 'LongCang';
+  src: url('../vendor/fonts/LongCang-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* 日法融合调色板：纸色打底，赭陶/鼠尾草/雾蓝/灰玫瑰/芥黄做点缀 */
   --bg: #f2ece0;
@@ -1254,8 +1263,6 @@ body.is-welcome .welcome { margin-left: var(--sidebar-w); min-height: 100vh; min
 body:not(.is-welcome) .welcome { display: none; }
 @media (max-width: 767px) {
   body.is-welcome .welcome { margin-left: 0; }
-  .welcome-split { flex-direction: column; }
-  .welcome-shot img { aspect-ratio: 16 / 9; }
 }
 
 .welcome {
@@ -1299,27 +1306,14 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 .welcome-brand .emo { width: 30px; height: 30px; }
 
-/* 左右分栏：左图右文，手机端自动上下堆叠 */
-.welcome-split { display: flex; align-items: stretch; gap: 16px; width: 100%; }
-.welcome-shot {
-  margin: 0;
-  flex: 1 1 52%;
-  min-width: 0;
-  position: relative;
-  padding: 9px;
-  background: #fffdf8;
-  border: 3px solid var(--line);
-  border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
-  box-shadow: var(--shadow);
-  transform: rotate(-.8deg);
-}
-.welcome-shot img {
-  display: block;
+/* 上下结构：日期天气一行 → 每日一句 → 按钮 */
+.welcome-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
   width: 100%;
-  height: 100%;
-  aspect-ratio: 16 / 11;
-  object-fit: cover;
-  border-radius: 200px 10px 180px 10px / 10px 180px 10px 200px;
 }
 
 /* 手账胶带：半透明斜纹压在卡片上，两端斜切像撕开的 */
@@ -1333,20 +1327,6 @@ body:not(.is-welcome) .welcome { display: none; }
       rgba(236, 216, 162, .78) 7px 14px);
   box-shadow: 0 1px 2px rgba(58, 55, 51, .12);
   clip-path: polygon(1% 6%, 99% 0, 100% 94%, 0 100%);
-}
-.welcome-shot > .tape {
-  top: -12px;
-  left: 50%;
-  width: 104px;
-  height: 26px;
-  transform: translateX(-50%) rotate(-2.5deg);
-}
-.welcome-side {
-  flex: 1 1 48%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 /* 天气卡片：比语录更抢眼，第一眼先看到天气 */
 .weather-card {
@@ -1375,39 +1355,42 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 .welcome-date b { font-size: 15.5px; color: var(--text); font-weight: 600; }
 
-/* 语录便签：地名与正文同一个框里，胶带贴在左上角 */
+/* 语录便签：地名与正文同一个框里，胶带贴在左上角。正文走龙藏手写体 */
 .welcome-bubble {
   position: relative;
-  flex: 1;
+  width: 100%;
+  max-width: 600px;
   margin: 0;
-  padding: 16px 17px 17px;
+  padding: 20px 24px 22px;
   background: #fffdf8;
   border: 2.5px solid var(--line);
-  border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px;
-  box-shadow: var(--shadow-sm);
+  border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
+  box-shadow: var(--shadow);
   transform: rotate(-.5deg);
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   text-align: center;
 }
 .welcome-bubble > .tape {
-  top: -10px;
-  left: 15px;
-  width: 74px;
-  height: 21px;
-  transform: rotate(-7deg);
+  top: -11px;
+  left: 50%;
+  width: 96px;
+  height: 24px;
+  transform: translateX(-50%) rotate(-3deg);
 }
 .bubble-place {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--primary-600);
-  letter-spacing: .3px;
+  letter-spacing: .4px;
 }
 .bubble-text {
-  font-size: 15.5px;
-  line-height: 1.72;
+  font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
+  font-size: 21px;
+  line-height: 1.85;
   color: var(--text);
 }
 
@@ -1528,18 +1511,15 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-inner { gap: 14px; }
   .welcome-brand { font-size: 25px; }
   .welcome-brand .emo { width: 25px; height: 25px; }
-  .welcome-split { gap: 12px; }
-  .welcome-shot { padding: 7px; }
-  .welcome-shot > .tape { width: 84px; height: 21px; top: -10px; }
   .weather-card { padding: 12px 14px; gap: 10px; }
   .weather-emo { font-size: 26px; }
   .weather-txt { font-size: 15px; }
   .welcome-date { font-size: 13px; }
   .welcome-date b { font-size: 14.5px; }
-  .welcome-bubble { padding: 14px 14px 15px; gap: 5px; }
-  .welcome-bubble > .tape { width: 62px; height: 18px; top: -9px; left: 12px; }
-  .bubble-place { font-size: 13px; }
-  .bubble-text { font-size: 14.5px; }
+  .welcome-bubble { padding: 16px 16px 18px; gap: 6px; }
+  .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
+  .bubble-place { font-size: 13.5px; }
+  .bubble-text { font-size: 18px; line-height: 1.8; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }
   .welcome-mini .emo { width: 20px; height: 20px; }
