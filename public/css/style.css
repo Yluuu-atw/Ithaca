@@ -1600,6 +1600,32 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }
   .welcome-mini .emo { width: 20px; height: 20px; }
+
+  /* ==== 以下仅手机端，桌面不受影响 ==== */
+  /* 内联 SVG 默认按自身 1600×900 渲染，手机上会溢出裁切，先拉回满屏 */
+  .welcome-bg svg {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center 62%;
+    display: block;
+  }
+  /* 插画上下分段，中间整块让给 Journey 模组块。
+     mask 必须加在容器层，加在内联 SVG 自身上不生效 */
+  .welcome-bg {
+    -webkit-mask-image: linear-gradient(180deg,
+      #000 0, #000 24%, transparent 32%, transparent 68%, #000 76%, #000 100%);
+    mask-image: linear-gradient(180deg,
+      #000 0, #000 24%, transparent 32%, transparent 68%, #000 76%, #000 100%);
+  }
+  .welcome-bg::after {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--bg) 24%, transparent) 0%,
+      transparent 30%, transparent 70%,
+      color-mix(in srgb, var(--bg) 28%, transparent) 100%);
+  }
+  /* 题字横排，压在插画最上段居中 */
+  .brush-name { top: 2.5%; right: auto; left: 50%; transform: translateX(-50%); }
+  .brush-name.is-cjk { writing-mode: horizontal-tb; font-size: 31px; letter-spacing: 4px; line-height: 1.15; }
+  .brush-name.is-en { font-size: 32px; }
 }
 
 /* 更窄的机器（iPhone SE 一类）再收一档，仍保持日期与天气同行 */
