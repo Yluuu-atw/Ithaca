@@ -113,6 +113,9 @@ window.App = (() => {
       const res = await fetch(src);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       host.innerHTML = await res.text();
+      // slice 让 SVG 像 object-fit:cover 一样铺满并裁边，缩放窗口不再移位
+      const root = host.querySelector('svg');
+      if (root) root.setAttribute('preserveAspectRatio', 'xMidYMid slice');
       const nodes = host.querySelectorAll('svg > *');
       nodes.forEach((n, i) => n.style.setProperty('--i', i));
     } catch (_) {

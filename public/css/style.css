@@ -1307,6 +1307,9 @@ body:not(.is-welcome) .welcome { display: none; }
 /* 全屏铺底，插画本身就是主视觉，不再装进卡片里 */
 .welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
 .welcome-bg img { width: 100%; height: 100%; object-fit: cover; object-position: center 62%; display: block; }
+/* 内联 SVG 不吃 object-fit，铺满靠注入时设的 preserveAspectRatio=slice；
+   尺寸必须拉到 100%，否则它按自身 1600×900 渲染，窗口一缩放就移位 */
+.welcome-bg svg { width: 100%; height: 100%; display: block; }
 /* 淡雾压一层保证文字可读，越往下越实 */
 .welcome-bg::after {
   content: '';
