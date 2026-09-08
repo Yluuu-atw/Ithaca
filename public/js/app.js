@@ -91,6 +91,8 @@ window.App = (() => {
     current.view = view;
     document.body.classList.toggle('is-welcome', view === 'welcome');
     if (view === 'welcome') {
+      // 切回首页要主动应用首页自己的底色；这里没有数据变更，不会走 notify→render
+      applyTheme(Store.getWelcomeTheme());
       $('#welcome').innerHTML = Render.renderWelcome();
       fetchWeather();
       paintWelcomeBg();
@@ -180,7 +182,8 @@ window.App = (() => {
   function render() {
     const data = Store.getState();
     if (!data) return;
-    applyTheme(data.meta && data.meta.theme);
+    // 首页与每趟旅行各用各的背景色，互不影响
+    applyTheme(current.view === 'welcome' ? Store.getWelcomeTheme() : (data.meta && data.meta.theme));
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');
     if (doodleImg) {
@@ -687,7 +690,9 @@ window.App = (() => {
       }
 
       case 'theme-open': {
-        const bg = (Store.getState().meta && Store.getState().meta.theme) || '#f2ece0';
+        const bg = (current.view === 'welcome'
+          ? Store.getWelcomeTheme()
+          : (Store.getState().meta && Store.getState().meta.theme)) || '#f2ece0';
         openModal('页面背景', Render.themePicker(bg));
         break;
       }
@@ -740,8 +745,13 @@ window.App = (() => {
 
     if (kind === 'theme') {
       const bg = (fd.get('bg') || '').trim();
-      // 只写当前这趟旅行，别的旅行各管各的背景色
-      if (bg) doMutate(d => { d.meta.theme = bg; }, '背景色已更新');
+      if (bg) {
+        if (current.view === 'welcome') {
+          doDocOp(() => Store.mutateDoc(d => { d.meta.welcomeTheme = bg; }), '首页背景已更新');
+        } else {
+          doMutate(d => { d.meta.theme = bg; }, '背景色已更新');
+        }
+      }
       closeModal();
       return;
     }

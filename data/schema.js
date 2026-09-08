@@ -86,9 +86,11 @@ function normalizeMemo(raw) {
   return m;
 }
 
+// 文档级元信息：乐观并发 + 首页背景色（首页与每趟旅行各存各的，互不影响）
+const DEFAULT_WELCOME_THEME = '#f2ece0';
 function defaultDoc() {
   return {
-    meta: { version: 1, updatedAt: new Date().toISOString() },
+    meta: { version: 1, updatedAt: new Date().toISOString(), welcomeTheme: DEFAULT_WELCOME_THEME },
     trips: [defaultTrip()],
     memos: [],
   };
@@ -155,6 +157,9 @@ function normalize(doc) {
 
   d.meta.version = Number(source.meta && source.meta.version) || 1;
   d.meta.updatedAt = (source.meta && source.meta.updatedAt) || d.meta.updatedAt;
+  // 首页背景色是后加的字段，老数据里没有；没有就先落到纸色
+  d.meta.welcomeTheme = (typeof (source.meta && source.meta.welcomeTheme) === 'string' && source.meta.welcomeTheme)
+    || DEFAULT_WELCOME_THEME;
 
   const rawTrips = Array.isArray(source.trips) ? source.trips : [];
   d.trips = rawTrips.length ? rawTrips.map(normalizeTrip) : [defaultTrip()];
