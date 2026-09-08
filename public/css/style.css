@@ -1274,18 +1274,24 @@ body:not(.is-welcome) .welcome { display: none; }
   justify-content: center;
   padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
 }
-/* 全屏铺底，插画本身就是主视觉，不再装进卡片里 */
-.welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
-.welcome-bg img { width: 100%; height: 100%; object-fit: cover; object-position: center 62%; display: block; }
-/* 淡雾压一层保证文字可读，越往下越实 */
+/* 全屏铺底，插画本身就是主视觉，不再装进卡片里。
+   插画与背景色相乘，遮罩也取自 --bg，换主题色整屏色调一起变 */
+.welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg); }
+.welcome-bg img {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center 62%;
+  display: block;
+  mix-blend-mode: multiply;
+  opacity: .92;
+}
 .welcome-bg::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg,
-    rgba(236, 226, 210, .30) 0%,
-    rgba(236, 226, 210, .46) 45%,
-    rgba(236, 226, 210, .72) 100%);
+    color-mix(in srgb, var(--bg) 30%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 50%, transparent) 50%,
+    color-mix(in srgb, var(--bg) 74%, transparent) 100%);
 }
 .welcome-inner {
   position: relative;
@@ -1592,7 +1598,9 @@ body:not(.is-welcome) .welcome { display: none; }
   .weather-txt { font-size: 12px; }
   .welcome-bubble { padding: 15px 15px 17px; gap: 5px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
-  .brush-name { top: 3%; right: 4%; }
+  /* 竖排书法压在插画最上端，Journey 及以下整体让出这段高度 */
+  .welcome { padding-top: calc(296px + env(safe-area-inset-top)); }
+  .brush-name { top: 1.5%; right: 5%; }
   .brush-name.is-cjk { font-size: 36px; letter-spacing: 6px; }
   .brush-name.is-en { font-size: 38px; }
   .bubble-place { font-size: 14px; }
