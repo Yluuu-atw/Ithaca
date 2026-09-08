@@ -573,6 +573,7 @@ window.Render = (() => {
     const bookingN = (s.bookings || []).length;
 
     return `
+      <h1 class="trip-title">${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
       <div class="dash-grid">
         <section class="card span-8">
           <div class="card-head">
