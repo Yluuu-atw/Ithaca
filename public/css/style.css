@@ -1275,15 +1275,24 @@ textarea { resize: vertical; min-height: 60px; }
   background-size: 120px 11px;
   opacity: .72;
 }
-/* 标题下压一条手账胶带。胶带 z-index 压到 0，文字排在它上面 */
-.trip-title > .tape { top: -11px; left: 22px; width: 96px; height: 23px; transform: rotate(-7deg); z-index: 0; }
+/* 胶带铺满整个标题宽度，文字压在其上，像直接写在胶带上。
+   width:auto 配合左右负边距让它随标题长度伸缩，轻微倾斜保留手贴感 */
+.trip-title > .tape {
+  top: 0;
+  bottom: 0;
+  left: -14px;
+  right: -14px;
+  width: auto;
+  height: auto;
+  transform: rotate(-1.4deg);
+  z-index: 0;
+}
 
-/* 行程信息卡里的字段：手写体小标题 + 常规字重内容 */
-.trip-field { margin-bottom: 12px; }
+/* 行程信息卡里的字段：标签与内容同一行 */
+.trip-field { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .trip-field:last-child { margin-bottom: 0; }
 .trip-field-label {
-  display: block;
-  margin-bottom: 3px;
+  flex: none;
   font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
   font-size: 19px;
   line-height: 1.3;
@@ -1294,6 +1303,8 @@ textarea { resize: vertical; min-height: 60px; }
 @media (max-width: 767px) {
   .trip-title { font-size: 28px; letter-spacing: 1px; margin-bottom: 14px; }
   .trip-title .emo { width: 21px; height: 21px; margin-left: 5px; }
+  /* 屏幕窄，胶带负边距收到 -6px 才不会顶出横向滚动条 */
+  .trip-title > .tape { left: -6px; right: -6px; }
 }
 
 /* ============================================================
