@@ -1622,10 +1622,72 @@ body:not(.is-welcome) .welcome { display: none; }
       transparent 30%, transparent 70%,
       color-mix(in srgb, var(--bg) 28%, transparent) 100%);
   }
-  /* 题字横排，压在插画最上段居中 */
-  .brush-name { top: 2.5%; right: auto; left: 50%; transform: translateX(-50%); }
-  .brush-name.is-cjk { writing-mode: horizontal-tb; font-size: 31px; letter-spacing: 4px; line-height: 1.15; }
-  .brush-name.is-en { font-size: 32px; }
+  /* 题字一行，右上角，字号收小 */
+  .brush-name { top: 2%; right: 4%; left: auto; transform: none; }
+  .brush-name.is-cjk { writing-mode: horizontal-tb; font-size: 24px; letter-spacing: 2px; line-height: 1.15; }
+  .brush-name.is-en { font-size: 27px; }
+
+  /* ==== 上半部：蓝天底 + 三只飞鸟（内联 SVG 背景图整体横移） ==== */
+  .welcome::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 45%;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='250' height='56' viewBox='0 0 250 56'><g fill='none' stroke='%2355524d' stroke-width='3' stroke-linecap='round'><path d='M12 32 C20 22 30 22 38 32 C46 22 56 22 64 32'/><path d='M100 16 C107 8 116 8 123 16 C130 8 139 8 146 16'/><path d='M186 40 C193 31 202 31 209 40 C216 31 225 31 232 40'/></g></svg>"),
+      linear-gradient(180deg, rgba(198, 223, 240, .9) 0%, rgba(223, 238, 247, .62) 58%, transparent 100%);
+    background-position: -280px 16%, 0 0;
+    background-size: 250px auto, cover;
+    background-repeat: no-repeat, no-repeat;
+    animation: birdFly 24s linear infinite;
+    z-index: 0;
+    pointer-events: none;
+  }
+  @keyframes birdFly {
+    from { background-position: -280px 16%, 0 0; }
+    to   { background-position: calc(100% + 40px) 16%, 0 0; }
+  }
+  /* 多朵云：单元素加 box-shadow 复制出七朵，整体右往左飘 */
+  .welcome::after {
+    content: '';
+    position: absolute;
+    top: 9%; left: -320px;
+    width: 152px; height: 44px;
+    background: rgba(255, 255, 255, .88);
+    border-radius: 44px;
+    box-shadow:
+      42px -20px 0 -8px rgba(255,255,255,.84),
+      82px 0 0 0 rgba(255,255,255,.88),
+      420px 96px 0 -10px rgba(255,255,255,.74),
+      460px 80px 0 -16px rgba(255,255,255,.7),
+      498px 96px 0 -10px rgba(255,255,255,.74),
+      860px 24px 0 2px rgba(255,255,255,.86),
+      900px 4px 0 -4px rgba(255,255,255,.8),
+      1200px 116px 0 -12px rgba(255,255,255,.68);
+    animation: cloudDrift 64s linear infinite;
+    z-index: 0;
+    pointer-events: none;
+  }
+  @keyframes cloudDrift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(calc(100vw + 640px)); }
+  }
+
+  /* ==== 最下端：插画缩小铺底，圆角软边，仍逐笔绘出。取消上一版的分段遮罩 ==== */
+  .welcome-bg {
+    top: auto;
+    bottom: 0;
+    height: 30%;
+    border-radius: 26px 26px 0 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .welcome-bg::after {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--bg) 16%, transparent) 0%,
+      transparent 40%,
+      color-mix(in srgb, var(--bg) 22%, transparent) 100%);
+  }
 }
 
 /* 更窄的机器（iPhone SE 一类）再收一档，仍保持日期与天气同行 */
