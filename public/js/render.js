@@ -1497,11 +1497,16 @@ window.Render = (() => {
 
   function renderWelcome() {
     const quote = quoteOfToday();
-    // 语料里的地名直接喂给目的地匹配，复用整套插画库
     const shot = quote ? doodleFor({ meta: { destination: quote[0], tripName: '' }, itinerary: [] }) : 'scenes/sky.svg';
     const now = new Date();
+    // 中国地名用中文软笔书法逐字写，外国城市用英文花体逐词写
+    const place = quote ? quote[0] : '';
+    const en = quote ? (window.JOURNEY_QUOTE_EN || {})[place] : null;
+    const isCJK = !en;
+    const units = isCJK ? Array.from(place) : String(en).split(/(\s+)/).filter(s => s !== '');
+    const spans = units.map((c, i) => `<span style="--i:${i}">${esc(c)}</span>`).join('');
     return `
-      <div class="welcome-bg" aria-hidden="true"><img src="vendor/${esc(shot)}" alt=""></div>
+      <div class="welcome-bg" id="welcomeBg" data-src="vendor/${esc(shot)}" aria-hidden="true"></div>
       <div class="welcome-inner">
         <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
 
@@ -1519,7 +1524,7 @@ window.Render = (() => {
 
         ${quote ? `<blockquote class="welcome-bubble">
           <span class="tape" aria-hidden="true"></span>
-          <span class="bubble-place">📍 ${esc(quote[0])}</span>
+          <div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}">${spans}</div>
           <span class="bubble-text">${esc(quote[1])}</span>
         </blockquote>` : ''}
 

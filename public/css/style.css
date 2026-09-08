@@ -1306,17 +1306,20 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 .welcome-brand .emo { width: 30px; height: 30px; }
 
-/* 方格纹信息卡：手账方格本的底纹，与语录便签的纯色底区分开 */
+/* 方格纹信息卡：手账方格本的底纹，与语录便签的纯色底区分开。
+   底色压到半透明并加模糊，能透出后面的插画 */
 .meta-card {
   position: relative;
   width: 100%;
   max-width: 430px;
   padding: 16px 22px 17px;
-  background-color: #fffdf8;
+  background-color: rgba(255, 253, 248, .54);
   background-image:
     linear-gradient(rgba(118, 138, 162, .17) 1px, transparent 1px),
     linear-gradient(90deg, rgba(118, 138, 162, .17) 1px, transparent 1px);
   background-size: 15px 15px;
+  backdrop-filter: blur(13px) saturate(1.12);
+  -webkit-backdrop-filter: blur(13px) saturate(1.12);
   border: 2.5px solid var(--line);
   border-radius: 18px 255px 18px 225px / 225px 18px 255px 18px;
   box-shadow: var(--shadow);
@@ -1369,7 +1372,9 @@ body:not(.is-welcome) .welcome { display: none; }
   max-width: 600px;
   margin: 0;
   padding: 20px 24px 22px;
-  background: #fffdf8;
+  background: rgba(255, 253, 248, .56);
+  backdrop-filter: blur(13px) saturate(1.12);
+  -webkit-backdrop-filter: blur(13px) saturate(1.12);
   border: 2.5px solid var(--line);
   border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
   box-shadow: var(--shadow);
@@ -1388,13 +1393,37 @@ body:not(.is-welcome) .welcome { display: none; }
   height: 24px;
   transform: translateX(-50%) rotate(-3deg);
 }
-.bubble-place {
-  font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
-  font-size: 19px;
-  font-weight: 400;
-  color: var(--primary-600);
-  letter-spacing: .4px;
+/* 书法地名：中国地名用软笔行楷逐字写，外国城市用英文花体逐词写 */
+.brush-name { line-height: 1.35; color: var(--primary-600); }
+.brush-name.is-cjk { font-family: 'Ma Shan Zheng', 'LongCang', 'Songti SC', serif; font-size: 36px; letter-spacing: 2px; }
+.brush-name.is-en { font-family: 'Great Vibes', cursive; font-size: 44px; letter-spacing: 1px; }
+.brush-name span {
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+  animation: brushIn .55s cubic-bezier(.22, .68, .28, 1) forwards;
+  /* 等背景插画画完再落笔，时序上像先铺景后题字 */
+  animation-delay: calc(1400ms + var(--i, 0) * 150ms);
 }
+@keyframes brushIn {
+  from { opacity: 0; transform: translateY(9px) rotate(-4deg); filter: blur(3px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* 背景插画按元素顺序逐个落笔，像一笔一笔画上去 */
+.welcome-bg svg > * {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: paintIn .46s cubic-bezier(.22, .68, .28, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 78ms);
+}
+@keyframes paintIn {
+  from { opacity: 0; transform: scale(.93) translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+/* 内联失败时退回 <img>，不能让动画把静态图也藏掉 */
+.welcome-bg > img { opacity: 1; animation: none; }
 .bubble-text {
   font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
   font-size: 21px;
@@ -1527,7 +1556,8 @@ body:not(.is-welcome) .welcome { display: none; }
   .weather-txt { font-size: 14.5px; }
   .welcome-bubble { padding: 16px 16px 18px; gap: 6px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
-  .bubble-place { font-size: 17px; }
+  .brush-name.is-cjk { font-size: 29px; letter-spacing: 1px; }
+  .brush-name.is-en { font-size: 34px; }
   .bubble-text { font-size: 18px; line-height: 1.8; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }

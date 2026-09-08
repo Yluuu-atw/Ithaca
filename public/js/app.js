@@ -93,10 +93,29 @@ window.App = (() => {
     if (view === 'welcome') {
       $('#welcome').innerHTML = Render.renderWelcome();
       fetchWeather();
+      paintWelcomeBg();
       return;
     }
     render();
     maybeAskIdentity();
+  }
+
+  // 把背景 SVG 内联进 DOM，才能对它的子元素逐个做描边式淡入。
+  // <img> 引用的 SVG 受独立文档作用域限制，CSS 动画够不着内部节点。
+  async function paintWelcomeBg() {
+    const host = document.getElementById('welcomeBg');
+    if (!host) return;
+    const src = host.dataset.src;
+    if (!src) return;
+    try {
+      const res = await fetch(src);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      host.innerHTML = await res.text();
+      const nodes = host.querySelectorAll('svg > *');
+      nodes.forEach((n, i) => n.style.setProperty('--i', i));
+    } catch (_) {
+      host.innerHTML = `<img src="${src}" alt="">`;
+    }
   }
 
   function showCalendar() {
