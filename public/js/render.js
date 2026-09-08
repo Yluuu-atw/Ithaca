@@ -1540,6 +1540,9 @@ window.Render = (() => {
             <button type="button" class="welcome-mini" data-action="welcome-memo">
               <img class="emo" src="vendor/fluent-emoji/1f5d3.png" alt=""> 备忘录
             </button>
+            <button type="button" class="welcome-mini" data-action="theme-open">
+              <span class="theme-dot"></span> 背景色
+            </button>
           </div>
         </div>
       </div>`;

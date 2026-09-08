@@ -58,8 +58,8 @@ window.App = (() => {
     // 单序列图表（打包进度环、每日花费柱）用 chart-1，跟主题走；
     // 甜甜圈多序列仍用 2-6 的固定色相，否则各块分不出来
     root.setProperty('--chart-1', hslHex(h, sat, 0.55));
-    const dot = document.getElementById('themeDot');
-    if (dot) dot.style.background = rgbHex(rgb);
+    // 顶栏与开启页各有一个色点，都跟着走
+    document.querySelectorAll('.theme-dot').forEach((d) => { d.style.background = rgbHex(rgb); });
     if (dockKick) dockKick();
   }
   const $ = (sel) => document.querySelector(sel);
