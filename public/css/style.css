@@ -1350,16 +1350,22 @@ body:not(.is-welcome) .welcome { display: none; }
   box-shadow: 0 1px 2px rgba(58, 55, 51, .12);
   clip-path: polygon(1% 6%, 99% 0, 100% 94%, 0 100%);
 }
-.meta-line {
-  display: flex; align-items: baseline; justify-content: center; gap: 7px;
-  font-size: 14px; color: var(--muted);
+/* 日期与天气横排一行，中间一个分隔点 */
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 9px;
 }
-.meta-line b { font-size: 16px; color: var(--text); font-weight: 600; }
-.meta-weather { display: inline-flex; align-items: center; gap: 9px; }
+.meta-date { font-size: 14px; color: var(--muted); }
+.meta-date b { font-size: 15.5px; color: var(--text); font-weight: 600; }
+.meta-sep { color: var(--line); font-size: 15px; }
+.meta-weather { display: inline-flex; align-items: center; gap: 7px; }
 /* 天气文字退到次要层级，能看到但不抢眼 */
-.weather-emo { font-size: 26px; line-height: 1; opacity: .9; }
+.weather-emo { font-size: 22px; line-height: 1; opacity: .9; }
 .weather-txt {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--muted);
   min-width: 0;
@@ -1371,20 +1377,20 @@ body:not(.is-welcome) .welcome { display: none; }
   width: 100%;
   max-width: 600px;
   margin: 0;
-  padding: 20px 24px 22px;
-  background: rgba(255, 253, 248, .56);
-  backdrop-filter: blur(13px) saturate(1.12);
-  -webkit-backdrop-filter: blur(13px) saturate(1.12);
+  padding: 18px 22px 20px;
+  background: rgba(255, 253, 248, .42);
+  backdrop-filter: blur(11px) saturate(1.1);
+  -webkit-backdrop-filter: blur(11px) saturate(1.1);
   border: 2.5px solid var(--line);
   border-radius: 255px 16px 225px 16px / 16px 225px 16px 255px;
   box-shadow: var(--shadow);
   transform: rotate(-.5deg);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 7px;
-  text-align: center;
+  gap: 6px;
+  text-align: left;
 }
 .welcome-bubble > .tape {
   top: -11px;
@@ -1393,10 +1399,30 @@ body:not(.is-welcome) .welcome { display: none; }
   height: 24px;
   transform: translateX(-50%) rotate(-3deg);
 }
-/* 书法地名：中国地名用软笔行楷逐字写，外国城市用英文花体逐词写 */
-.brush-name { line-height: 1.35; color: var(--primary-600); }
-.brush-name.is-cjk { font-family: 'Ma Shan Zheng', 'LongCang', 'Songti SC', serif; font-size: 36px; letter-spacing: 2px; }
-.brush-name.is-en { font-family: 'Great Vibes', cursive; font-size: 44px; letter-spacing: 1px; }
+/* 书法题字落在背景右上角，不进卡片。中文竖排，英文花体横排（连笔字竖排会断开） */
+.brush-name {
+  position: absolute;
+  top: 5%;
+  right: 4%;
+  z-index: 1;
+  color: var(--primary-600);
+  text-shadow: 0 1px 8px rgba(255, 253, 248, .8), 0 0 2px rgba(255, 253, 248, .9);
+  pointer-events: none;
+}
+.brush-name.is-cjk {
+  writing-mode: vertical-rl;
+  font-family: 'Ma Shan Zheng', 'LongCang', 'Songti SC', serif;
+  font-size: 46px;
+  letter-spacing: 10px;
+  line-height: 1;
+}
+.brush-name.is-en {
+  font-family: 'Great Vibes', cursive;
+  font-size: 54px;
+  letter-spacing: 1px;
+  line-height: 1.1;
+  text-align: right;
+}
 .brush-name span {
   display: inline-block;
   white-space: pre;
@@ -1424,6 +1450,13 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 /* 内联失败时退回 <img>，不能让动画把静态图也藏掉 */
 .welcome-bg > img { opacity: 1; animation: none; }
+/* 地名小一号，与正文共用同一条左对齐轴 */
+.bubble-place {
+  font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
+  font-size: 16px;
+  color: var(--primary-600);
+  letter-spacing: .3px;
+}
 .bubble-text {
   font-family: 'LongCang', 'Noto Serif SC', 'Songti SC', serif;
   font-size: 21px;
@@ -1548,16 +1581,18 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-inner { gap: 14px; }
   .welcome-brand { font-size: 25px; }
   .welcome-brand .emo { width: 25px; height: 25px; }
-  .meta-card { padding: 14px 16px 15px; background-size: 13px 13px; }
+  .meta-card { padding: 13px 15px 14px; background-size: 13px 13px; }
   .meta-card > .tape { width: 58px; height: 18px; }
-  .meta-line { font-size: 12.5px; }
-  .meta-line b { font-size: 14.5px; }
-  .weather-emo { font-size: 23px; }
-  .weather-txt { font-size: 14.5px; }
-  .welcome-bubble { padding: 16px 16px 18px; gap: 6px; }
+  .meta-date { font-size: 12.5px; }
+  .meta-date b { font-size: 14px; }
+  .weather-emo { font-size: 19px; }
+  .weather-txt { font-size: 13.5px; }
+  .welcome-bubble { padding: 15px 15px 17px; gap: 5px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
-  .brush-name.is-cjk { font-size: 29px; letter-spacing: 1px; }
-  .brush-name.is-en { font-size: 34px; }
+  .brush-name { top: 3%; right: 4%; }
+  .brush-name.is-cjk { font-size: 34px; letter-spacing: 7px; }
+  .brush-name.is-en { font-size: 38px; }
+  .bubble-place { font-size: 14px; }
   .bubble-text { font-size: 18px; line-height: 1.8; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
   .welcome-mini { font-size: 15.5px; padding: 13px 10px; }

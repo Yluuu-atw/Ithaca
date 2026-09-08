@@ -1507,24 +1507,25 @@ window.Render = (() => {
     const spans = units.map((c, i) => `<span style="--i:${i}">${esc(c)}</span>`).join('');
     return `
       <div class="welcome-bg" id="welcomeBg" data-src="vendor/${esc(shot)}" aria-hidden="true"></div>
+      ${spans ? `<div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}" aria-hidden="true">${spans}</div>` : ''}
       <div class="welcome-inner">
         <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
 
         <div class="meta-card">
           <span class="tape" aria-hidden="true"></span>
-          <div class="meta-line">
-            <b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b>
-            <span>星期${WEEKDAY[now.getDay()]}</span>
-          </div>
-          <div class="meta-weather" id="welcomeWeather">
-            <span class="weather-emo">🌤️</span>
-            <span class="weather-txt">正在获取天气…</span>
+          <div class="meta-row">
+            <span class="meta-date"><b>${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日</b> 星期${WEEKDAY[now.getDay()]}</span>
+            <span class="meta-sep" aria-hidden="true">·</span>
+            <span class="meta-weather" id="welcomeWeather">
+              <span class="weather-emo">🌤️</span>
+              <span class="weather-txt">正在获取天气…</span>
+            </span>
           </div>
         </div>
 
         ${quote ? `<blockquote class="welcome-bubble">
           <span class="tape" aria-hidden="true"></span>
-          <div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}">${spans}</div>
+          <span class="bubble-place">📍 ${esc(quote[0])}</span>
           <span class="bubble-text">${esc(quote[1])}</span>
         </blockquote>` : ''}
 
