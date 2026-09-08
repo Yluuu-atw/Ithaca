@@ -1274,28 +1274,18 @@ body:not(.is-welcome) .welcome { display: none; }
   justify-content: center;
   padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
 }
-/* 桌面：插画整体往右下偏，主体落在 Journey 模组块下方 */
-.welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg); }
-.welcome-bg img,
-.welcome-bg svg {
-  width: 116%;
-  height: 112%;
-  margin-left: 14%;
-  margin-top: 15%;
-  object-fit: cover;
-  display: block;
-  opacity: .97;
-}
+/* 全屏铺底，插画本身就是主视觉，不再装进卡片里 */
+.welcome-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.welcome-bg img { width: 100%; height: 100%; object-fit: cover; object-position: center 62%; display: block; }
+/* 淡雾压一层保证文字可读，越往下越实 */
 .welcome-bg::after {
   content: '';
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--bg) 30%, transparent) 0%,
-    color-mix(in srgb, var(--bg) 10%, transparent) 22%,
-    transparent 40%,
-    color-mix(in srgb, var(--bg) 10%, transparent) 78%,
-    color-mix(in srgb, var(--bg) 34%, transparent) 100%);
+    rgba(236, 226, 210, .30) 0%,
+    rgba(236, 226, 210, .46) 45%,
+    rgba(236, 226, 210, .72) 100%);
 }
 .welcome-inner {
   position: relative;
@@ -1409,15 +1399,14 @@ body:not(.is-welcome) .welcome { display: none; }
   height: 24px;
   transform: translateX(-50%) rotate(-3deg);
 }
-/* 书法题字落在背景右上角竖排（桌面）。手机端在媒体查询里改为顶部横排 */
+/* 书法题字落在背景右上角，不进卡片。中文竖排，英文花体横排（连笔字竖排会断开） */
 .brush-name {
   position: absolute;
   top: 5%;
   right: 4%;
   z-index: 1;
-  white-space: nowrap;
   color: var(--primary-600);
-  text-shadow: 0 1px 8px rgba(255, 253, 248, .85), 0 0 2px rgba(255, 253, 248, .95);
+  text-shadow: 0 1px 8px rgba(255, 253, 248, .8), 0 0 2px rgba(255, 253, 248, .9);
   pointer-events: none;
 }
 .brush-name.is-cjk {
@@ -1603,25 +1592,9 @@ body:not(.is-welcome) .welcome { display: none; }
   .weather-txt { font-size: 12px; }
   .welcome-bubble { padding: 15px 15px 17px; gap: 5px; }
   .welcome-bubble > .tape { width: 78px; height: 20px; top: -10px; }
-  /* 手机端：插画上下分段，中间整块留给内容。mask 必须加在容器上，
-     加在内联 SVG 自身上不生效；同时取消桌面端的右下偏移 */
-  .welcome-bg img,
-  .welcome-bg svg { width: 100%; height: 100%; margin: 0; }
-  .welcome-bg {
-    -webkit-mask-image: linear-gradient(180deg,
-      #000 0, #000 24%, transparent 32%, transparent 68%, #000 76%, #000 100%);
-    mask-image: linear-gradient(180deg,
-      #000 0, #000 24%, transparent 32%, transparent 68%, #000 76%, #000 100%);
-  }
-  .welcome-bg::after {
-    background: linear-gradient(180deg,
-      color-mix(in srgb, var(--bg) 22%, transparent) 0%,
-      transparent 30%, transparent 70%,
-      color-mix(in srgb, var(--bg) 26%, transparent) 100%);
-  }
-  .brush-name { top: 2.5%; right: auto; left: 50%; transform: translateX(-50%); }
-  .brush-name.is-cjk { writing-mode: horizontal-tb; font-size: 31px; letter-spacing: 4px; line-height: 1.15; }
-  .brush-name.is-en { font-size: 32px; }
+  .brush-name { top: 3%; right: 4%; }
+  .brush-name.is-cjk { font-size: 36px; letter-spacing: 6px; }
+  .brush-name.is-en { font-size: 38px; }
   .bubble-place { font-size: 14px; }
   .bubble-text { font-size: 18px; line-height: 1.8; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
