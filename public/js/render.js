@@ -510,9 +510,14 @@ window.Render = (() => {
     const chain = stops.map(x => `<span class="stop">${esc(x)}</span>`)
       .join('<span class="stop-arrow">→</span>');
     return `<div class="trip-summary">
-      <div class="trip-summary-name">${esc(m.tripName || '未命名旅行')}</div>
-      ${stops.length ? `<div class="trip-stops">${chain}</div>` : ''}
-      ${dateTxt ? `<div class="trip-summary-row">${emo('🗓')} <span>${esc(dateTxt)}</span></div>` : ''}
+      ${stops.length ? `<div class="trip-field">
+        <span class="trip-field-label">${emo('📍')} 途径地点</span>
+        <div class="trip-stops">${chain}</div>
+      </div>` : ''}
+      ${dateTxt ? `<div class="trip-field">
+        <span class="trip-field-label">${emo('🗓')} 旅行日期</span>
+        <span class="trip-field-value">${esc(dateTxt)}</span>
+      </div>` : ''}
       ${(!stops.length && !dateTxt) ? '<p class="trip-summary-hint">去「行程」页排几天，日期和途经地会自动带出来</p>' : ''}
     </div>`;
   }
@@ -573,7 +578,7 @@ window.Render = (() => {
     const bookingN = (s.bookings || []).length;
 
     return `
-      <h1 class="trip-title">${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
+      <h1 class="trip-title"><span class="tape" aria-hidden="true"></span>${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
       <div class="dash-grid">
         <section class="card span-8">
           <div class="card-head">
