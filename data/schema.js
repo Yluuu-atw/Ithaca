@@ -36,16 +36,10 @@ const SUB_CATEGORIES = {
   '景点': [],
   '其他': [],
 };
-// 二级分类落到票据的类型字段（flight/train/bus/hotel/other）
-const SUB_TO_BOOKING_TYPE = {
-  '飞机': 'flight', '高铁': 'train', '火车': 'train', '长途汽车': 'bus',
-  '轮船': 'other', '地铁': 'other', '公交': 'other', '出租车': 'other', '自驾': 'other', '步行': 'other',
-  '酒店': 'hotel', '民宿': 'hotel', '青旅': 'hotel', '露营': 'hotel', '亲友家': 'hotel',
-  '早餐': 'other', '午餐': 'other', '晚餐': 'other', '下午茶': 'other', '夜宵': 'other',
-  '特产': 'other', '手信': 'other', '免税店': 'other',
+// 行程条目的费用同步到记账时，落到记账的哪个分类上
+const ITEM_TO_EXPENSE_CATEGORY = {
+  '交通': '交通', '餐饮': '餐饮', '住宿': '住宿', '购物': '购物', '景点': '门票', '其他': '其他',
 };
-// 这几类大类会自动在票据里生成一条对应记录
-const LINKED_CATEGORIES = ['交通', '餐饮', '住宿', '购物'];
 
 const SPLIT_OPTIONS = ['均摊', '单方'];
 const PRIORITIES = ['高', '中', '低'];
@@ -79,8 +73,8 @@ function defaultTrip() {
       colors: ['#e6a877', '#6f9e8f'],   // 与 members 一一对应，用于按付款人区分
       archived: false,
     },
-    itinerary: [], // [{ id, date, items: [{ id, time, endTime, title, location, lat, lng, note, category, estimatedCost }] }]
-    expenses: [],  // [{ id, date, time, amount, category, payer, split, note }]
+    itinerary: [], // [{ id, date, items: [{ id, time, endTime, title, location, lat, lng, note, category, subCategory, refNo, estimatedCost, payer, expenseId }] }]
+    expenses: [],  // [{ id, date, time, amount, category, payer, split, note, itemId }]  itemId 反向关联行程条目
     checklist: [], // [{ id, name, category, checked, owner }]
     wishlist: [],  // [{ id, name, location, note, priority, status }]
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
@@ -200,8 +194,7 @@ function normalize(doc) {
 module.exports = {
   CATEGORIES,
   SUB_CATEGORIES,
-  SUB_TO_BOOKING_TYPE,
-  LINKED_CATEGORIES,
+  ITEM_TO_EXPENSE_CATEGORY,
   SPLIT_OPTIONS,
   PRIORITIES,
   WISH_STATUS,

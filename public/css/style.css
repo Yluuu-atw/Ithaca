@@ -628,6 +628,8 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-actions { grid-column: 1 / -1; margin-top: 4px; }
+.cat-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.form-hint { color: var(--muted); font-size: 13px; padding: 8px 0; }
 
 input, select, textarea {
   width: 100%;

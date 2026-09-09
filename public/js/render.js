@@ -930,25 +930,46 @@ window.Render = (() => {
     </form>`;
   }
 
+  // 各类安排的专属字段：值为该字段的标签文本，undefined 表示该类不显示此字段
+  const ITEM_FIELD_SPEC = {
+    '交通': { endTime: '到达时间', title: '行程', titlePh: '如：深圳北 → 广州南', location: '目的地', locationPh: '如：广州南站', refNo: '车次 / 航班号', refNoPh: '如 G79 / CA8629', cost: '票价' },
+    '餐饮': { title: '餐厅', titlePh: '如：添好运', location: '地点', locationPh: '如：中环 · 威灵顿街', cost: '花费' },
+    '住宿': { endTime: '退房时间', title: '酒店', titlePh: '如：尖沙咀海景酒店', location: '地址', cost: '房费' },
+    '景点': { title: '景点', titlePh: '如：太平山顶', location: '地点', cost: '门票' },
+    '购物': { title: '买什么', titlePh: '如：手信', location: '地点', cost: '花费' },
+    '其他': { endTime: '结束时间', title: '安排内容', location: '地点', cost: '花费' },
+  };
+
+  function itemFieldsHtml(cat, v, meta) {
+    const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
+    const out = [];
+    out.push(`<div class="form-row">
+      <label>开始时间<input type="time" name="time" value="${esc(v.time || '09:00')}"></label>
+      ${spec.endTime ? `<label>${spec.endTime}<input type="time" name="endTime" value="${esc(v.endTime || '')}"></label>` : ''}
+    </div>`);
+    out.push(`<label>${spec.title}<input name="title" required placeholder="${esc(spec.titlePh || '')}" value="${esc(v.title || '')}"></label>`);
+    if (spec.location) out.push(`<label>${spec.location}<input name="location" placeholder="${esc(spec.locationPh || '')}" value="${esc(v.location || '')}"></label>`);
+    if (spec.refNo) out.push(`<label>${spec.refNo}<input name="refNo" placeholder="${esc(spec.refNoPh || '')}" value="${esc(v.refNo || '')}"></label>`);
+    out.push(`<div class="form-row">
+      <label>${spec.cost}<input type="number" name="estimatedCost" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.estimatedCost || '')}"></label>
+      <label>谁付的${memberPicker(meta.members || [], v.payer, meta, 'payer')}</label>
+    </div>`);
+    out.push(`<label>备注<input name="note" placeholder="预约信息、路线等" value="${esc(v.note || '')}"></label>`);
+    return out.join('');
+  }
+
   function formItem(dayId, item) {
+    const meta = Store.getState().meta || {};
     const cats = Store.CONST.itineraryCategories;
     const v = item || {};
+    const cur = item ? (v.category || '其他') : '';
     return `<form data-form="item">
       <input type="hidden" name="dayId" value="${esc(dayId)}">
       ${item ? `<input type="hidden" name="itemId" value="${esc(item.id)}">` : ''}
-      <div class="form-row">
-        <label>开始时间<input type="time" name="time" value="${esc(item ? (v.time || '') : '09:00')}"></label>
-        <label>结束时间<input type="time" name="endTime" value="${esc(v.endTime || '')}"></label>
-      </div>
-      <label>安排内容<input name="title" required placeholder="如：清水寺" value="${esc(v.title || '')}"></label>
-      <label>地点<input name="location" placeholder="如：京都 · 东山区" value="${esc(v.location || '')}"></label>
-      <div class="form-row">
-        <label>分类<select name="category" id="itemCat">${cats.map(c => `<option ${c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <label>细分<select name="subCategory" id="itemSub"></select></label>
-        <label>预估花费<input type="number" name="estimatedCost" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.estimatedCost || '')}"></label>
-      </div>
-      <label>编号<input name="refNo" placeholder="车次 / 航班号 / 餐厅名" value="${esc(v.refNo || '')}"></label>
-      <label>备注<input name="note" placeholder="预约信息、路线等" value="${esc(v.note || '')}"></label>
+      <label>类别<div class="cat-picker">${cats.map(c =>
+        `<button type="button" class="btn btn-sm ${c === cur ? 'btn-primary' : 'btn-ghost'}" data-action="pick-item-cat" data-cat="${esc(c)}">${esc(c)}</button>`
+      ).join('')}</div><input type="hidden" name="category" value="${esc(cur)}"></label>
+      <div id="itemFields">${cur ? itemFieldsHtml(cur, v, meta) : '<p class="form-hint">先选一个类别，再填对应的信息</p>'}</div>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
@@ -1782,7 +1803,7 @@ window.Render = (() => {
     TABS,
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
-    formDay, formItem, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
+    formDay, formItem, itemFields: itemFieldsHtml, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
     formGuide,
     extractUrl, extractTitle,
