@@ -917,7 +917,8 @@ window.App = (() => {
         time: fd.get('time') || '',
         endTime: fd.get('endTime') || '',
         title: fd.get('title') || '',
-        location: fd.get('location') || '',
+        // 餐饮/住宿/景点不填地点了，时间轴的 📍 路线读的是这个字段，用标题兜底
+        location: fd.get('location') || fd.get('title') || '',
         category: fd.get('category') || '其他',
         refNo: (fd.get('refNo') || '').trim(),
         note: fd.get('note') || '',

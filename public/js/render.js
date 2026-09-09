@@ -930,13 +930,14 @@ window.Render = (() => {
     </form>`;
   }
 
-  // 各类安排的专属字段：值为该字段的标签文本，undefined 表示该类不显示此字段
+  // 各类安排的专属字段：值为该字段的标签文本，undefined 表示该类不显示此字段。
+  // 餐饮/住宿/景点的「叫什么」和「在哪」是同一件事，只留一个字段。
   const ITEM_FIELD_SPEC = {
     '交通': { endTime: '到达时间', title: '行程', titlePh: '如：深圳北 → 广州南', location: '目的地', locationPh: '如：广州南站', refNo: '车次 / 航班号', refNoPh: '如 G79 / CA8629', cost: '票价' },
-    '餐饮': { title: '餐厅', titlePh: '如：添好运', location: '地点', locationPh: '如：中环 · 威灵顿街', cost: '花费' },
-    '住宿': { endTime: '退房时间', title: '酒店', titlePh: '如：尖沙咀海景酒店', location: '地址', cost: '房费' },
-    '景点': { title: '景点', titlePh: '如：太平山顶', location: '地点', cost: '门票' },
-    '购物': { title: '买什么', titlePh: '如：手信', location: '地点', cost: '花费' },
+    '餐饮': { title: '餐厅', titlePh: '如：添好运', cost: '花费' },
+    '住宿': { endTime: '退房时间', title: '酒店', titlePh: '如：尖沙咀海景酒店', cost: '房费' },
+    '景点': { title: '景点', titlePh: '如：太平山顶', cost: '门票' },
+    '购物': { title: '买什么', titlePh: '如：手信', location: '地点', locationPh: '如：DFS 免税店', cost: '花费' },
     '其他': { endTime: '结束时间', title: '安排内容', location: '地点', cost: '花费' },
   };
 
