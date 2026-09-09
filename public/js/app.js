@@ -444,6 +444,21 @@ window.App = (() => {
         openModal('添加安排', Render.formItem(el.dataset.day));
         break;
 
+      case 'exp-mx-toggle': {
+        const detail = el.querySelector('.exp-mx-detail');
+        if (detail) detail.hidden = !detail.hidden;
+        break;
+      }
+
+      case 'iti-item-toggle': {
+        const detail = el.parentElement.querySelector('.tl-detail');
+        if (detail) {
+          detail.hidden = !detail.hidden;
+          el.closest('.tl-item').classList.toggle('is-open', !detail.hidden);
+        }
+        break;
+      }
+
       // 类别切换：重填该类的专属字段，已填的内容带过去
       case 'pick-item-cat': {
         const cat = el.dataset.cat;

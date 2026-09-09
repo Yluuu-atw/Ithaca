@@ -263,7 +263,7 @@ window.Render = (() => {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'trips': return renderTrips(opts.showArchived);
       case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
-      case 'bookings': return renderBookings(state, opts.bookingFilter) + renderExpenses(state);
+      case 'bookings': return renderExpenses(state);
       case 'map': return renderMap(state, opts.tileSource);
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
@@ -715,7 +715,7 @@ window.Render = (() => {
         <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 安排</button>
       </div>
       ${items.length
-        ? `<ul class="tl-items tl-plain">${items.map(i => renderItiItem(s, day.id, i)).join('')}</ul>`
+        ? `<ul class="tl-items tl-plain">${items.slice().sort((a, b) => (a.time ? (b.time ? a.time.localeCompare(b.time) : -1) : 1)).map(i => renderItiItem(s, day.id, i)).join('')}</ul>`
         : '<p class="empty small">这天还没有安排</p>'}
     </div>`;
   }
@@ -757,7 +757,7 @@ window.Render = (() => {
         </div>
         ${stopTxt ? `<div class="tl-stops">${emo('📍')} ${esc(stopTxt)}${stops.length > 2 ? ` 等 ${stops.length} 地` : ''}</div>` : ''}
         ${items.length
-          ? `<ul class="tl-items">${items.map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
+          ? `<ul class="tl-items">${items.slice().sort((a, b) => (a.time ? (b.time ? a.time.localeCompare(b.time) : -1) : 1)).map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
           : '<p class="tl-empty">这天还没有安排</p>'}
       </div>
     </div>`;
@@ -768,16 +768,22 @@ window.Render = (() => {
     return `<li class="tl-item ${i.estimatedCost ? 'has-value' : ''}">
       <div class="tl-time">${esc(t || '—')}${i.endTime ? `<small>${esc(i.endTime)}</small>` : ''}</div>
       <div class="tl-card">
-        <div class="tl-main">
-          <div class="tl-title">${esc(i.title || '（未命名）')}</div>
-          ${i.location ? `<div class="tl-loc">${emo('📍')} ${esc(i.location)}</div>` : ''}
+        <button type="button" class="tl-main tl-toggle" data-action="iti-item-toggle">
+          <span class="tl-title">${esc(i.title || '（未命名）')}</span>
+          <span class="tl-more">›</span>
+        </button>
+        <div class="tl-detail" hidden>
+          ${i.location ? `<div>${emo('📍')} ${esc(i.location)}</div>` : ''}
+          ${i.refNo ? `<div>${emo('🎫')} ${esc(i.refNo)}</div>` : ''}
+          ${i.estimatedCost ? `<div>${emo('💰')} ${money(i.estimatedCost, s.meta.currency)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}</div>` : ''}
           ${i.note ? `<div class="tl-note">${esc(i.note)}</div>` : ''}
+          <div class="tl-ops">
+            <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
+            <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
+          </div>
         </div>
         <div class="tl-side">
           <span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span>
-          ${i.estimatedCost ? `<span class="iti-cost">${money(i.estimatedCost, s.meta.currency)}</span>` : ''}
-          <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
-          <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
         </div>
       </div>
     </li>`;
@@ -788,7 +794,7 @@ window.Render = (() => {
     const exp = summarizeExpenses(s);
     const grouped = groupByDate(s.expenses);
     const head = `<div class="list-head">
-      <span>共 ${s.expenses.length} 笔 · 支出 ${money(exp.total, s.meta.currency)}${exp.bookingTotal ? ` · 另有已订票据 ${money(exp.bookingTotal, s.meta.currency)}` : ''}</span>
+      <span>共 ${s.expenses.length} 笔 · 支出 ${money(exp.total, s.meta.currency)}</span>
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
     </div>`;
 
@@ -808,10 +814,35 @@ window.Render = (() => {
     const summary = `<section class="card"><div class="card-head"><h2>${emo('🧾')} 结算</h2></div><div class="settle-grid">${settle}</div></section>`;
 
     const body = grouped.length
-      ? grouped.map(g => renderExpenseGroup(s, g)).join('')
+      ? renderExpenseMatrix(s) + grouped.map(g => renderExpenseGroup(s, g)).join('')
       : `<div class="card"><div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div></div>`;
 
     return head + summary + body;
+  }
+
+  // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么
+  function renderExpenseMatrix(s) {
+    const members = s.meta.members || [];
+    const dates = [...new Set(s.expenses.map(e => e.date).filter(Boolean))].sort();
+    if (!dates.length) return '';
+    const cur = s.meta.currency;
+    const rows = dates.map(date => {
+      const cells = members.map(name => {
+        const mine = s.expenses.filter(e => e.date === date && e.payer === name);
+        const sum = mine.reduce((a, e) => a + (Number(e.amount) || 0), 0);
+        const detail = mine.map(e =>
+          `<div class="exp-mx-line"><span>${esc(e.note || e.category)}</span><span>${money(e.amount, cur)}</span></div>`
+        ).join('');
+        return `<td class="exp-mx-cell ${sum ? 'has' : ''}"${sum ? ' data-action="exp-mx-toggle"' : ''}>
+          <div class="exp-mx-sum">${mine.length ? `${mine.length} 笔 · ${money(sum, cur)}` : '—'}</div>
+          ${mine.length ? `<div class="exp-mx-detail" hidden>${detail}</div>` : ''}
+        </td>`;
+      }).join('');
+      return `<tr><th class="exp-mx-date">${fmtDate(date)} ${weekday(date)}</th>${cells}</tr>`;
+    }).join('');
+    return `<section class="card"><div class="card-head"><h2>${emo('📊')} 每日支出</h2></div>
+      <table class="exp-mx"><thead><tr><th>日期</th>${members.map(m => `<th>${memberChip(s.meta, m)}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody></table></section>`;
   }
 
   function renderExpenseGroup(s, g) {

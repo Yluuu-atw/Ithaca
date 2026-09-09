@@ -631,6 +631,24 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .cat-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .form-hint { color: var(--muted); font-size: 13px; padding: 8px 0; }
 
+.tl-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; background: none; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.tl-more { margin-left: auto; color: var(--muted); transition: transform .15s; font-size: 18px; line-height: 1; }
+.tl-item.is-open .tl-more { transform: rotate(90deg); }
+.tl-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+.tl-detail[hidden], .exp-mx-detail[hidden] { display: none; }
+.tl-ops { display: flex; gap: 4px; margin-top: 4px; }
+
+.exp-mx { width: 100%; border-collapse: collapse; }
+.exp-mx th, .exp-mx td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.exp-mx thead th { color: var(--muted); font-weight: 500; font-size: 14px; }
+.exp-mx-date { white-space: nowrap; color: var(--muted); font-weight: 500; }
+.exp-mx-cell { cursor: default; }
+.exp-mx-cell.has { cursor: pointer; }
+.exp-mx-cell.has:hover { background: var(--surface-2); }
+.exp-mx-sum { font-weight: 500; }
+.exp-mx-detail { margin-top: 6px; display: grid; gap: 3px; font-size: 13px; color: var(--muted); font-weight: 400; }
+.exp-mx-line { display: flex; justify-content: space-between; gap: 12px; }
+
 input, select, textarea {
   width: 100%;
   padding: 10px 12px;
