@@ -1352,6 +1352,32 @@ body:not(.is-welcome) .welcome { display: none; }
     rgba(236, 226, 210, .46) 45%,
     rgba(236, 226, 210, .72) 100%);
 }
+/* 背景色挪到左上角：手机端底部四个按钮挤不下，这个低频操作让位给主流程 */
+.welcome-corner {
+  position: fixed;
+  top: 16px;
+  left: calc(var(--sidebar-w) + 16px);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 253, 248, .8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 2px solid var(--line);
+  border-radius: 20px 999px 20px 999px / 999px 20px 999px 20px;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow .16s ease, transform .16s ease;
+}
+.welcome-corner:hover { box-shadow: var(--shadow); transform: translate(-1px, -2px); }
+@media (max-width: 767px) {
+  .welcome-corner { left: 12px; top: 12px; padding: 7px 11px; font-size: 14px; }
+}
 .welcome-inner {
   position: relative;
   z-index: 1;

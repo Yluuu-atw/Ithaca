@@ -1516,6 +1516,9 @@ window.Render = (() => {
     const spans = units.map((c, i) => `<span style="--i:${i}">${esc(c)}</span>`).join('');
     return `
       <div class="welcome-bg" id="welcomeBg" data-src="vendor/${esc(shot)}" aria-hidden="true"></div>
+      <button type="button" class="welcome-corner" data-action="theme-open">
+        <span class="theme-dot"></span> 背景色
+      </button>
       ${spans ? `<div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}" aria-hidden="true">${spans}</div>` : ''}
       <div class="welcome-inner">
         <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
@@ -1551,9 +1554,6 @@ window.Render = (() => {
             </button>
             <button type="button" class="welcome-mini" data-action="welcome-memo">
               <img class="emo" src="vendor/fluent-emoji/1f5d3.png" alt=""> 备忘录
-            </button>
-            <button type="button" class="welcome-mini" data-action="theme-open">
-              <span class="theme-dot"></span> 背景色
             </button>
           </div>
         </div>
