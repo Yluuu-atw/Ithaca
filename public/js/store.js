@@ -13,6 +13,23 @@
 window.Store = (() => {
   const CONST = {
     itineraryCategories: ['交通', '景点', '餐饮', '住宿', '购物', '其他'],
+    // 二级分类：选完一级才显示对应子类；子类再映射到票据的 type
+    subCategories: {
+      '交通': ['飞机', '高铁', '火车', '轮船', '长途汽车', '地铁', '公交', '出租车', '自驾', '步行'],
+      '餐饮': ['早餐', '午餐', '晚餐', '下午茶', '夜宵'],
+      '住宿': ['酒店', '民宿', '青旅', '露营', '亲友家'],
+      '购物': ['特产', '手信', '免税店', '其他'],
+      '景点': [],
+      '其他': [],
+    },
+    subToBookingType: {
+      '飞机': 'flight', '高铁': 'train', '火车': 'train', '长途汽车': 'bus',
+      '轮船': 'other', '地铁': 'other', '公交': 'other', '出租车': 'other', '自驾': 'other', '步行': 'other',
+      '酒店': 'hotel', '民宿': 'hotel', '青旅': 'hotel', '露营': 'hotel', '亲友家': 'hotel',
+      '早餐': 'other', '午餐': 'other', '晚餐': 'other', '下午茶': 'other', '夜宵': 'other',
+      '特产': 'other', '手信': 'other', '免税店': 'other',
+    },
+    linkedCategories: ['交通', '餐饮', '住宿', '购物'],
     expenseCategories: ['餐饮', '交通', '住宿', '门票', '购物', '娱乐', '其他'],
     checklistCategories: ['证件', '衣物', '洗漱', '电子', '药品', '其他'],
     splitOptions: ['均摊', '单方'],

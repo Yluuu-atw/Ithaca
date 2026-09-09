@@ -943,9 +943,11 @@ window.Render = (() => {
       <label>安排内容<input name="title" required placeholder="如：清水寺" value="${esc(v.title || '')}"></label>
       <label>地点<input name="location" placeholder="如：京都 · 东山区" value="${esc(v.location || '')}"></label>
       <div class="form-row">
-        <label>分类<select name="category">${cats.map(c => `<option ${c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>分类<select name="category" id="itemCat">${cats.map(c => `<option ${c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>细分<select name="subCategory" id="itemSub"></select></label>
         <label>预估花费<input type="number" name="estimatedCost" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.estimatedCost || '')}"></label>
       </div>
+      <label>编号<input name="refNo" placeholder="车次 / 航班号 / 餐厅名" value="${esc(v.refNo || '')}"></label>
       <label>备注<input name="note" placeholder="预约信息、路线等" value="${esc(v.note || '')}"></label>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;

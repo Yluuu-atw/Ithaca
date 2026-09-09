@@ -27,6 +27,26 @@ const CATEGORIES = {
   checklist: ['证件', '衣物', '洗漱', '电子', '药品', '其他'],
 };
 
+// 行程条目的二级分类：选完一级才显示对应的子类。空数组表示该大类不拆分。
+const SUB_CATEGORIES = {
+  '交通': ['飞机', '高铁', '火车', '轮船', '长途汽车', '地铁', '公交', '出租车', '自驾', '步行'],
+  '餐饮': ['早餐', '午餐', '晚餐', '下午茶', '夜宵'],
+  '住宿': ['酒店', '民宿', '青旅', '露营', '亲友家'],
+  '购物': ['特产', '手信', '免税店', '其他'],
+  '景点': [],
+  '其他': [],
+};
+// 二级分类落到票据的类型字段（flight/train/bus/hotel/other）
+const SUB_TO_BOOKING_TYPE = {
+  '飞机': 'flight', '高铁': 'train', '火车': 'train', '长途汽车': 'bus',
+  '轮船': 'other', '地铁': 'other', '公交': 'other', '出租车': 'other', '自驾': 'other', '步行': 'other',
+  '酒店': 'hotel', '民宿': 'hotel', '青旅': 'hotel', '露营': 'hotel', '亲友家': 'hotel',
+  '早餐': 'other', '午餐': 'other', '晚餐': 'other', '下午茶': 'other', '夜宵': 'other',
+  '特产': 'other', '手信': 'other', '免税店': 'other',
+};
+// 这几类大类会自动在票据里生成一条对应记录
+const LINKED_CATEGORIES = ['交通', '餐饮', '住宿', '购物'];
+
 const SPLIT_OPTIONS = ['均摊', '单方'];
 const PRIORITIES = ['高', '中', '低'];
 const WISH_STATUS = ['想去', '排入行程', '已完成'];
@@ -179,6 +199,9 @@ function normalize(doc) {
 
 module.exports = {
   CATEGORIES,
+  SUB_CATEGORIES,
+  SUB_TO_BOOKING_TYPE,
+  LINKED_CATEGORIES,
   SPLIT_OPTIONS,
   PRIORITIES,
   WISH_STATUS,

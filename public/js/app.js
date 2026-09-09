@@ -184,6 +184,71 @@ window.App = (() => {
     }
   }
 
+  // 二级分类跟着一级走：重填 option、没有子类时整行藏起来，
+  // 编号输入框的占位符也换成人话（车次/航班号/餐厅名）
+  const REF_HINT = {
+    '交通': '车次 / 航班号 / 车牌', '餐饮': '餐厅名 / 订位号',
+    '住宿': '酒店名 / 订单号', '购物': '店铺 / 品类',
+  };
+  function fillItemSub(cat, selected) {
+    const sel = document.getElementById('itemSub');
+    if (!sel) return;
+    const subs = (Store.CONST.subCategories || {})[cat] || [];
+    sel.innerHTML = '<option value="">（不细分）</option>' +
+      subs.map(s => `<option value="${s}" ${s === selected ? 'selected' : ''}>${s}</option>`).join('');
+    const wrap = sel.parentElement;
+    if (wrap) wrap.style.display = subs.length ? '' : 'none';
+    const ref = document.querySelector('form[data-form="item"] [name="refNo"]');
+    if (ref) ref.placeholder = REF_HINT[cat] || '编号 / 备注';
+  }
+
+  // 行程条目 → 票据：交通/餐饮/住宿/购物这几类填完自动建一条票据，
+  // 用 itemId 双向关联，之后改哪边都同步，不用在两个页面各填一次
+  function syncBookingFromItem(trip, item, date) {
+    if (!trip || !item) return;
+    const cats = Store.CONST.linkedCategories || [];
+    if (!cats.includes(item.category)) return;
+    const has = item.subCategory || item.refNo || item.estimatedCost;
+    if (!has) return;
+    trip.bookings = trip.bookings || [];
+    const btype = (Store.CONST.subToBookingType || {})[item.subCategory] || 'other';
+    let bk = trip.bookings.find(x => x.itemId === item.id);
+    if (!bk) {
+      bk = {
+        id: Store.uid('bk'), type: btype, itemId: item.id,
+        title: item.title, status: '待订',
+        from: '', to: '', date: date || '', time: item.time || '', endTime: item.endTime || '',
+        carrier: item.refNo || '', seat: '', refNo: item.refNo || '',
+        price: Number(item.estimatedCost) || 0,
+        payer: '', link: '', note: item.note || '', endDate: '',
+      };
+      trip.bookings.push(bk);
+      return;
+    }
+    // 已存在则只覆盖由行程条目产生的字段，状态、付款人等票据侧维护的不动
+    bk.type = btype;
+    bk.title = item.title;
+    if (date) bk.date = date;
+    bk.time = item.time || '';
+    bk.endTime = item.endTime || '';
+    bk.carrier = item.refNo || '';
+    bk.refNo = item.refNo || '';
+    bk.note = item.note || '';
+    if (item.estimatedCost) bk.price = Number(item.estimatedCost);
+  }
+
+  // 票据 → 行程条目：反向同步价格与编号
+  function syncItemFromBooking(trip, bk) {
+    if (!bk || !bk.itemId) return;
+    for (const day of (trip.itinerary || [])) {
+      const it = (day.items || []).find(x => x.id === bk.itemId);
+      if (!it) continue;
+      if (bk.price) it.estimatedCost = Number(bk.price) || it.estimatedCost;
+      if (bk.carrier) it.refNo = bk.carrier;
+      return;
+    }
+  }
+
   // ---------------- 渲染 ----------------
   function render() {
     const data = Store.getState();
@@ -403,13 +468,21 @@ window.App = (() => {
 
       case 'itinerary-add-item':
         openModal('添加安排', Render.formItem(el.dataset.day));
+        // 二级下拉按表单里实际选中的一级分类填，不能写死
+        fillItemSub((() => {
+          const c = document.querySelector('form[data-form="item"] [name="category"]');
+          return c ? c.value : '其他';
+        })());
         break;
 
       case 'itinerary-edit-item': {
         const data = Store.getState();
         const day = (data.itinerary || []).find(x => x.id === el.dataset.day);
         const item = day && (day.items || []).find(x => x.id === el.dataset.item);
-        if (item) openModal('编辑安排', Render.formItem(el.dataset.day, item));
+        if (item) {
+          openModal('编辑安排', Render.formItem(el.dataset.day, item));
+          fillItemSub(item.category || '其他', item.subCategory);
+        }
         break;
       }
 
@@ -844,6 +917,8 @@ window.App = (() => {
         title: fd.get('title') || '',
         location: fd.get('location') || '',
         category: fd.get('category') || '其他',
+        subCategory: fd.get('subCategory') || '',
+        refNo: (fd.get('refNo') || '').trim(),
         note: fd.get('note') || '',
         estimatedCost: Number(fd.get('estimatedCost')) || 0,
       };
@@ -851,12 +926,17 @@ window.App = (() => {
         doMutate(d => {
           const day = d.itinerary.find(x => x.id === dayId);
           const it = day && (day.items || []).find(x => x.id === itemId);
-          if (it) Object.assign(it, fields);
+          if (it) { Object.assign(it, fields); syncBookingFromItem(d, it, day && day.date); }
         }, '已保存');
       } else {
         doMutate(d => {
           const day = d.itinerary.find(x => x.id === dayId);
-          if (day) { day.items = day.items || []; day.items.push({ id: Store.uid('itm'), ...fields }); }
+          if (day) {
+            day.items = day.items || [];
+            const it = { id: Store.uid('itm'), ...fields };
+            day.items.push(it);
+            syncBookingFromItem(d, it, day.date);
+          }
         }, '已添加');
       }
       closeModal();
@@ -988,7 +1068,7 @@ window.App = (() => {
         doMutate(d => {
           d.bookings = d.bookings || [];
           const it = d.bookings.find(x => x.id === bookingId);
-          if (it) Object.assign(it, fields);
+          if (it) { Object.assign(it, fields); syncItemFromBooking(d, it); }
         }, '已保存票据');
       } else {
         doMutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); }, '已保存票据');
@@ -1346,6 +1426,11 @@ window.App = (() => {
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
+    // 行程条目的二级分类跟着一级走：这里的 select 没挂 data-action，
+    // 走不了 onChange 那条委托链，单开一个监听
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'itemCat') fillItemSub(e.target.value);
+    });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
     $('#importFile').addEventListener('change', (e) => {
       const file = e.target.files[0];
