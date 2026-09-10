@@ -846,13 +846,14 @@ window.Render = (() => {
       <div class="settle-list">${settle}</div>
     </section>`;
 
-    // 每日支出与明细装进同一个大方框，中间用手账风分割线隔开
+    // 每日支出与明细装进同一个大方框，中间用手账风剪刀线隔开，明细做成小票
     const matrix = renderExpenseMatrix(s);
     const detail = grouped.length
-      ? grouped.map(g => renderExpenseGroup(s, g)).join('')
+      ? `<section class="exp-sec"><h3 class="exp-sec-h">${emo('🧾')} 账单</h3>` +
+        grouped.map(g => renderExpenseGroup(s, g)).join('') + `</section>`
       : '';
     const inner = (matrix && detail)
-      ? matrix + `<div class="journal-div"><i></i><span>${emo('❀')}</span><i></i></div>` + detail
+      ? matrix + `<div class="journal-div"><i></i><span>${emo('✂')}</span><i></i></div>` + detail
       : (matrix || detail);
     const frame = inner ? `<div class="exp-frame">${inner}</div>` : '';
 
@@ -909,14 +910,18 @@ window.Render = (() => {
       <span class="exp-amt">${money(e.amount, cur)}</span>
       <button class="icon-btn danger exp-del" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
     </li>`).join('');
-    return `<section class="exp-sec">
-      <div class="ledger-head">
-        <span class="ledger-date">${fmtDate(g.date)} ${weekday(g.date)}</span>
-        <span class="ledger-n">${items.length} 笔</span>
-        <span class="ledger-sum">${money(total, cur)}</span>
+    return `<div class="receipt">
+      <div class="receipt-head">
+        <span class="receipt-date">${fmtDate(g.date)} ${weekday(g.date)}</span>
+        <span class="receipt-n">共 ${items.length} 笔</span>
       </div>
       <ul class="exp-flow">${rows}</ul>
-    </section>`;
+      <div class="receipt-foot">
+        <span>合计</span>
+        <span class="receipt-dots"></span>
+        <span class="receipt-sum">${money(total, cur)}</span>
+      </div>
+    </div>`;
   }
 
   // ---------------- 打包清单 ----------------

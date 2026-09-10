@@ -399,8 +399,20 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 .settle-sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* 结算：大标题当主角，进度条跟着 */
-.settle-head { margin: 4px 0 26px; }
+/* 结算：白底方框 + 格子花纹底纹，手账风 */
+.settle-head {
+  position: relative;
+  margin: 4px 0 20px;
+  padding: 18px 20px 20px;
+  background-color: var(--surface);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--primary) 16%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 16%, transparent) 1px, transparent 1px);
+  background-size: 18px 18px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-doodle);
+  box-shadow: var(--shadow-sm);
+}
 .settle-title {
   display: flex;
   align-items: center;
@@ -412,9 +424,9 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   margin: 0 0 18px;
 }
 .settle-title .emo { width: 34px; height: 34px; }
-.settle-head .settle-list { gap: 15px; max-width: 720px; }
+.settle-head .settle-list { gap: 15px; }
 .settle-head .settle-adv { font-size: 21px; }
-.settle-head .settle-bar { height: 13px; }
+.settle-head .settle-bar { height: 13px; background: color-mix(in srgb, var(--surface) 72%, transparent); }
 .settle-head .settle-bal { font-size: 14.5px; min-width: 82px; }
 
 /* 每日支出与明细共用的大方框 */
@@ -428,24 +440,76 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .exp-frame .exp-sec { margin-bottom: 0; }
 .exp-frame .exp-sec-h { border-bottom: none; padding-bottom: 0; margin-bottom: 12px; }
 
-/* 手账风分割线：虚线 + 中间一朵小花 */
+/* 手账风剪刀分割线：粗虚线 + 中间一把剪刀 */
 .journal-div {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 22px 0;
-  color: var(--line);
+  margin: 24px -20px;
+  padding: 0 20px;
+  color: var(--primary);
 }
 .journal-div > i {
   flex: 1;
   height: 0;
-  border-top: 2px dashed var(--line);
+  border-top: 3px dashed color-mix(in srgb, var(--primary) 38%, var(--line));
 }
 .journal-div > span {
-  font-size: 17px;
+  font-size: 20px;
   line-height: 1;
-  color: var(--primary);
-  opacity: .75;
+  opacity: .85;
+  transform: rotate(90deg);
+}
+
+/* 小票：每天一张，虚线框 + 撕口底边 */
+.receipt {
+  position: relative;
+  background: var(--surface);
+  border: 1.5px dashed color-mix(in srgb, var(--line) 70%, var(--primary));
+  border-radius: 6px;
+  padding: 12px 16px 14px;
+  margin-bottom: 24px;
+}
+.receipt::after {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px;
+  bottom: -8px;
+  height: 8px;
+  background: radial-gradient(circle at 50% 0, var(--surface) 6px, transparent 6.5px) 0 0 / 14px 8px repeat-x;
+  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--line) 70%, var(--primary)));
+}
+.receipt-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px dashed var(--line);
+}
+.receipt-date { font-weight: 700; font-size: 15.5px; }
+.receipt-n { color: var(--muted); font-size: 13px; }
+.receipt-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 14px;
+  color: var(--muted);
+}
+.receipt-dots {
+  flex: 1;
+  height: 0;
+  border-top: 2px dotted var(--line);
+  transform: translateY(-3px);
+}
+.receipt-sum {
+  font-weight: 800;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 /* ---------------- 分类占比 ---------------- */
@@ -592,12 +656,12 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .iti-note { font-size: 16.5px; color: var(--muted); margin-top: 4px; }
 .iti-cost { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 17.5px; }
 
-/* ---------------- 记账：明细流水账 ---------------- */
-.exp-flow { list-style: none; margin: 0; padding: 4px 0 2px; position: relative; }
+/* ---------------- 记账：明细流水账（小票内） ---------------- */
+.exp-flow { list-style: none; margin: 0; padding: 2px 0 0; position: relative; }
 .exp-flow::before {
   content: '';
   position: absolute;
-  left: 68px; top: 10px; bottom: 10px;
+  left: 68px; top: 12px; bottom: 12px;
   width: 2px;
   background: linear-gradient(var(--border), var(--surface-2));
 }
@@ -641,22 +705,6 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 .exp-del { grid-column: 5; opacity: 0; transition: opacity .12s; }
 .exp-row:hover .exp-del { opacity: 1; }
-.ledger-head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 2px 0 10px;
-  border-bottom: 2px solid var(--text);
-}
-.ledger-date { font-weight: 700; font-size: 17px; }
-.ledger-n { color: var(--muted); font-size: 13.5px; }
-.ledger-sum {
-  margin-left: auto;
-  font-weight: 700;
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent);
-}
 
 /* ---------------- 打包清单 ---------------- */
 .progress-wrap { margin-bottom: 18px; }
