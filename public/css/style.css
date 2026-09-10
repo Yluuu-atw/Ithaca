@@ -664,6 +664,17 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .dt-meta { font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .dt-sep { opacity: .45; }
 
+.dt-view, .dt-form { display: grid; gap: 10px; }
+.dt-view[hidden], .dt-form[hidden] { display: none; }
+.dt-dhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dt-dtitle { font-weight: 600; }
+.dt-rows { display: grid; gap: 5px; }
+.dt-row { display: grid; grid-template-columns: 82px 1fr; gap: 10px; font-size: 14px; }
+.dt-k { color: var(--muted); }
+.dt-v { color: var(--text); }
+.dt-del { justify-self: start; background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--danger, #c0563f); cursor: pointer; opacity: .75; }
+.dt-del:hover { opacity: 1; text-decoration: underline; }
+
 input, select, textarea {
   width: 100%;
   padding: 10px 12px;

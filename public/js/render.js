@@ -705,23 +705,46 @@ window.Render = (() => {
     </div>`;
   }
 
-  // 弹窗里的条目：默认只给标题，点右侧箭头展开详情，编辑按钮在展开区右上角
+  // 弹窗里的条目：点箭头展开「编辑安排」，默认只读，点编辑才变输入框
   function dayDetailItem(s, dayId, i) {
-    const bits = [];
-    if (i.refNo) bits.push(`${emo('🎫')} ${esc(i.refNo)}`);
-    if (i.estimatedCost) bits.push(`${emo('💰')} ${money(i.estimatedCost, s.meta.currency)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}`);
-    if (i.location) bits.push(`${emo('📍')} ${esc(i.location)}`);
-    if (i.note) bits.push(esc(i.note));
-    return `<li class="dt-item">
+    const cat = i.category || '其他';
+    const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
+    const cur = s.meta.currency;
+    const row = (label, val) => val ? `<div class="dt-row"><span class="dt-k">${label}</span><span class="dt-v">${val}</span></div>` : '';
+    const rows = [
+      row('开始时间', esc(i.time || '—') + (i.endTime ? ` – ${esc(i.endTime)}` : '')),
+      row(spec.title, esc(i.title || '（未命名）')),
+      spec.location && row(spec.location, esc(i.location)),
+      spec.refNo && row(spec.refNo, esc(i.refNo)),
+      row(spec.cost, i.estimatedCost ? `${money(i.estimatedCost, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}` : '—'),
+      row('备注', esc(i.note)),
+    ].filter(Boolean).join('');
+    return `<li class="dt-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">
       <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${esc(i.endTime)}</small>` : ''}</div>
       <button type="button" class="dt-main" data-action="dt-item-toggle">
         <span class="dt-title">${esc(i.title || '（未命名）')}</span>
-        <span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span>
+        <span class="badge" data-cat="${esc(cat)}">${esc(cat)}</span>
         <span class="dt-arrow">›</span>
       </button>
       <div class="dt-detail" hidden>
-        <button class="btn btn-ghost btn-sm dt-edit" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">✎ 编辑</button>
-        ${bits.length ? `<div class="dt-meta">${bits.join('<span class="dt-sep">·</span>')}</div>` : '<div class="dt-meta">还没填详细信息</div>'}
+        <div class="dt-view">
+          <div class="dt-dhead">
+            <span class="dt-dtitle">编辑安排</span>
+            <button class="btn btn-ghost btn-sm" data-action="dt-item-edit">✎ 编辑</button>
+          </div>
+          <div class="dt-rows">${rows}</div>
+          <button class="dt-del" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">删除这条安排</button>
+        </div>
+        <form class="dt-form" data-form="item" hidden>
+          <input type="hidden" name="dayId" value="${esc(dayId)}">
+          <input type="hidden" name="itemId" value="${esc(i.id)}">
+          <input type="hidden" name="category" value="${esc(cat)}">
+          <div class="dt-dhead">
+            <span class="dt-dtitle">编辑安排</span>
+            <button class="btn btn-primary btn-sm" type="submit">保存</button>
+          </div>
+          <div id="itemFields">${itemFieldsHtml(cat, i, s.meta)}</div>
+        </form>
       </div>
     </li>`;
   }

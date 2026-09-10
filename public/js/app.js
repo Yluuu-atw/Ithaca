@@ -450,6 +450,14 @@ window.App = (() => {
         break;
       }
 
+      case 'dt-item-edit': {
+        const detail = el.closest('.dt-detail');
+        if (!detail) break;
+        detail.querySelector('.dt-view').hidden = true;
+        detail.querySelector('.dt-form').hidden = false;
+        break;
+      }
+
       case 'dt-item-toggle': {
         const detail = el.parentElement.querySelector('.dt-detail');
         if (detail) {
@@ -949,14 +957,15 @@ window.App = (() => {
         estimatedCost: Number(fd.get('estimatedCost')) || 0,
         payer: fd.get('payer') || '',
       };
+      const inline = !!form.closest('.dt-item');
       if (itemId) {
-        doMutate(d => {
+        await doMutate(d => {
           const day = d.itinerary.find(x => x.id === dayId);
           const it = day && (day.items || []).find(x => x.id === itemId);
           if (it) { Object.assign(it, fields); syncExpenseFromItem(d, it, day && day.date); }
         }, '已保存');
       } else {
-        doMutate(d => {
+        await doMutate(d => {
           const day = d.itinerary.find(x => x.id === dayId);
           if (day) {
             day.items = day.items || [];
@@ -965,6 +974,16 @@ window.App = (() => {
             syncExpenseFromItem(d, it, day.date);
           }
         }, '已添加');
+      }
+      // 内嵌表单：重渲染行程详情，保持这条展开并回到只读态
+      if (inline) {
+        document.getElementById('modalBody').innerHTML = Render.dayDetail(Store.getState(), dayId);
+        const li = document.querySelector(`.dt-item[data-item="${itemId}"]`);
+        if (li) {
+          li.querySelector('.dt-detail').hidden = false;
+          li.classList.add('is-open');
+        }
+        return;
       }
       closeModal();
       return;
