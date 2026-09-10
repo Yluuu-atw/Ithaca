@@ -211,12 +211,15 @@ window.App = (() => {
     Object.assign(ex, fields);
   }
 
-  // 记账 → 行程条目：反向同步金额与付款人
+  // 记账 → 行程条目：反向同步分类、细分、车次、金额与付款人
   function syncItemFromExpense(trip, ex) {
     if (!ex || !ex.itemId) return;
     for (const day of (trip.itinerary || [])) {
       const it = (day.items || []).find(x => x.id === ex.itemId);
       if (!it) continue;
+      it.category = (Store.CONST.expenseToItemCategory || {})[ex.category] || it.category;
+      it.subCategory = ex.subCategory || '';
+      it.refNo = ex.refNo || '';
       it.estimatedCost = Number(ex.amount) || 0;
       if (ex.payer) it.payer = ex.payer;
       return;
