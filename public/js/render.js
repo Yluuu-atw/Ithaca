@@ -705,7 +705,7 @@ window.Render = (() => {
     </div>`;
   }
 
-  // 弹窗里的条目：点箭头展开「编辑安排」，默认只读，点编辑才变输入框
+  // 弹窗里的条目：点向下箭头直接展开详细信息
   function dayDetailItem(s, dayId, i) {
     const cat = i.category || '其他';
     const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
@@ -719,32 +719,16 @@ window.Render = (() => {
       row(spec.cost, i.estimatedCost ? `${money(i.estimatedCost, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}` : '—'),
       row('备注', esc(i.note)),
     ].filter(Boolean).join('');
-    return `<li class="dt-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">
+    return `<li class="dt-item">
       <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${esc(i.endTime)}</small>` : ''}</div>
       <button type="button" class="dt-main" data-action="dt-item-toggle">
         <span class="dt-title">${esc(i.title || '（未命名）')}</span>
         <span class="badge" data-cat="${esc(cat)}">${esc(cat)}</span>
-        <span class="dt-arrow">›</span>
+        <span class="dt-arrow">▾</span>
       </button>
       <div class="dt-detail" hidden>
-        <div class="dt-view">
-          <div class="dt-dhead">
-            <span class="dt-dtitle">编辑安排</span>
-            <button class="btn btn-ghost btn-sm" data-action="dt-item-edit">✎ 编辑</button>
-          </div>
-          <div class="dt-rows">${rows}</div>
-          <button class="dt-del" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">删除这条安排</button>
-        </div>
-        <form class="dt-form" data-form="item" hidden>
-          <input type="hidden" name="dayId" value="${esc(dayId)}">
-          <input type="hidden" name="itemId" value="${esc(i.id)}">
-          <input type="hidden" name="category" value="${esc(cat)}">
-          <div class="dt-dhead">
-            <span class="dt-dtitle">编辑安排</span>
-            <button class="btn btn-primary btn-sm" type="submit">保存</button>
-          </div>
-          <div id="itemFields">${itemFieldsHtml(cat, i, s.meta)}</div>
-        </form>
+        <button class="icon-btn dt-edit" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
+        <div class="dt-rows">${rows}</div>
       </div>
     </li>`;
   }

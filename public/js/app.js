@@ -450,14 +450,6 @@ window.App = (() => {
         break;
       }
 
-      case 'dt-item-edit': {
-        const detail = el.closest('.dt-detail');
-        if (!detail) break;
-        detail.querySelector('.dt-view').hidden = true;
-        detail.querySelector('.dt-form').hidden = false;
-        break;
-      }
-
       case 'dt-item-toggle': {
         const detail = el.parentElement.querySelector('.dt-detail');
         if (detail) {
