@@ -666,6 +666,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   background: linear-gradient(var(--border), var(--surface-2));
 }
 .exp-row {
+  position: relative;
   display: grid;
   grid-template-columns: 52px 14px 1fr auto auto;
   align-items: center;
@@ -805,7 +806,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .tl-ops { display: flex; gap: 4px; margin-top: 4px; }
 
 /* 每日支出：无边框表格，表头用底线分隔，首列左对齐不缩进 */
-.exp-mx { width: 100%; border-collapse: collapse; }
+.exp-mx { width: 100%; table-layout: fixed; border-collapse: collapse; }
 .exp-mx th, .exp-mx td { padding: 10px 12px; text-align: left; vertical-align: top; }
 .exp-mx thead th {
   color: var(--muted);
@@ -817,7 +818,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 .exp-mx tbody th, .exp-mx tbody td { border-bottom: 1px solid var(--line); padding-left: 0; }
 .exp-mx tbody tr:last-child th, .exp-mx tbody tr:last-child td { border-bottom: none; }
-.exp-mx-date { white-space: nowrap; color: var(--text); font-weight: 600; padding-left: 0 !important; }
+.exp-mx-date { white-space: nowrap; color: var(--text); font-weight: 600; padding-left: 0 !important; width: 92px; }
 .exp-mx-cell { cursor: default; }
 .exp-mx-cell.has { cursor: pointer; }
 .exp-mx-cell.has:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
@@ -827,7 +828,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .exp-mx-total {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  word-break: break-word;
   border-left: 1px dashed var(--border);
   color: var(--accent);
 }
@@ -2039,4 +2040,48 @@ body:not(.is-welcome) .welcome { display: none; }
   .meta-date b { font-size: 11.5px; }
   .weather-emo { font-size: 15px; }
   .weather-txt { font-size: 11px; }
+}
+
+/* ---------------- 记账页响应式 ---------------- */
+/* 成员 chip 换行会把表格列挤塌，一律不许折行 */
+.member-chip { white-space: nowrap; }
+
+@media (max-width: 767px) {
+  /* 结算：标题收小，进度条跟着降一档 */
+  .settle-title { font-size: 27px; margin-bottom: 14px; }
+  .settle-title .emo { width: 27px; height: 27px; }
+  .settle-head { padding: 15px 15px 17px; }
+  .settle-head .settle-list { gap: 13px; }
+  .settle-head .settle-adv { font-size: 18px; }
+  .settle-head .settle-bal { font-size: 13px; min-width: 66px; }
+
+  /* 方框与小票的内边距收紧，给表格让宽度 */
+  .exp-frame { padding: 15px 14px 6px; }
+  .exp-mx th, .exp-mx td { padding: 9px 6px; }
+  .exp-mx thead th { font-size: 11.5px; letter-spacing: 0; }
+  .exp-mx-sum { font-size: 12.5px; }
+  .exp-mx-total { font-size: 12.5px; }
+  .exp-mx-date { font-size: 12.5px; width: 74px; }
+  .exp-mx .member-ava { display: none; }        /* 窄栏只留名字，头像让位给金额 */
+  .exp-mx .member-chip { padding: 1px 6px; font-size: 12px; }
+
+  /* 剪刀线贴回方框内 */
+  .journal-div { margin: 20px -14px; padding: 0 14px; }
+
+  /* 小票：时间在左，标题+金额同行（金额右对齐），标签在下 */
+  .receipt { padding: 11px 12px 13px; margin-bottom: 20px; }
+  .receipt-date { font-size: 14.5px; }
+  .exp-row {
+    position: relative;
+    grid-template-columns: 12px 42px 1fr;
+    gap: 2px 7px;
+    padding: 8px 4px 8px 0;
+  }
+  .exp-flow::before { left: 61px; }
+  .exp-dot { grid-column: 1; grid-row: 1 / span 2; align-self: start; margin-top: 6px; }
+  .exp-t { grid-column: 2; grid-row: 1 / span 2; font-size: 12.5px; align-self: start; padding-top: 2px; }
+  .exp-what { grid-column: 3; grid-row: 1 / span 2; display: grid; gap: 3px; align-content: start; }
+  .exp-n { white-space: normal; overflow: visible; text-overflow: clip; padding-right: 62px; }
+  .exp-amt { position: absolute; top: 8px; right: 4px; font-size: 15.5px; min-width: 0; text-align: right; }
+  .exp-del { display: none; }
 }
