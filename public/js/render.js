@@ -793,25 +793,32 @@ window.Render = (() => {
 
   function renderItiItem(s, dayId, i) {
     const t = i.time || '';
+    const cat = i.category || '其他';
+    const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
+    const cur = s.meta.currency;
+    const row = (label, val) => val ? `<div class="dt-row"><span class="dt-k">${label}</span><span class="dt-v">${val}</span></div>` : '';
+    const rows = [
+      i.location && row(spec.location || '地点', esc(i.location)),
+      i.refNo && row(spec.refNo || '编号', esc(i.refNo)),
+      i.estimatedCost ? row(spec.cost, `${money(i.estimatedCost, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}`) : '',
+      i.note && row('备注', esc(i.note)),
+    ].filter(Boolean).join('');
     return `<li class="tl-item ${i.estimatedCost ? 'has-value' : ''}">
       <div class="tl-time">${esc(t || '—')}${i.endTime ? `<small>${esc(i.endTime)}</small>` : ''}</div>
       <div class="tl-card">
         <button type="button" class="tl-main tl-toggle" data-action="iti-item-toggle">
           <span class="tl-title">${esc(i.title || '（未命名）')}</span>
-          <span class="tl-more">›</span>
+          <span class="tl-more">▾</span>
         </button>
         <div class="tl-detail" hidden>
-          ${i.location ? `<div>${emo('📍')} ${esc(i.location)}</div>` : ''}
-          ${i.refNo ? `<div>${emo('🎫')} ${esc(i.refNo)}</div>` : ''}
-          ${i.estimatedCost ? `<div>${emo('💰')} ${money(i.estimatedCost, s.meta.currency)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}</div>` : ''}
-          ${i.note ? `<div class="tl-note">${esc(i.note)}</div>` : ''}
+          <div class="dt-rows">${rows || '<div class="dt-row"><span class="dt-v">还没填详细信息</span></div>'}</div>
           <div class="tl-ops">
             <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
             <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
           </div>
         </div>
         <div class="tl-side">
-          <span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span>
+          <span class="badge" data-cat="${esc(cat)}">${esc(cat)}</span>
         </div>
       </div>
     </li>`;
