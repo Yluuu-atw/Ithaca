@@ -1039,7 +1039,7 @@ window.Render = (() => {
       <div id="itemFields">${cur ? itemFieldsHtml(cur, v, meta) : '<p class="form-hint">先选一个类别，再填对应的信息</p>'}</div>
       <div class="form-actions">
         <button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button>
-        ${item ? '<button type="button" class="btn btn-ghost" data-action="modal-close">返回</button>' : ''}
+        ${item ? `<button type="button" class="btn btn-ghost" data-action="item-back" data-day="${esc(dayId)}">返回</button>` : ''}
       </div>
     </form>`;
   }

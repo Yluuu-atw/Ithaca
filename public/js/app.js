@@ -424,6 +424,11 @@ window.App = (() => {
         if (current.view === 'welcome') setView('app'); else render();
         break;
 
+      // 从行程详情弹窗进来的编辑，返回/保存后回到行程详情而不是关掉
+      case 'item-back':
+        openModal('行程详情', Render.dayDetail(Store.getState(), el.dataset.day));
+        break;
+
       case 'modal-close':
         closeModal();
         break;
@@ -490,6 +495,8 @@ window.App = (() => {
         const data = Store.getState();
         const day = (data.itinerary || []).find(x => x.id === el.dataset.day);
         const item = day && (day.items || []).find(x => x.id === el.dataset.item);
+        // 弹窗还开着说明是从行程详情点进来的，保存后要回到那个弹窗
+        current.editItemFrom = modal().hidden ? '' : el.dataset.day;
         if (item) openModal('编辑安排', Render.formItem(el.dataset.day, item));
         break;
       }
@@ -975,6 +982,12 @@ window.App = (() => {
           li.querySelector('.dt-detail').hidden = false;
           li.classList.add('is-open');
         }
+        return;
+      }
+      // 从行程详情弹窗点进来的编辑，保存后回到那个弹窗
+      if (current.editItemFrom) {
+        openModal('行程详情', Render.dayDetail(Store.getState(), current.editItemFrom));
+        current.editItemFrom = '';
         return;
       }
       closeModal();
