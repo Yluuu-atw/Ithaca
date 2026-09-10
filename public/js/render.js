@@ -819,7 +819,7 @@ window.Render = (() => {
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
     </div>`;
 
-    // 结算色带：通栏、无边框、主色底纹，是整页的视觉主角
+    // 结算：大标题当主角，进度条跟着
     const advMax = Math.max(1, ...members.map(m => exp.advanced[m] || 0));
     const settle = members.map(name => {
       const adv = exp.advanced[name] || 0;
@@ -841,23 +841,24 @@ window.Render = (() => {
       </div>`;
     }).join('');
 
-    const summary = `<section class="settle-band">
-      <div class="band-head">
-        <h2>${emo('🧾')} 结算</h2>
-        <span class="band-total">${money(exp.total, s.meta.currency)}</span>
-        <span class="band-n">${s.expenses.length} 笔</span>
-      </div>
+    const summary = `<section class="settle-head">
+      <h1 class="settle-title">${emo('🧾')} 结算</h1>
       <div class="settle-list">${settle}</div>
     </section>`;
 
-    // 三段竖排，都去掉卡片边框，靠标题与留白分层
+    // 每日支出与明细装进同一个大方框，中间用手账风分割线隔开
     const matrix = renderExpenseMatrix(s);
     const detail = grouped.length
       ? grouped.map(g => renderExpenseGroup(s, g)).join('')
       : '';
+    const inner = (matrix && detail)
+      ? matrix + `<div class="journal-div"><i></i><span>${emo('❀')}</span><i></i></div>` + detail
+      : (matrix || detail);
+    const frame = inner ? `<div class="exp-frame">${inner}</div>` : '';
+
     const empty = `<div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div>`;
 
-    return head + summary + (matrix || detail ? matrix + detail : empty);
+    return head + summary + (frame || empty);
   }
 
   // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么。末列是当日总计

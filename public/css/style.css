@@ -399,57 +399,53 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 .settle-sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* 结算色带：通栏、主色底纹、无边框，整页的视觉主角 */
-.settle-band {
-  position: relative;
-  margin: 4px 0 26px;
-  padding: 18px 20px 20px;
-  border-radius: var(--radius-doodle);
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--primary) 13%, var(--surface)) 0%,
-      color-mix(in srgb, var(--primary) 5%, var(--surface)) 60%,
-      var(--surface) 100%);
-  overflow: hidden;
-}
-.settle-band::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 5px;
-  background: linear-gradient(var(--primary), var(--primary-600));
-}
-.band-head {
+/* 结算：大标题当主角，进度条跟着 */
+.settle-head { margin: 4px 0 26px; }
+.settle-title {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.band-head h2 { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: .06em; }
-.band-total {
-  font-size: 30px;
+  align-items: center;
+  gap: 10px;
+  font-size: 34px;
   font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  letter-spacing: -.02em;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+  margin: 0 0 18px;
 }
-.band-n { color: var(--muted); font-size: 13.5px; }
-.settle-band .settle-list { gap: 14px; }
-.settle-band .settle-adv { font-size: 21px; }
-.settle-band .settle-bar { height: 13px; background: color-mix(in srgb, var(--surface) 70%, transparent); }
-.settle-band .settle-bal { font-size: 14.5px; min-width: 82px; }
+.settle-title .emo { width: 34px; height: 34px; }
+.settle-head .settle-list { gap: 15px; max-width: 720px; }
+.settle-head .settle-adv { font-size: 21px; }
+.settle-head .settle-bar { height: 13px; }
+.settle-head .settle-bal { font-size: 14.5px; min-width: 82px; }
 
-/* 记账页的无边框分段：靠标题与留白分层，不再用白卡片 */
-.exp-sec { margin: 0 0 26px; }
-.exp-sec-h {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: .06em;
-  margin: 0 0 10px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--line);
+/* 每日支出与明细共用的大方框 */
+.exp-frame {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-doodle);
+  box-shadow: var(--shadow-sm);
+  padding: 18px 20px 8px;
+}
+.exp-frame .exp-sec { margin-bottom: 0; }
+.exp-frame .exp-sec-h { border-bottom: none; padding-bottom: 0; margin-bottom: 12px; }
+
+/* 手账风分割线：虚线 + 中间一朵小花 */
+.journal-div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--line);
+}
+.journal-div > i {
+  flex: 1;
+  height: 0;
+  border-top: 2px dashed var(--line);
+}
+.journal-div > span {
+  font-size: 17px;
+  line-height: 1;
+  color: var(--primary);
+  opacity: .75;
 }
 
 /* ---------------- 分类占比 ---------------- */
