@@ -813,31 +813,46 @@ window.Render = (() => {
   function renderExpenses(s) {
     const exp = summarizeExpenses(s);
     const grouped = groupByDate(s.expenses);
+    const members = s.meta.members || [];
     const head = `<div class="list-head">
       <span>共 ${s.expenses.length} 笔 · 支出 ${money(exp.total, s.meta.currency)}</span>
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
     </div>`;
 
-    const settle = (s.meta.members || []).map(name => {
+    // 结算改进度条式：条形长度是垫付占最大垫付者的比例，一眼看出谁多付了
+    const advMax = Math.max(1, ...members.map(m => exp.advanced[m] || 0));
+    const settle = members.map(name => {
+      const adv = exp.advanced[name] || 0;
+      const due = exp.shouldPay[name] || 0;
       const b = exp.balance[name] || 0;
       let txt, cls;
       if (b > 0.005) { txt = '应收 ' + money(b, s.meta.currency); cls = 'pos'; }
       else if (b < -0.005) { txt = '应补 ' + money(-b, s.meta.currency); cls = 'neg'; }
       else { txt = '持平'; cls = 'zero'; }
-      return `<div class="settle-item">
-        <div class="settle-name">${memberChip(s.meta, name)}</div>
-        <div class="settle-line">垫付 ${money(exp.advanced[name] || 0, s.meta.currency)} · 应付 ${money(exp.shouldPay[name] || 0, s.meta.currency)}</div>
-        <div class="settle-bal ${cls}">${txt}</div>
+      const pct = Math.round(adv / advMax * 100);
+      return `<div class="settle-row">
+        <div class="settle-top">
+          ${memberChip(s.meta, name)}
+          <span class="settle-adv">${money(adv, s.meta.currency)}</span>
+          <span class="settle-bal ${cls}">${txt}</span>
+        </div>
+        <div class="settle-bar"><i style="width:${pct}%"></i></div>
+        <div class="settle-sub">应付 ${money(due, s.meta.currency)}</div>
       </div>`;
     }).join('');
 
-    const summary = `<section class="card"><div class="card-head"><h2>${emo('🧾')} 结算</h2></div><div class="settle-grid">${settle}</div></section>`;
+    const summary = `<section class="card"><div class="card-head"><h2>${emo('🧾')} 结算</h2></div><div class="settle-list">${settle}</div></section>`;
 
-    const body = grouped.length
-      ? renderExpenseMatrix(s) + grouped.map(g => renderExpenseGroup(s, g)).join('')
-      : `<div class="card"><div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div></div>`;
+    // 结算与每日支出并排，明细通栏在下
+    const matrix = renderExpenseMatrix(s);
+    const detail = grouped.length
+      ? grouped.map(g => renderExpenseGroup(s, g)).join('')
+      : '';
+    const body = (matrix || detail)
+      ? `<div class="exp-top">${summary}${matrix}</div>` + detail
+      : summary + `<div class="card"><div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div></div>`;
 
-    return head + summary + body;
+    return head + body;
   }
 
   // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么。末列是当日总计

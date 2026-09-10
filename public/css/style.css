@@ -360,24 +360,40 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .stat-value { font-size: 22px; font-weight: 700; color: var(--primary-600); line-height: 1.25; }
 .stat-label { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
 
-/* ---------------- 结算 ---------------- */
-.settle-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.settle-item {
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-}
-.settle-name { font-weight: 600; }
-.settle-line { font-size: 13.5px; color: var(--muted); margin: 3px 0; }
-.settle-bal { font-size: 16px; font-weight: 700; }
+/* ---------------- 结算：进度条式 ---------------- */
+.settle-list { display: grid; gap: 16px; }
+.settle-row { display: grid; gap: 6px; }
+.settle-top { display: flex; align-items: center; gap: 10px; }
+.settle-adv { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 17px; }
+.settle-bal { font-size: 13.5px; font-weight: 700; min-width: 74px; text-align: right; }
 .settle-bal.pos { color: var(--primary-600); }
 .settle-bal.neg { color: var(--danger); }
 .settle-bal.zero { color: var(--muted); }
+.settle-bar {
+  height: 9px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.settle-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-600));
+  transition: width .3s ease;
+}
+.settle-sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* 结算与每日支出并排，明细通栏在下 */
+.exp-top {
+  display: grid;
+  grid-template-columns: minmax(260px, 5fr) 7fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .exp-top { grid-template-columns: 1fr; }
+}
 
 /* ---------------- 分类占比 ---------------- */
 .cat-list { display: flex; flex-direction: column; gap: 8px; }
