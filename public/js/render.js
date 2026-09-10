@@ -840,15 +840,17 @@ window.Render = (() => {
     return head + summary + body;
   }
 
-  // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么
+  // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么。末列是当日总计
   function renderExpenseMatrix(s) {
     const members = s.meta.members || [];
     const dates = [...new Set(s.expenses.map(e => e.date).filter(Boolean))].sort();
     if (!dates.length) return '';
     const cur = s.meta.currency;
     const rows = dates.map(date => {
+      const dayExp = s.expenses.filter(e => e.date === date);
+      const daySum = dayExp.reduce((a, e) => a + (Number(e.amount) || 0), 0);
       const cells = members.map(name => {
-        const mine = s.expenses.filter(e => e.date === date && e.payer === name);
+        const mine = dayExp.filter(e => e.payer === name);
         const sum = mine.reduce((a, e) => a + (Number(e.amount) || 0), 0);
         const detail = mine.map(e =>
           `<div class="exp-mx-line"><span>${esc(e.note || e.category)}</span><span>${money(e.amount, cur)}</span></div>`
@@ -858,39 +860,42 @@ window.Render = (() => {
           ${mine.length ? `<div class="exp-mx-detail" hidden>${detail}</div>` : ''}
         </td>`;
       }).join('');
-      return `<tr><th class="exp-mx-date">${fmtDate(date)} ${weekday(date)}</th>${cells}</tr>`;
+      return `<tr><th class="exp-mx-date">${fmtDate(date)} ${weekday(date)}</th>${cells}` +
+        `<td class="exp-mx-total">${dayExp.length} 笔 · ${money(daySum, cur)}</td></tr>`;
     }).join('');
-    return `<section class="card"><div class="card-head"><h2>${emo('📊')} 每日支出</h2></div>
-      <table class="exp-mx"><thead><tr><th>日期</th>${members.map(m => `<th>${memberChip(s.meta, m)}</th>`).join('')}</tr></thead>
+    return `<section class="card card-zebra"><div class="card-head"><h2>${emo('📊')} 每日支出</h2></div>
+      <table class="exp-mx"><thead><tr><th>日期</th>${members.map(m => `<th>${memberChip(s.meta, m)}</th>`).join('')}<th class="exp-mx-total">当日总计</th></tr></thead>
       <tbody>${rows}</tbody></table></section>`;
   }
 
+  // 明细走账本流水式：左侧时间轴竖线，每笔按时间点排，金额右对齐等宽数字
   function renderExpenseGroup(s, g) {
     const total = g.items.reduce((a, e) => a + (Number(e.amount) || 0), 0);
-    return `<section class="card">
-      <div class="day-head"><h3>${fmtDate(g.date)} ${weekday(g.date)}</h3><span class="iti-cost">${money(total, s.meta.currency)}</span></div>
-      <ul class="exp-list">${g.items.map(e => renderExpenseItem(s, e)).join('')}</ul>
-    </section>`;
-  }
-
-  function renderExpenseItem(s, e) {
-    const splitTag = e.split === '单方' ? '单方' : '均摊';
-    return `<li class="exp-item">
-      <div class="exp-main">
-        <div class="exp-title">${esc(e.note || e.category || '支出')}</div>
-        <div class="exp-meta">
+    const cur = s.meta.currency;
+    const items = [...g.items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const rows = items.map(e => `<li class="exp-row" data-action="expense-edit" data-id="${esc(e.id)}">
+      <span class="exp-dot"></span>
+      <span class="exp-t">${esc(e.time || '—')}</span>
+      <span class="exp-what">
+        <span class="exp-n">${esc(e.note || e.category || '支出')}</span>
+        <span class="exp-sub">
           <span class="badge" data-cat="${esc(e.category || '其他')}">${esc(e.category || '其他')}</span>
-          ${e.time ? `<span class="exp-time">${esc(e.time)}</span>` : ''}
-          <span class="tag">${memberChip(s.meta, e.payer || '')} 付</span>
-          <span class="tag">${splitTag}</span>
-        </div>
+          ${e.subCategory ? `<span class="exp-subcat">${esc(e.subCategory)}</span>` : ''}
+          ${e.refNo ? `<span class="exp-ref">${emo('🎫')} ${esc(e.refNo)}</span>` : ''}
+          ${memberChip(s.meta, e.payer || '')}
+        </span>
+      </span>
+      <span class="exp-amt">${money(e.amount, cur)}</span>
+      <button class="icon-btn danger exp-del" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
+    </li>`).join('');
+    return `<section class="card card-ledger">
+      <div class="ledger-head">
+        <span class="ledger-date">${fmtDate(g.date)} ${weekday(g.date)}</span>
+        <span class="ledger-n">${items.length} 笔</span>
+        <span class="ledger-sum">${money(total, cur)}</span>
       </div>
-      <div class="exp-side">
-        <span class="exp-amount">${money(e.amount, s.meta.currency)}</span>
-        <button class="icon-btn" data-action="expense-edit" data-id="${esc(e.id)}" title="编辑">✎</button>
-        <button class="icon-btn danger" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
-      </div>
-    </li>`;
+      <ul class="exp-flow">${rows}</ul>
+    </section>`;
   }
 
   // ---------------- 打包清单 ----------------

@@ -523,22 +523,71 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .iti-note { font-size: 16.5px; color: var(--muted); margin-top: 4px; }
 .iti-cost { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 17.5px; }
 
-/* ---------------- 记账 ---------------- */
-.exp-list { list-style: none; margin: 0; padding: 6px 0; }
-.exp-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--surface-2);
+/* ---------------- 记账：明细流水账 ---------------- */
+.exp-flow { list-style: none; margin: 0; padding: 4px 0 2px; position: relative; }
+.exp-flow::before {
+  content: '';
+  position: absolute;
+  left: 68px; top: 10px; bottom: 10px;
+  width: 2px;
+  background: linear-gradient(var(--border), var(--surface-2));
 }
-.exp-item:last-child { border-bottom: none; }
-.exp-main { flex: 1; min-width: 0; }
-.exp-title { font-weight: 600; }
-.exp-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
-.exp-time { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.exp-side { display: flex; align-items: center; gap: 10px; }
-.exp-amount { font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
+.exp-row {
+  display: grid;
+  grid-template-columns: 52px 14px 1fr auto auto;
+  align-items: center;
+  gap: 0 10px;
+  padding: 9px 20px 9px 0;
+  cursor: pointer;
+}
+.exp-row:hover { background: var(--surface-2); }
+.exp-dot {
+  grid-column: 2;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  justify-self: center;
+}
+.exp-t {
+  grid-column: 1;
+  text-align: right;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.exp-what { grid-column: 3; min-width: 0; display: grid; gap: 3px; }
+.exp-n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); }
+.exp-subcat { color: var(--muted); }
+.exp-ref { font-variant-numeric: tabular-nums; }
+.exp-amt {
+  grid-column: 4;
+  font-weight: 700;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 92px;
+}
+.exp-del { grid-column: 5; opacity: 0; transition: opacity .12s; }
+.exp-row:hover .exp-del { opacity: 1; }
+.ledger-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 0 10px;
+  border-bottom: 2px solid var(--text);
+}
+.ledger-date { font-weight: 700; font-size: 17px; }
+.ledger-n { color: var(--muted); font-size: 13.5px; }
+.ledger-sum {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.card-ledger { padding-top: 16px; }
 
 /* ---------------- 打包清单 ---------------- */
 .progress-wrap { margin-bottom: 18px; }
@@ -638,16 +687,39 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .tl-detail[hidden], .exp-mx-detail[hidden] { display: none; }
 .tl-ops { display: flex; gap: 4px; margin-top: 4px; }
 
+/* 每日支出：斑马纹 + 填充表头，跟上面结算的卡片格子拉开 */
+.card-zebra { padding-left: 0; padding-right: 0; }
+.card-zebra .card-head { padding-left: 20px; padding-right: 20px; }
 .exp-mx { width: 100%; border-collapse: collapse; }
-.exp-mx th, .exp-mx td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
-.exp-mx thead th { color: var(--muted); font-weight: 500; font-size: 14px; }
-.exp-mx-date { white-space: nowrap; color: var(--muted); font-weight: 500; }
+.exp-mx th, .exp-mx td { padding: 11px 12px; text-align: left; vertical-align: top; }
+.exp-mx thead th {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: .04em;
+  border-bottom: 2px solid var(--border);
+  padding-left: 20px;
+}
+.exp-mx thead th:first-child { border-top-left-radius: 0; }
+.exp-mx tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+.exp-mx tbody th, .exp-mx tbody td { border-bottom: 1px solid var(--border); }
+.exp-mx tbody tr:last-child th, .exp-mx tbody tr:last-child td { border-bottom: none; }
+.exp-mx-date { white-space: nowrap; color: var(--text); font-weight: 600; padding-left: 20px !important; }
 .exp-mx-cell { cursor: default; }
 .exp-mx-cell.has { cursor: pointer; }
-.exp-mx-cell.has:hover { background: var(--surface-2); }
+.exp-mx-cell.has:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
 .exp-mx-sum { font-weight: 500; }
 .exp-mx-detail { margin-top: 6px; display: grid; gap: 3px; font-size: 13px; color: var(--muted); font-weight: 400; }
 .exp-mx-line { display: flex; justify-content: space-between; gap: 12px; }
+.exp-mx-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  border-left: 1px dashed var(--border);
+  color: var(--accent);
+}
+thead .exp-mx-total { color: var(--text); }
 
 .dt-list { display: grid; }
 .dt-item { display: grid; grid-template-columns: 62px 1fr; column-gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
