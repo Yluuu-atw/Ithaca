@@ -705,7 +705,7 @@ window.Render = (() => {
     </div>`;
   }
 
-  // 弹窗里的条目：完整信息直接铺开，不再折叠成小字
+  // 弹窗里的条目：默认只给标题，点右侧箭头展开详情，编辑按钮在展开区右上角
   function dayDetailItem(s, dayId, i) {
     const bits = [];
     if (i.refNo) bits.push(`${emo('🎫')} ${esc(i.refNo)}`);
@@ -714,11 +714,15 @@ window.Render = (() => {
     if (i.note) bits.push(esc(i.note));
     return `<li class="dt-item">
       <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${esc(i.endTime)}</small>` : ''}</div>
-      <div class="dt-main">
-        <div class="dt-title">${esc(i.title || '（未命名）')}<span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span></div>
-        ${bits.length ? `<div class="dt-meta">${bits.join('<span class="dt-sep">·</span>')}</div>` : ''}
+      <button type="button" class="dt-main" data-action="dt-item-toggle">
+        <span class="dt-title">${esc(i.title || '（未命名）')}</span>
+        <span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span>
+        <span class="dt-arrow">›</span>
+      </button>
+      <div class="dt-detail" hidden>
+        <button class="btn btn-ghost btn-sm dt-edit" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">✎ 编辑</button>
+        ${bits.length ? `<div class="dt-meta">${bits.join('<span class="dt-sep">·</span>')}</div>` : '<div class="dt-meta">还没填详细信息</div>'}
       </div>
-      <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
     </li>`;
   }
 

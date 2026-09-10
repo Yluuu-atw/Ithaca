@@ -650,12 +650,18 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .exp-mx-line { display: flex; justify-content: space-between; gap: 12px; }
 
 .dt-list { display: grid; }
-.dt-item { display: grid; grid-template-columns: 62px 1fr auto; gap: 10px; align-items: start; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.dt-item { display: grid; grid-template-columns: 62px 1fr; column-gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
 .dt-item:last-child { border-bottom: 0; padding-bottom: 2px; }
-.dt-time { color: var(--muted); font-size: 14px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.dt-time { color: var(--muted); font-size: 14px; padding-top: 3px; font-variant-numeric: tabular-nums; }
 .dt-time small { display: block; font-size: 12px; }
-.dt-title { display: flex; align-items: center; gap: 8px; font-weight: 500; }
-.dt-meta { margin-top: 4px; font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dt-main { display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; background: none; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.dt-title { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-arrow { color: var(--muted); font-size: 20px; line-height: 1; transition: transform .15s; padding: 0 2px; }
+.dt-item.is-open .dt-arrow { transform: rotate(90deg); }
+.dt-detail { grid-column: 2; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: grid; gap: 6px; }
+.dt-detail[hidden] { display: none; }
+.dt-edit { justify-self: end; }
+.dt-meta { font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .dt-sep { opacity: .45; }
 
 input, select, textarea {

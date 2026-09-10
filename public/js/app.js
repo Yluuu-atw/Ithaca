@@ -450,6 +450,15 @@ window.App = (() => {
         break;
       }
 
+      case 'dt-item-toggle': {
+        const detail = el.parentElement.querySelector('.dt-detail');
+        if (detail) {
+          detail.hidden = !detail.hidden;
+          el.closest('.dt-item').classList.toggle('is-open', !detail.hidden);
+        }
+        break;
+      }
+
       case 'iti-item-toggle': {
         const detail = el.parentElement.querySelector('.tl-detail');
         if (detail) {
