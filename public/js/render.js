@@ -819,7 +819,7 @@ window.Render = (() => {
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
     </div>`;
 
-    // 结算改进度条式：条形长度是垫付占最大垫付者的比例，一眼看出谁多付了
+    // 结算色带：通栏、无边框、主色底纹，是整页的视觉主角
     const advMax = Math.max(1, ...members.map(m => exp.advanced[m] || 0));
     const settle = members.map(name => {
       const adv = exp.advanced[name] || 0;
@@ -841,18 +841,23 @@ window.Render = (() => {
       </div>`;
     }).join('');
 
-    const summary = `<section class="card"><div class="card-head"><h2>${emo('🧾')} 结算</h2></div><div class="settle-list">${settle}</div></section>`;
+    const summary = `<section class="settle-band">
+      <div class="band-head">
+        <h2>${emo('🧾')} 结算</h2>
+        <span class="band-total">${money(exp.total, s.meta.currency)}</span>
+        <span class="band-n">${s.expenses.length} 笔</span>
+      </div>
+      <div class="settle-list">${settle}</div>
+    </section>`;
 
-    // 结算与每日支出并排，明细通栏在下
+    // 三段竖排，都去掉卡片边框，靠标题与留白分层
     const matrix = renderExpenseMatrix(s);
     const detail = grouped.length
       ? grouped.map(g => renderExpenseGroup(s, g)).join('')
       : '';
-    const body = (matrix || detail)
-      ? `<div class="exp-top">${summary}${matrix}</div>` + detail
-      : summary + `<div class="card"><div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div></div>`;
+    const empty = `<div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div>`;
 
-    return head + body;
+    return head + summary + (matrix || detail ? matrix + detail : empty);
   }
 
   // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么。末列是当日总计
@@ -878,7 +883,7 @@ window.Render = (() => {
       return `<tr><th class="exp-mx-date">${fmtDate(date)} ${weekday(date)}</th>${cells}` +
         `<td class="exp-mx-total">${dayExp.length} 笔 · ${money(daySum, cur)}</td></tr>`;
     }).join('');
-    return `<section class="card card-zebra"><div class="card-head"><h2>${emo('📊')} 每日支出</h2></div>
+    return `<section class="exp-sec"><h3 class="exp-sec-h">${emo('📊')} 每日支出</h3>
       <table class="exp-mx"><thead><tr><th>日期</th>${members.map(m => `<th>${memberChip(s.meta, m)}</th>`).join('')}<th class="exp-mx-total">当日总计</th></tr></thead>
       <tbody>${rows}</tbody></table></section>`;
   }
@@ -903,7 +908,7 @@ window.Render = (() => {
       <span class="exp-amt">${money(e.amount, cur)}</span>
       <button class="icon-btn danger exp-del" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
     </li>`).join('');
-    return `<section class="card card-ledger">
+    return `<section class="exp-sec">
       <div class="ledger-head">
         <span class="ledger-date">${fmtDate(g.date)} ${weekday(g.date)}</span>
         <span class="ledger-n">${items.length} 笔</span>

@@ -360,7 +360,22 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .stat-value { font-size: 22px; font-weight: 700; color: var(--primary-600); line-height: 1.25; }
 .stat-label { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
 
-/* ---------------- 结算：进度条式 ---------------- */
+/* 结算格子：概览页的「花费与结算」还在用 */
+.settle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.settle-item {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.settle-name { font-weight: 600; }
+.settle-line { font-size: 13.5px; color: var(--muted); margin: 3px 0; }
+
+/* ---------------- 结算：进度条式（记账页） ---------------- */
 .settle-list { display: grid; gap: 16px; }
 .settle-row { display: grid; gap: 6px; }
 .settle-top { display: flex; align-items: center; gap: 10px; }
@@ -384,15 +399,57 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 }
 .settle-sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-/* 结算与每日支出并排，明细通栏在下 */
-.exp-top {
-  display: grid;
-  grid-template-columns: minmax(260px, 5fr) 7fr;
-  gap: 14px;
-  align-items: start;
+/* 结算色带：通栏、主色底纹、无边框，整页的视觉主角 */
+.settle-band {
+  position: relative;
+  margin: 4px 0 26px;
+  padding: 18px 20px 20px;
+  border-radius: var(--radius-doodle);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--primary) 13%, var(--surface)) 0%,
+      color-mix(in srgb, var(--primary) 5%, var(--surface)) 60%,
+      var(--surface) 100%);
+  overflow: hidden;
 }
-@media (max-width: 900px) {
-  .exp-top { grid-template-columns: 1fr; }
+.settle-band::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 5px;
+  background: linear-gradient(var(--primary), var(--primary-600));
+}
+.band-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.band-head h2 { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: .06em; }
+.band-total {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: -.02em;
+}
+.band-n { color: var(--muted); font-size: 13.5px; }
+.settle-band .settle-list { gap: 14px; }
+.settle-band .settle-adv { font-size: 21px; }
+.settle-band .settle-bar { height: 13px; background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.settle-band .settle-bal { font-size: 14.5px; min-width: 82px; }
+
+/* 记账页的无边框分段：靠标题与留白分层，不再用白卡片 */
+.exp-sec { margin: 0 0 26px; }
+.exp-sec-h {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .06em;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--line);
 }
 
 /* ---------------- 分类占比 ---------------- */
@@ -553,7 +610,8 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   grid-template-columns: 52px 14px 1fr auto auto;
   align-items: center;
   gap: 0 10px;
-  padding: 9px 20px 9px 0;
+  padding: 9px 8px 9px 0;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .exp-row:hover { background: var(--surface-2); }
@@ -603,7 +661,6 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   font-variant-numeric: tabular-nums;
   color: var(--accent);
 }
-.card-ledger { padding-top: 16px; }
 
 /* ---------------- 打包清单 ---------------- */
 .progress-wrap { margin-bottom: 18px; }
@@ -703,25 +760,20 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .tl-detail[hidden], .exp-mx-detail[hidden] { display: none; }
 .tl-ops { display: flex; gap: 4px; margin-top: 4px; }
 
-/* 每日支出：斑马纹 + 填充表头，跟上面结算的卡片格子拉开 */
-.card-zebra { padding-left: 0; padding-right: 0; }
-.card-zebra .card-head { padding-left: 20px; padding-right: 20px; }
+/* 每日支出：无边框表格，表头用底线分隔，首列左对齐不缩进 */
 .exp-mx { width: 100%; border-collapse: collapse; }
-.exp-mx th, .exp-mx td { padding: 11px 12px; text-align: left; vertical-align: top; }
+.exp-mx th, .exp-mx td { padding: 10px 12px; text-align: left; vertical-align: top; }
 .exp-mx thead th {
-  background: var(--surface-2);
   color: var(--muted);
   font-weight: 600;
   font-size: 13px;
   letter-spacing: .04em;
-  border-bottom: 2px solid var(--border);
-  padding-left: 20px;
+  border-bottom: 2px solid var(--line);
+  padding-left: 0;
 }
-.exp-mx thead th:first-child { border-top-left-radius: 0; }
-.exp-mx tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
-.exp-mx tbody th, .exp-mx tbody td { border-bottom: 1px solid var(--border); }
+.exp-mx tbody th, .exp-mx tbody td { border-bottom: 1px solid var(--line); padding-left: 0; }
 .exp-mx tbody tr:last-child th, .exp-mx tbody tr:last-child td { border-bottom: none; }
-.exp-mx-date { white-space: nowrap; color: var(--text); font-weight: 600; padding-left: 20px !important; }
+.exp-mx-date { white-space: nowrap; color: var(--text); font-weight: 600; padding-left: 0 !important; }
 .exp-mx-cell { cursor: default; }
 .exp-mx-cell.has { cursor: pointer; }
 .exp-mx-cell.has:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
