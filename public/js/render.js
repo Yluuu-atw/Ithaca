@@ -705,17 +705,34 @@ window.Render = (() => {
     </div>`;
   }
 
+  // 弹窗里的条目：完整信息直接铺开，不再折叠成小字
+  function dayDetailItem(s, dayId, i) {
+    const bits = [];
+    if (i.refNo) bits.push(`${emo('🎫')} ${esc(i.refNo)}`);
+    if (i.estimatedCost) bits.push(`${emo('💰')} ${money(i.estimatedCost, s.meta.currency)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}`);
+    if (i.location) bits.push(`${emo('📍')} ${esc(i.location)}`);
+    if (i.note) bits.push(esc(i.note));
+    return `<li class="dt-item">
+      <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${esc(i.endTime)}</small>` : ''}</div>
+      <div class="dt-main">
+        <div class="dt-title">${esc(i.title || '（未命名）')}<span class="badge" data-cat="${esc(i.category || '其他')}">${esc(i.category || '其他')}</span></div>
+        ${bits.length ? `<div class="dt-meta">${bits.join('<span class="dt-sep">·</span>')}</div>` : ''}
+      </div>
+      <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
+    </li>`;
+  }
+
   function dayDetail(s, dayId) {
     const day = s.itinerary.find(d => d.id === dayId);
     if (!day) return '<p class="empty small">找不到这一天</p>';
-    const items = [...(day.items || [])].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    const items = [...(day.items || [])].sort((a, b) => (a.time ? (b.time ? a.time.localeCompare(b.time) : -1) : 1));
     return `<div class="detail">
       <div class="detail-head">
         <h3>${fmtDate(day.date)} ${weekday(day.date)}</h3>
         <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 安排</button>
       </div>
       ${items.length
-        ? `<ul class="tl-items tl-plain">${items.slice().sort((a, b) => (a.time ? (b.time ? a.time.localeCompare(b.time) : -1) : 1)).map(i => renderItiItem(s, day.id, i)).join('')}</ul>`
+        ? `<ul class="dt-list">${items.map(i => dayDetailItem(s, day.id, i)).join('')}</ul>`
         : '<p class="empty small">这天还没有安排</p>'}
     </div>`;
   }

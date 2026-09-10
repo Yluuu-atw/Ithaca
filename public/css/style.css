@@ -649,6 +649,15 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .exp-mx-detail { margin-top: 6px; display: grid; gap: 3px; font-size: 13px; color: var(--muted); font-weight: 400; }
 .exp-mx-line { display: flex; justify-content: space-between; gap: 12px; }
 
+.dt-list { display: grid; }
+.dt-item { display: grid; grid-template-columns: 62px 1fr auto; gap: 10px; align-items: start; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.dt-item:last-child { border-bottom: 0; padding-bottom: 2px; }
+.dt-time { color: var(--muted); font-size: 14px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.dt-time small { display: block; font-size: 12px; }
+.dt-title { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.dt-meta { margin-top: 4px; font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dt-sep { opacity: .45; }
+
 input, select, textarea {
   width: 100%;
   padding: 10px 12px;
