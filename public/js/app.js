@@ -1001,6 +1001,8 @@ window.App = (() => {
         time: fd.get('time') || '',
         amount: Number(fd.get('amount')) || 0,
         category: fd.get('category') || '其他',
+        subCategory: fd.get('subCategory') || '',
+        refNo: (fd.get('refNo') || '').trim(),
         payer: fd.get('payer') || '',
         split: fd.get('split') || '均摊',
         note: fd.get('note') || '',
@@ -1011,7 +1013,31 @@ window.App = (() => {
           if (it) { Object.assign(it, fields); syncItemFromExpense(d, it); }
         }, '已保存');
       } else {
-        doMutate(d => { d.expenses.push({ id: Store.uid('exp'), ...fields }); }, '已记下');
+        // 新建记账要反向落到行程：按日期找那天（没有就新建），建一条行程条目双向关联
+        doMutate(d => {
+          const ex = { id: Store.uid('exp'), itemId: '', ...fields };
+          d.itinerary = d.itinerary || [];
+          let day = d.itinerary.find(x => x.date === ex.date);
+          if (!day) {
+            day = { id: Store.uid('day'), date: ex.date, items: [] };
+            d.itinerary.push(day);
+            d.itinerary.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+          }
+          const it = {
+            id: Store.uid('itm'),
+            time: ex.time, endTime: '',
+            title: ex.note || ex.category,
+            location: '', lat: null, lng: null, note: '',
+            category: (Store.CONST.expenseToItemCategory || {})[ex.category] || '其他',
+            subCategory: ex.subCategory || '',
+            refNo: ex.refNo || '',
+            estimatedCost: ex.amount, payer: ex.payer,
+            expenseId: ex.id,
+          };
+          day.items.push(it);
+          ex.itemId = it.id;
+          d.expenses.push(ex);
+        }, '已记下');
       }
       closeModal();
       return;
@@ -1477,6 +1503,13 @@ window.App = (() => {
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
+    // 记账分类切换时重填二级字段（细分 + 车次/航班号）
+    document.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'expCat') {
+        const box = document.getElementById('expFields');
+        if (box) box.innerHTML = Render.expFields(e.target.value, {});
+      }
+    });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
     $('#importFile').addEventListener('change', (e) => {
       const file = e.target.files[0];

@@ -168,8 +168,7 @@ window.Render = (() => {
 
   // ---------------- 汇总计算 ----------------
   // 已订/已完成是真花出去的钱，待订只是计划、已取消不作数
-  const BOOKING_COUNTED = ['已订', '已完成'];
-
+  const SPLIT_OPTIONS = ['均摊', '单方'];
   function summarizeExpenses(s) {
     const members = s.meta.members || [];
     const n = Math.max(1, members.length);
@@ -177,7 +176,6 @@ window.Render = (() => {
     const shouldPay = {}; members.forEach(m => shouldPay[m] = 0);
     const byCategory = {};
     let total = 0;         // 仅记账模块的支出
-    let bookingTotal = 0;  // 已落实的票据金额
 
     const isMember = (x) => x && advanced[x] !== undefined;
     // 无付款人的款项视作公共支出：人人先垫自己那份，净转移为零但总额照算
@@ -200,19 +198,9 @@ window.Render = (() => {
       }
     }
 
-    for (const b of (s.bookings || [])) {
-      if (!BOOKING_COUNTED.includes(b.status)) continue;
-      const amt = Number(b.price) || 0;
-      if (!amt) continue;
-      bookingTotal += amt;
-      byCategory['票据'] = (byCategory['票据'] || 0) + amt;
-      credit(amt, b.payer);
-      members.forEach(m => shouldPay[m] += amt / n);
-    }
-
     const balance = {};
     members.forEach(m => balance[m] = (advanced[m] || 0) - (shouldPay[m] || 0));
-    return { total, bookingTotal, grand: total + bookingTotal, advanced, shouldPay, balance, byCategory };
+    return { total, advanced, shouldPay, balance, byCategory };
   }
 
   function groupByDate(list) {
@@ -289,9 +277,7 @@ window.Render = (() => {
       const cover = (t.photos && t.photos[0] && t.photos[0].url) || '';
       const days = (t.itinerary || []).length;
       const expCost = (t.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
-      const bkCost = (t.bookings || []).filter(x => BOOKING_COUNTED.includes(x.status))
-        .reduce((a, x) => a + (Number(x.price) || 0), 0);
-      const cost = expCost + bkCost;
+      const cost = expCost;
       const stats = [days ? `${days} 天` : '', cost ? money(cost, m.currency || 'CNY') : '']
         .filter(Boolean).join(' · ');
       const counts = [
@@ -610,7 +596,7 @@ window.Render = (() => {
         <section class="card span-4">
           <div class="card-head"><h2>${emo('📊')} 统计</h2></div>
           <div class="stat-grid stat-grid-2">
-            <div class="stat-card"><div class="stat-value">${money(exp.grand, m.currency)}</div><div class="stat-label">总花费</div></div>
+            <div class="stat-card"><div class="stat-value">${money(exp.total, m.currency)}</div><div class="stat-label">总花费</div></div>
             <div class="stat-card"><div class="stat-value">${s.itinerary.length}</div><div class="stat-label">行程天数</div></div>
             <div class="stat-card"><div class="stat-value">${bookingN}</div><div class="stat-label">票据</div></div>
             <div class="stat-card"><div class="stat-value">${s.wishlist.length}</div><div class="stat-label">心愿单</div></div>
@@ -641,7 +627,6 @@ window.Render = (() => {
               <select data-action="currency-change">${currencyOpts}</select>
             </label>
           </div>
-          ${exp.bookingTotal ? `<p class="spend-note">记账 ${money(exp.total, m.currency)} ＋ 已订票据 ${money(exp.bookingTotal, m.currency)}</p>` : ''}
           <div class="settle-grid">${settle}</div>
           <div class="cat-list">${catBars}</div>
         </section>
@@ -1044,10 +1029,26 @@ window.Render = (() => {
     </form>`;
   }
 
+  // 记账的二级字段：细分跟着映射后的行程分类走，交通类再给车次/航班号
+  function expFieldsHtml(cat, v) {
+    const map = Store.CONST.expenseToItemCategory || {};
+    const subs = (Store.CONST.subCategories || {})[map[cat]] || [];
+    const out = [];
+    if (subs.length) {
+      out.push(`<label>细分<select name="subCategory"><option value="">（不细分）</option>${
+        subs.map(s => `<option ${s === (v.subCategory || '') ? 'selected' : ''}>${s}</option>`).join('')}</select></label>`);
+    }
+    if (map[cat] === '交通') {
+      out.push(`<label>车次 / 航班号<input name="refNo" placeholder="如 G79 / CA8629" value="${esc(v.refNo || '')}"></label>`);
+    }
+    return out.join('');
+  }
+
   function formExpense(members, item) {
     const cats = Store.CONST.expenseCategories;
     const splits = Store.CONST.splitOptions;
     const v = item || {};
+    const curCat = item ? (v.category || '其他') : '';
     return `<form data-form="expense">
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
       <div class="form-row">
@@ -1056,9 +1057,10 @@ window.Render = (() => {
       </div>
       <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
       <div class="form-row">
-        <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>分类<select name="category" id="expCat">${cats.map(c => `<option ${item && c === curCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
         <label>谁付的${memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer')}</label>
       </div>
+      <div id="expFields">${item ? expFieldsHtml(curCat, v) : ''}</div>
       <label>分摊<select name="split">${splits.map(sp => `<option ${item && sp === (v.split || '均摊') ? 'selected' : ''}>${sp}</option>`).join('')}</select></label>
       <label>备注<input name="note" placeholder="如：晚饭 · 烤肉" value="${esc(v.note || '')}"></label>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button></div>
@@ -1873,7 +1875,7 @@ window.Render = (() => {
     TABS,
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
-    formDay, formItem, itemFields: itemFieldsHtml, formExpense, formChecklist, formWish, formPhoto, formPlace, formBooking,
+    formDay, formItem, itemFields: itemFieldsHtml, formExpense, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace, formBooking,
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
     formGuide,
     extractUrl, extractTitle,
