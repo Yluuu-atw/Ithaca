@@ -83,6 +83,29 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     });
     assert.equal(savedPhoto.status, 200);
     const exportData = (await savedPhoto.json()).data;
+    const tripId = ownerData.trips[0].id;
+    const shareCreated = await fetch(`${origin}/api/trips/${tripId}/share`, {
+      method: 'POST', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(shareCreated.status, 200);
+    const shareToken = (await shareCreated.json()).token;
+    const exchanged = await fetch(`${origin}/api/share/exchange`, {
+      method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ token: shareToken }),
+    });
+    assert.equal(exchanged.status, 200);
+    const shareCookie = exchanged.headers.get('set-cookie').split(';')[0];
+    const shared = await fetch(`${origin}/api/data`, { headers: { Cookie: shareCookie } });
+    assert.equal(shared.status, 200);
+    assert.deepEqual((await shared.json()).permissions, { [tripId]: 'viewer' });
+    assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: shareCookie } })).status, 200);
+    assert.equal((await fetch(`${origin}/api/data`, {
+      method: 'PUT', headers: { Cookie: shareCookie, Origin: origin, 'Content-Type': 'application/json' }, body: '{}',
+    })).status, 403);
+    assert.equal((await fetch(`${origin}/api/trips/${tripId}/share`, {
+      method: 'DELETE', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf },
+    })).status, 200);
+    assert.equal((await fetch(`${origin}/api/data`, { headers: { Cookie: shareCookie } })).status, 401);
+    assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: shareCookie } })).status, 404);
     assert.equal((await fetch(`${origin}/api/link-preview`, {
       method: 'POST',
       headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },

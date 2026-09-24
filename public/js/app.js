@@ -9,6 +9,41 @@
 window.App = (() => {
   const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
+  let shareNotice = '';
+  const viewActions = new Set([
+    'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
+    'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle', 'exp-mx-toggle',
+    'export', 'guide-filter', 'identity-pick', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
+    'map-fit', 'modal-close', 'nav', 'packing-type', 'place-detail', 'place-filter',
+    'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
+    'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
+    'welcome-home', 'welcome-trips',
+  ]);
+
+  function actionAllowed(action, el) {
+    if (viewActions.has(action) || action === 'account-open' || action === 'account-logout') return true;
+    if (action.startsWith('passkey-')) return !!AuthUI.user;
+    if (action === 'share-open' || action.startsWith('share-')) return Store.canManageTrip(el.dataset.id || undefined);
+    if (action === 'trip-del-confirm' || action === 'trip-del-ok' || action === 'trip-delete') {
+      return Store.canManageTrip(el.dataset.id);
+    }
+    if (action === 'tripmgr-edit') return Store.listTrips().some(trip => Store.canManageTrip(trip.id));
+    if (action === 'trip-create' || action === 'import' || action.startsWith('memo-') || action.startsWith('template-') || action === 'welcome-memo') {
+      return !!AuthUI.user;
+    }
+    if (action === 'theme-open' || action === 'theme-pick') {
+      return !!AuthUI.user && (current.view === 'welcome' || Store.canEditTrip());
+    }
+    return Store.canEditTrip(el.dataset.id && Store.getRole(el.dataset.id) ? el.dataset.id : undefined);
+  }
+
+  function applyPermissions(root = document) {
+    root.querySelectorAll('[data-action]').forEach(el => {
+      const allowed = actionAllowed(el.dataset.action, el);
+      el.classList.toggle('permission-hidden', !allowed);
+      if ('disabled' in el) el.disabled = !allowed;
+    });
+  }
 
   function applyTheme(base) {
     const theme = Theme.apply(base);
@@ -67,6 +102,7 @@ window.App = (() => {
       applyTheme(Store.getWelcomeTheme());
       $('#welcome').innerHTML = Render.renderWelcome();
       Brand.refresh();
+      applyPermissions();
       fetchWeather();
       paintWelcomeBg();
       return;
@@ -102,6 +138,51 @@ window.App = (() => {
   }
   function showTripsManager() {
     openModal('管理旅行', Render.renderTripsManager(Store.listTrips(), current.editTrips));
+  }
+
+  function accountModal() {
+    const user = AuthUI.user;
+    if (!user) {
+      openModal('只读分享', '<p>正在查看公开分享的旅行。</p><button class="btn btn-ghost" data-action="account-logout">退出分享</button>');
+      return;
+    }
+    const keys = (user.passkeys || []).map(key => `
+      <div class="access-row"><span>${Render.esc(key.label)} · ${Render.esc(new Date(key.createdAt).toLocaleDateString())}</span>
+      <button class="btn btn-ghost btn-sm" data-action="passkey-remove" data-id="${Render.esc(key.id)}">移除</button></div>`).join('');
+    openModal('账号与通行密钥', `
+      <p>用户名：<b>${Render.esc(user.username)}</b></p>
+      <p class="access-hint">通行密钥可通过 Apple 密码、Face ID、Touch ID、指纹或跨设备扫码使用，具体方式由设备决定。</p>
+      ${keys || '<p class="access-hint">尚未添加通行密钥。</p>'}
+      <div class="form-actions"><button class="btn btn-primary" data-action="passkey-add">添加通行密钥</button>
+      <button class="btn btn-ghost" data-action="account-logout">退出登录</button></div>`);
+  }
+
+  function shareUrl(type, token) {
+    const url = new URL(location.pathname, location.origin);
+    url.hash = `${type}=${encodeURIComponent(token)}`;
+    return url.href;
+  }
+
+  async function shareModal() {
+    const tripId = Store.getActiveTripId();
+    if (!Store.canManageTrip(tripId)) throw new Error('只有旅行所有者可以管理分享');
+    const data = await AuthUI.request(`/api/trips/${encodeURIComponent(tripId)}/access`);
+    const members = data.members.map(member => `<div class="access-row"><span>${Render.esc(member.username)} · ${member.role === 'editor' ? '可编辑' : '只读'}</span><button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-user-id="${Render.esc(member.id)}">移除</button></div>`).join('');
+    const invites = data.invites.map(invite => `<div class="access-row"><span>${invite.role === 'editor' ? '可编辑' : '只读'}邀请 · ${new Date(invite.expiresAt).toLocaleDateString()} 到期</span><button class="btn btn-ghost btn-sm" data-action="share-invite-remove" data-id="${Render.esc(invite.id)}">撤销</button></div>`).join('');
+    openModal('分享与权限', `
+      <p class="access-hint">仅这趟旅行的所有者可以管理成员和链接。</p>
+      ${shareNotice ? `<label>新链接<input readonly value="${Render.esc(shareNotice)}" onclick="this.select()"></label>` : ''}
+      <h3>成员</h3>${members || '<p class="access-hint">尚无协作成员。</p>'}
+      <form data-form="share-member" class="access-form">
+        <input name="username" placeholder="已注册的用户名" required>
+        <select name="role"><option value="editor">可编辑</option><option value="viewer">只读</option></select>
+        <button class="btn btn-primary" type="submit">添加成员</button>
+      </form>
+      <h3>邀请链接</h3>${invites || '<p class="access-hint">尚无邀请链接。</p>'}
+      <div class="form-actions"><button class="btn btn-ghost" data-action="share-invite-editor">创建编辑邀请</button><button class="btn btn-ghost" data-action="share-invite-viewer">创建只读邀请</button></div>
+      <h3>匿名只读链接</h3><p class="access-hint">${data.shareEnabled ? '链接已启用。重新生成会使旧链接失效。' : '链接未启用。任何持有链接的人都能查看这趟旅行。'}</p>
+      <div class="form-actions"><button class="btn btn-primary" data-action="share-create">${data.shareEnabled ? '重新生成链接' : '创建只读链接'}</button>
+      ${data.shareEnabled ? '<button class="btn btn-ghost" data-action="share-revoke">撤销链接</button>' : ''}</div>`);
   }
   function shiftMonth(delta) {
     const d = new Date(current.calY, current.calM + delta, 1);
@@ -227,15 +308,16 @@ window.App = (() => {
     const tripNameEl = $('#topbarTripName');
     if (tripNameEl) tripNameEl.textContent = data.meta.tripName || '九州 ITHACA';
     // 开启页下主内容区不渲染，但侧栏、看板、导航要保持最新
-    if (current.view === 'welcome') return;
+    if (current.view === 'welcome') { applyPermissions(); return; }
 
     // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
     if (current.tab === 'map') {
-      if (map && $('#map')) { refreshMap(data); return; }
+      if (map && $('#map')) { refreshMap(data); applyPermissions(); return; }
       $('#content').innerHTML = Render.renderPage(data, current.tab, { tileSource: currentTileSource });
       // 必须用 refreshMap 而非 initMap：切走再切回时旧 map 实例仍绑定着已脱离
       // DOM 的容器，initMap 只判断实例存在与否，会往旧容器上画，导致新节点空白
       setTimeout(() => refreshMap(data), 0);
+      applyPermissions();
       return;
     }
 
@@ -254,6 +336,7 @@ window.App = (() => {
       const el = document.getElementById(focusedSearch);
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     }
+    applyPermissions();
   }
 
   // ---------------- 弹窗 ----------------
@@ -261,6 +344,7 @@ window.App = (() => {
     modalTitle().textContent = title;
     modalBody().innerHTML = formHTML;
     modal().hidden = false;
+    applyPermissions(modal());
     const first = modalBody().querySelector('input, select');
     if (first) first.focus();
   }
@@ -308,8 +392,50 @@ window.App = (() => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
+    if (!actionAllowed(action, el)) { e.preventDefault(); toast('这趟旅行是只读的', 'error'); return; }
 
     switch (action) {
+      case 'account-open': accountModal(); break;
+      case 'account-logout':
+        AuthUI.logout().catch(error => toast(error.message, 'error'));
+        break;
+      case 'passkey-add':
+        AuthUI.registerPasskey().then(() => { toast('通行密钥已添加', 'success'); accountModal(); })
+          .catch(error => toast(error.message, 'error'));
+        break;
+      case 'passkey-remove':
+        AuthUI.removePasskey(el.dataset.id).then(accountModal).catch(error => toast(error.message, 'error'));
+        break;
+      case 'share-open':
+        shareNotice = '';
+        shareModal().catch(error => toast(error.message, 'error'));
+        break;
+      case 'share-create':
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/share`, 'POST', {})
+          .then(result => { shareNotice = shareUrl('share', result.token); return shareModal(); })
+          .catch(error => toast(error.message, 'error'));
+        break;
+      case 'share-revoke':
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/share`, 'DELETE', {})
+          .then(() => { shareNotice = ''; return shareModal(); })
+          .catch(error => toast(error.message, 'error'));
+        break;
+      case 'share-invite-editor':
+      case 'share-invite-viewer':
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/invites`, 'POST', {
+          role: action === 'share-invite-editor' ? 'editor' : 'viewer',
+        }).then(result => { shareNotice = shareUrl('invite', result.token); return shareModal(); })
+          .catch(error => toast(error.message, 'error'));
+        break;
+      case 'share-invite-remove':
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/invites`, 'DELETE', { id: el.dataset.id })
+          .then(() => { shareNotice = ''; return shareModal(); })
+          .catch(error => toast(error.message, 'error'));
+        break;
+      case 'share-member-remove':
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/members`, 'DELETE', { userId: el.dataset.userId })
+          .then(() => shareModal()).catch(error => toast(error.message, 'error'));
+        break;
       case 'welcome-enter':
         setView('app');
         break;
@@ -998,6 +1124,19 @@ window.App = (() => {
     e.preventDefault();
     const kind = form.dataset.form;
     const fd = new FormData(form);
+    if (kind === 'share-member') {
+      try {
+        await AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/members`, 'POST', {
+          username: String(fd.get('username') || '').trim(), role: fd.get('role'),
+        });
+        await shareModal();
+      } catch (error) { toast(error.message, 'error'); }
+      return;
+    }
+    if (!Store.canEditTrip() && !(AuthUI.user && (kind === 'memo' || kind.startsWith('tpl-') || (kind === 'theme' && current.view === 'welcome')))) {
+      toast('这趟旅行是只读的', 'error');
+      return;
+    }
 
     if (kind === 'meta') {
       // 起止日期由行程推算，币种在花费区单独改，成员走身份弹窗
@@ -1408,6 +1547,7 @@ window.App = (() => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
+    if (!actionAllowed(action, el)) return;
 
     if (action === 'checklist-toggle') {
       const id = el.dataset.id;
@@ -1433,6 +1573,7 @@ window.App = (() => {
   // attempted 记住已试过的 id，避免死链被反复重试。
   const coverAttempted = new Set();
   async function backfillCovers() {
+    if (!Store.canEditTrip()) return;
     const data = Store.getState();
     if (!data) return;
     const todo = (data.guides || []).filter(g => g.link && !g.cover && !coverAttempted.has(g.id));
@@ -1995,20 +2136,19 @@ window.App = (() => {
       else if (st === 'reconnecting') setStatus(false, '重连中…');
     });
 
-    setView('welcome');
-    Store.load()
-      .then(() => {
-        setStatus(true, '已连接');
-        maybeAskIdentity();
-      })
-      .catch((e) => { setStatus(false, '连接失败'); toast(e.message, 'error'); });
-
-    Store.connect();
+    AuthUI.start().then(async () => {
+      await Store.load();
+      setView('welcome');
+      setStatus(true, '已连接');
+      Store.connect();
+      maybeAskIdentity();
+    }).catch(error => { setStatus(false, '连接失败'); toast(error.message, 'error'); });
   }
 
   // 首次访问（未选择身份）时，弹出「你是谁」选择器。
   // 开启页视图下不弹，等用户点进旅行页再问，否则弹窗会盖住开启页。
   function maybeAskIdentity() {
+    if (!AuthUI.user) return;
     if (current.view === 'welcome') return;
     if (Store.getIdentity() != null) return;
     const ms = members();

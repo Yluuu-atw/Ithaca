@@ -88,6 +88,10 @@ window.Store = (() => {
     return ((state && state.trips) || []).find(t => t.id === id) || null;
   }
 
+  function getRole(id) { return (state && state.permissions && state.permissions[id || currentTripId()]) || null; }
+  function canEditTrip(id) { return ['owner', 'editor'].includes(getRole(id)); }
+  function canManageTrip(id) { return getRole(id) === 'owner'; }
+
   async function load() {
     const res = await fetch('/api/data');
     if (!res.ok) throw new Error('数据加载失败');
@@ -105,6 +109,7 @@ window.Store = (() => {
    */
   async function mutate(fn) {
     if (!state) await load();
+    if (!canEditTrip()) throw new Error('这趟旅行是只读的');
     for (let attempt = 0; attempt < 6; attempt++) {
       const base = version;
       const next = deepClone(state);
@@ -305,6 +310,7 @@ window.Store = (() => {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
     getState, getWelcomeTheme, listMemos, getIdentity, setIdentity, uploadPhoto, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
+    getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,
   };
 })();

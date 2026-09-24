@@ -15,6 +15,21 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="is-welcome">
+  <section class="auth-gate" id="authGate" hidden aria-label="账号登录">
+    <div class="auth-card">
+      <img src="brand/logo-horizontal.svg" alt="九州 ITHACA" class="auth-logo" data-brand-asset="horizontal">
+      <h1 id="authTitle">登录九州 ITHACA</h1>
+      <p id="authHint">登录后查看和管理你的旅行。</p>
+      <form id="authForm">
+        <label>用户名<input name="username" autocomplete="username" required minlength="3" maxlength="40"></label>
+        <label>密码<input name="password" type="password" autocomplete="current-password" minlength="12" required></label>
+        <button class="btn btn-primary" type="submit" id="authSubmit">登录</button>
+      </form>
+      <button class="btn btn-ghost" type="button" id="passkeyLogin">使用通行密钥登录</button>
+      <button class="auth-switch" type="button" id="authSwitch">没有账号？注册</button>
+      <p class="auth-error" id="authError" role="alert"></p>
+    </div>
+  </section>
   <div class="doodle-bg" id="doodleBg" aria-hidden="true"><img alt=""></div>
   <section class="welcome" id="welcome" aria-label="开启页"></section>
   <div class="app">
@@ -25,6 +40,7 @@
       <div class="board-wrap" id="board"></div>
       <nav class="nav" id="nav"></nav>
       <div class="sidebar-footer">
+        <button type="button" class="btn btn-ghost btn-sm" data-action="account-open" style="width:100%;margin-bottom:8px"><img class="emo" src="vendor/fluent-emoji/1f464.png" alt=""> 账号与通行密钥</button>
         <button type="button" class="btn btn-ghost btn-sm" data-action="welcome-home" style="width:100%;margin-bottom:8px">🏠 回到首页</button>
         <span class="status"><span class="dot" id="statusDot"></span><span id="statusText">连接中…</span></span>
       </div>
@@ -45,6 +61,7 @@
           <button class="btn btn-ghost" data-action="theme-open" title="更换页面背景色"><span class="theme-dot" id="themeDot"></span> 背景</button>
           <button class="btn btn-ghost" data-action="export">导出</button>
           <button class="btn btn-ghost" data-action="import">导入</button>
+          <button class="btn btn-ghost" data-action="share-open"><img class="emo" src="vendor/fluent-emoji/1f517.png" alt=""> 分享</button>
         </div>
       </header>
       <section class="content" id="content"></section>
@@ -70,10 +87,12 @@
   <input type="file" id="importFile" accept="application/json,.json" hidden>
 
   <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/simplewebauthn/index.umd.min.js"></script>
   <script src="js/store.js"></script>
   <script src="js/quotes.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/brand.js"></script>
+  <script src="js/auth-ui.js"></script>
   <script src="js/render.js"></script>
   <script src="js/app.js"></script>
 </body>

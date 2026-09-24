@@ -564,7 +564,7 @@ window.Render = (() => {
     return `<section class="card span-4">
       <div class="card-head">
         <h2>${emo('👥')} 成员</h2>
-        <button class="btn btn-ghost btn-sm" data-action="switch-identity">管理</button>
+        <button class="btn btn-ghost btn-sm" data-action="switch-identity">${Store.canEditTrip() ? '管理' : '查看'}</button>
       </div>
       <div class="member-tiles">${chips || '<p class="empty small">还没有成员</p>'}</div>
     </section>`;
@@ -1876,6 +1876,7 @@ window.Render = (() => {
       <button type="button" class="welcome-corner" data-action="theme-open">
         <span class="theme-dot"></span> 背景色
       </button>
+      <button type="button" class="welcome-account" data-action="account-open"><img class="emo" src="vendor/fluent-emoji/1f464.png" alt=""> 账号</button>
       ${spans ? `<div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}" aria-hidden="true">${spans}</div>` : ''}
       <div class="welcome-inner">
         <div class="welcome-brand"><img data-brand-asset="horizontal" src="brand/logo-horizontal.svg" alt="九州 ITHACA"></div>
@@ -1900,7 +1901,7 @@ window.Render = (() => {
 
         <div class="welcome-actions">
           <button type="button" class="welcome-main" data-action="welcome-enter">
-            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> 创建我的旅行
+            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> ${Store.canEditTrip() ? '创建我的旅行' : '查看旅行'}
           </button>
           <div class="welcome-sub">
             <button type="button" class="welcome-mini" data-action="welcome-trips">
