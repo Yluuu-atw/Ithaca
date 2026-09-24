@@ -67,6 +67,24 @@ window.App = (() => {
   const modalBody = () => $('#modalBody');
   const modalTitle = () => $('#modalTitle');
 
+  // datetime-local 的值是 YYYY-MM-DDTHH:MM，拆回日期与时分两段存
+  function splitDT(v) {
+    if (!v) return ['', ''];
+    const i = String(v).indexOf('T');
+    if (i < 0) return ['', String(v)];
+    return [v.slice(0, i), v.slice(i + 1, i + 6)];
+  }
+
+  // 参与人多选的隐藏域存 JSON 数组，解析失败当作空
+  function parseList(v) {
+    try {
+      const a = JSON.parse(v || '[]');
+      return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   let toastTimer = null;
 
   // ---------------- 状态提示 ----------------
@@ -188,7 +206,7 @@ window.App = (() => {
   // 落库的字段与记账页手建的完全一致，之后改哪边都同步。
   function syncExpenseFromItem(trip, item, date) {
     if (!trip || !item) return;
-    const cost = Number(item.estimatedCost) || 0;
+    const cost = Number(item.amount) || 0;
     trip.expenses = trip.expenses || [];
     const ex = trip.expenses.find(x => x.itemId === item.id);
     // 费用清零时把已生成的记账条目一并删掉，不留 0 元记录
@@ -199,13 +217,15 @@ window.App = (() => {
     const fields = {
       date: date || '',
       time: item.time || '',
+      title: item.title || '',
       amount: cost,
       category: (Store.CONST.itemToExpenseCategory || {})[item.category] || '其他',
       payer: item.payer || '',
-      note: item.title || '',
+      participants: (item.participants || []).slice(),
+      note: item.note || '',
     };
     if (!ex) {
-      trip.expenses.push({ id: Store.uid('exp'), split: '均摊', itemId: item.id, ...fields });
+      trip.expenses.push({ id: Store.uid('exp'), itemId: item.id, ...fields });
       return;
     }
     Object.assign(ex, fields);
@@ -220,8 +240,11 @@ window.App = (() => {
       it.category = (Store.CONST.expenseToItemCategory || {})[ex.category] || it.category;
       it.subCategory = ex.subCategory || '';
       it.refNo = ex.refNo || '';
-      it.estimatedCost = Number(ex.amount) || 0;
+      if (ex.title) it.title = ex.title;
+      it.note = ex.note || '';
+      it.amount = Number(ex.amount) || 0;
       if (ex.payer) it.payer = ex.payer;
+      if (Array.isArray(ex.participants)) it.participants = ex.participants.slice();
       return;
     }
   }
@@ -299,6 +322,15 @@ window.App = (() => {
     try {
       await Store.mutate(fn);
       if (successMsg) toast(successMsg, 'success');
+    } catch (e) {
+      toast(e.message || '操作失败', 'error');
+    }
+  }
+
+  // 模板是文档级的，改它要走 mutateDoc 而不是 mutate（后者只给旅行对象）
+  async function doMutateDoc(fn) {
+    try {
+      await Store.mutateDoc(fn);
     } catch (e) {
       toast(e.message || '操作失败', 'error');
     }
@@ -490,7 +522,7 @@ window.App = (() => {
         const itemIdEl = form.querySelector('[name="itemId"]');
         const day = (data.itinerary || []).find(x => x.id === form.querySelector('[name="dayId"]').value);
         const item = itemIdEl && day && (day.items || []).find(x => x.id === itemIdEl.value);
-        form.querySelector('#itemFields').innerHTML = Render.itemFields(cat, item || {}, data.meta || {});
+        form.querySelector('#itemFields').innerHTML = Render.itemFields(cat, item || {}, data.meta || {}, day && day.date);
         break;
       }
 
@@ -508,9 +540,15 @@ window.App = (() => {
         if (!confirm('删除这条安排？')) return;
         doMutate(d => {
           const day = d.itinerary.find(x => x.id === el.dataset.day);
-          if (day) day.items = (day.items || []).filter(i => i.id !== el.dataset.item);
+          if (day) {
+            day.items = (day.items || []).filter(i => i.id !== el.dataset.item);
+            if (Array.isArray(day.order)) day.order = day.order.filter(id => id !== el.dataset.item);
+          }
           d.expenses = (d.expenses || []).filter(e => e.itemId !== el.dataset.item);
-        }, '已删除');
+        }, '已删除').then(() => {
+          // 弹窗里的删除必须自己刷新弹窗，render() 只重绘主内容区
+          if (!modal().hidden) modalBody().innerHTML = Render.dayDetail(Store.getState(), el.dataset.day);
+        });
         break;
 
       case 'itinerary-del-day': {
@@ -520,7 +558,9 @@ window.App = (() => {
         doMutate(d => {
           d.itinerary = d.itinerary.filter(x => x.id !== el.dataset.day);
           d.expenses = (d.expenses || []).filter(e => !ids.has(e.itemId));
-        }, '已删除');
+        }, '已删除').then(() => {
+          if (!modal().hidden) closeModal();
+        });
         break;
       }
 
@@ -586,7 +626,7 @@ window.App = (() => {
           if (ex && ex.itemId) {
             for (const day of (d.itinerary || [])) {
               const it = (day.items || []).find(i => i.id === ex.itemId);
-              if (it) { it.estimatedCost = 0; break; }
+              if (it) { it.amount = 0; break; }
             }
           }
         }, '已删除');
@@ -612,6 +652,102 @@ window.App = (() => {
         if (it) openModal('编辑物品', Render.formChecklist(members(), it));
         break;
       }
+
+      // 候选池卡片：点一下加入清单，已加的再点移除。连点不弹 toast，免得刷屏
+      case 'pool-toggle': {
+        const name = el.dataset.name;
+        const cat = el.dataset.category || '其他';
+        doMutate(d => {
+          d.checklist = d.checklist || [];
+          const idx = d.checklist.findIndex(c => c.name === name);
+          // 只删一条：清单里允许同名（比如两件 T 恤），点一下不该全删
+          if (idx >= 0) d.checklist.splice(idx, 1);
+          else d.checklist.push({ id: Store.uid('chk'), name, category: cat, checked: false, owner: '' });
+        }, '');
+        break;
+      }
+
+      // 旅行类型多选：候选池取所选模板的并集。
+      // packingTypes 为空时界面显示的是「通用」，toggle 必须基于这个显示状态算，
+      // 否则点第二个类型会把「通用」顶掉。
+      case 'packing-type': {
+        const id = el.dataset.id;
+        doMutate(d => {
+          const tpls = Store.getTemplates();
+          const cur = new Set(d.meta.packingTypes || []);
+          if (!cur.size) tpls.filter(t => t.name === '通用').forEach(t => cur.add(t.id));
+          if (cur.has(id)) cur.delete(id); else cur.add(id);
+          d.meta.packingTypes = [...cur];
+        }, '');
+        break;
+      }
+
+      case 'template-manage':
+        openModal('管理模板', Render.formTemplateManage());
+        break;
+
+      case 'template-edit': {
+        const tpl = Store.getTemplates().find(t => t.id === el.dataset.id);
+        if (tpl) openModal('编辑模板物品', Render.formTemplateEdit(tpl));
+        break;
+      }
+
+      case 'template-new':
+        doMutateDoc(doc => {
+          doc.packingTemplates = doc.packingTemplates || [];
+          doc.packingTemplates.push({ id: Store.uid('tpl'), name: '新模板', icon: '📦', items: [] });
+        }).then(() => openModal('管理模板', Render.formTemplateManage()));
+        break;
+
+      case 'template-del': {
+        if (!confirm('删除这个模板？')) return;
+        const id = el.dataset.id;
+        doMutateDoc(doc => {
+          doc.packingTemplates = (doc.packingTemplates || []).filter(t => t.id !== id);
+          // 用到这个模板的旅行也一并摘掉，避免候选池留悬空 id
+          for (const t of (doc.trips || [])) {
+            if (Array.isArray(t.meta && t.meta.packingTypes)) {
+              t.meta.packingTypes = t.meta.packingTypes.filter(x => x !== id);
+            }
+          }
+        }).then(() => openModal('管理模板', Render.formTemplateManage()));
+        break;
+      }
+
+      case 'template-item-add': {
+        const form = el.closest('form');
+        const tplId = form.querySelector('[name="tplId"]').value;
+        const name = form.querySelector('[name="newName"]').value.trim();
+        const cat = form.querySelector('[name="newCat"]').value;
+        if (!name) { toast('先填物品名称', 'error'); return; }
+        doMutateDoc(doc => {
+          const tpl = (doc.packingTemplates || []).find(t => t.id === tplId);
+          if (tpl) tpl.items.push({ name, category: cat });
+        }).then(() => {
+          const tpl = Store.getTemplates().find(t => t.id === tplId);
+          if (tpl) openModal('编辑模板物品', Render.formTemplateEdit(tpl));
+        });
+        break;
+      }
+
+      case 'template-item-del': {
+        const form = el.closest('form');
+        const tplId = form.querySelector('[name="tplId"]').value;
+        const idx = Number(el.dataset.idx);
+        doMutateDoc(doc => {
+          const tpl = (doc.packingTemplates || []).find(t => t.id === tplId);
+          if (tpl) tpl.items.splice(idx, 1);
+        }).then(() => {
+          const tpl = Store.getTemplates().find(t => t.id === tplId);
+          if (tpl) openModal('编辑模板物品', Render.formTemplateEdit(tpl));
+        });
+        break;
+      }
+
+      case 'template-save':
+        if (!(Store.getState().checklist || []).length) { toast('清单还是空的', 'error'); return; }
+        openModal('存为模板', Render.formSaveTemplate(Store.getState()));
+        break;
 
       case 'wish-add':
         openModal('添加心愿', Render.formWish());
@@ -865,6 +1001,36 @@ window.App = (() => {
         break;
       }
 
+      // 参与人多选：点击即切换勾选，值存隐藏域的 JSON 数组
+      case 'member-multi-opt': {
+        const on = !el.classList.contains('is-on');
+        el.classList.toggle('is-on', on);
+        el.setAttribute('aria-pressed', String(on));
+        el.querySelector('.member-multi-check').textContent = on ? '✓' : '';
+        const wrap = el.closest('.member-multi');
+        const hidden = wrap.previousElementSibling;
+        const names = [...wrap.querySelectorAll('.member-multi-opt.is-on')].map(o => o.dataset.name);
+        hidden.value = JSON.stringify(names);
+        const allBtn = wrap.querySelector('.member-multi-all');
+        const total = wrap.querySelectorAll('.member-multi-opt').length;
+        if (allBtn) allBtn.textContent = names.length === total ? '全不选' : '全选';
+        break;
+      }
+
+      case 'member-multi-all': {
+        const wrap = el.closest('.member-multi');
+        const opts = [...wrap.querySelectorAll('.member-multi-opt')];
+        const on = opts.some(o => !o.classList.contains('is-on'));
+        opts.forEach(o => {
+          o.classList.toggle('is-on', on);
+          o.setAttribute('aria-pressed', String(on));
+          o.querySelector('.member-multi-check').textContent = on ? '✓' : '';
+        });
+        wrap.previousElementSibling.value = JSON.stringify(on ? opts.map(o => o.dataset.name) : []);
+        el.textContent = on ? '全不选' : '全选';
+        break;
+      }
+
       default:
         break;
     }
@@ -947,17 +1113,23 @@ window.App = (() => {
     if (kind === 'item') {
       const dayId = fd.get('dayId');
       const itemId = fd.get('itemId');
+      // datetime-local 提交的是 YYYY-MM-DDTHH:MM，拆成日期 + 时分两段存
+      const [startDate, time] = splitDT(fd.get('time'));
+      const [endDate, endTime] = splitDT(fd.get('endTime'));
       const fields = {
-        time: fd.get('time') || '',
-        endTime: fd.get('endTime') || '',
+        time,
+        startDate,
+        endTime,
+        endDate,
         title: fd.get('title') || '',
         // 餐饮/住宿/景点不填地点了，时间轴的 📍 路线读的是这个字段，用标题兜底
         location: fd.get('location') || fd.get('title') || '',
         category: fd.get('category') || '其他',
         refNo: (fd.get('refNo') || '').trim(),
         note: fd.get('note') || '',
-        estimatedCost: Number(fd.get('estimatedCost')) || 0,
+        amount: Number(fd.get('amount')) || 0,
         payer: fd.get('payer') || '',
+        participants: parseList(fd.get('participants')),
       };
       const inline = !!form.closest('.dt-item');
       if (itemId) {
@@ -973,6 +1145,8 @@ window.App = (() => {
             day.items = day.items || [];
             const it = { id: Store.uid('itm'), ...fields };
             day.items.push(it);
+            // 手动排过序的日子，新条目接在末尾；没排过的继续按时间排
+            if (Array.isArray(day.order)) day.order.push(it.id);
             syncExpenseFromItem(d, it, day.date);
           }
         }, '已添加');
@@ -999,15 +1173,18 @@ window.App = (() => {
 
     if (kind === 'expense') {
       const expenseId = fd.get('expenseId');
+      // 与行程表单一致：datetime-local 拆成日期 + 时分两段存
+      const [date, time] = splitDT(fd.get('time'));
       const fields = {
-        date: fd.get('date') || '',
-        time: fd.get('time') || '',
+        date,
+        time,
+        title: fd.get('title') || '',
         amount: Number(fd.get('amount')) || 0,
         category: fd.get('category') || '其他',
         subCategory: fd.get('subCategory') || '',
         refNo: (fd.get('refNo') || '').trim(),
         payer: fd.get('payer') || '',
-        split: fd.get('split') || '均摊',
+        participants: parseList(fd.get('participants')),
         note: fd.get('note') || '',
       };
       if (expenseId) {
@@ -1029,15 +1206,17 @@ window.App = (() => {
           const it = {
             id: Store.uid('itm'),
             time: ex.time, endTime: '',
-            title: ex.note || ex.category,
-            location: '', lat: null, lng: null, note: '',
+            title: ex.title || ex.category,
+            location: '', lat: null, lng: null, note: ex.note || '',
             category: (Store.CONST.expenseToItemCategory || {})[ex.category] || '其他',
             subCategory: ex.subCategory || '',
             refNo: ex.refNo || '',
-            estimatedCost: ex.amount, payer: ex.payer,
+            amount: ex.amount, payer: ex.payer,
+            participants: Array.isArray(ex.participants) ? ex.participants.slice() : [],
             expenseId: ex.id,
           };
           day.items.push(it);
+          if (Array.isArray(day.order)) day.order.push(it.id);
           ex.itemId = it.id;
           d.expenses.push(ex);
         }, '已记下');
@@ -1061,10 +1240,53 @@ window.App = (() => {
         }, '已保存');
       } else {
         doMutate(d => { d.checklist.push({ id: Store.uid('chk'), ...fields, checked: false }); }, '已添加');
+        // 勾了「同时存入模板」就沉淀进去，下次同类旅行直接从候选池点
+        if (fd.get('saveToTpl') === 'on') {
+          const tpls = Store.getTemplates();
+          const active = new Set((Store.getState().meta || {}).packingTypes || []);
+          // 界面上没选类型时显示的是「通用」，沉淀要落到它，
+          // 否则会一次性塞进全部模板
+          if (!active.size) tpls.filter(t => t.name === '通用').forEach(t => active.add(t.id));
+          doMutateDoc(doc => {
+            for (const t of (doc.packingTemplates || [])) {
+              if (!active.has(t.id)) continue;
+              if (!t.items.some(i => i.name === fields.name)) t.items.push({ name: fields.name, category: fields.category });
+            }
+          });
+        }
       }
       closeModal();
       return;
     }
+
+    if (kind === 'tpl-manage') {
+      const renames = [];
+      for (const [k, v] of fd.entries()) {
+        if (k.startsWith('name_')) renames.push([k.slice(5), String(v).trim() || '未命名']);
+      }
+      doMutateDoc(doc => {
+        for (const [id, nm] of renames) {
+          const t = (doc.packingTemplates || []).find(x => x.id === id);
+          if (t) t.name = nm;
+        }
+      }, '已保存').then(() => closeModal());
+      return;
+    }
+
+    if (kind === 'tpl-save') {
+      const name = (fd.get('name') || '').trim();
+      const icon = (fd.get('icon') || '').trim() || '📦';
+      if (!name) { toast('先填模板名称', 'error'); return; }
+      const items = (Store.getState().checklist || []).map(c => ({ name: c.name, category: c.category }));
+      doMutateDoc(doc => {
+        doc.packingTemplates = doc.packingTemplates || [];
+        doc.packingTemplates.push({ id: Store.uid('tpl'), name, icon, items });
+      }, '已存为模板').then(() => closeModal());
+      return;
+    }
+
+    // 条目编辑全走按钮，没有提交动作；拦住回车误触发表单
+    if (kind === 'tpl-edit') return;
 
     if (kind === 'wish') {
       const wishId = fd.get('wishId');
@@ -1499,6 +1721,107 @@ window.App = (() => {
     reader.readAsText(file);
   }
 
+  // 候选卡片拖到清单区添加：桌面端的补充手势，手机端以点击为主
+  function initPoolDrag() {
+    document.addEventListener('dragstart', (e) => {
+      const card = e.target.closest && e.target.closest('.pool-card');
+      if (!card) return;
+      if (card.classList.contains('is-on')) { e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', JSON.stringify({ name: card.dataset.name, category: card.dataset.category }));
+      e.dataTransfer.effectAllowed = 'copy';
+      card.classList.add('is-dragging');
+    });
+    document.addEventListener('dragend', (e) => {
+      const card = e.target.closest && e.target.closest('.pool-card');
+      if (card) card.classList.remove('is-dragging');
+      document.querySelectorAll('.chk-drop').forEach(z => z.classList.remove('is-over'));
+    });
+    document.addEventListener('dragover', (e) => {
+      const zone = e.target.closest && e.target.closest('.chk-drop');
+      if (!zone) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      zone.classList.add('is-over');
+    });
+    document.addEventListener('dragleave', (e) => {
+      const zone = e.target.closest && e.target.closest('.chk-drop');
+      if (zone && !zone.contains(e.relatedTarget)) zone.classList.remove('is-over');
+    });
+    document.addEventListener('drop', (e) => {
+      const zone = e.target.closest && e.target.closest('.chk-drop');
+      if (!zone) return;
+      e.preventDefault();
+      zone.classList.remove('is-over');
+      let data = null;
+      try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch (_) {}
+      if (!data || !data.name) return;
+      const { name } = data;
+      const cat = data.category || '其他';
+      doMutate(d => {
+        d.checklist = d.checklist || [];
+        if (d.checklist.some(c => c.name === name)) return;   // 已有的不重复加
+        d.checklist.push({ id: Store.uid('chk'), name, category: cat, checked: false, owner: '' });
+      }, '已加入');
+    });
+  }
+
+  // ---------------- 行程详情：拖动调换顺序 ----------------
+  // 用 Pointer Events 一套代码同时覆盖鼠标与触摸；不用 HTML5 draggable，触屏不支持。
+  // 拖动只改 day.order（展示顺序），不动 time——用户填的时间是事实，顺序是偏好。
+  function commitDayOrder(dayId, orderIds) {
+    doMutate(d => {
+      const day = (d.itinerary || []).find(x => x.id === dayId);
+      if (!day) return;
+      const have = new Set((day.items || []).map(i => i.id));
+      // 只留还存在的条目，删掉的要从 order 里摘出去，否则会留下悬空 id
+      day.order = orderIds.filter(id => have.has(id));
+    }, '顺序已调整').then(() => {
+      if (!modal().hidden) modalBody().innerHTML = Render.dayDetail(Store.getState(), dayId);
+    });
+  }
+
+  function initDayItemDrag() {
+    let drag = null;
+
+    document.addEventListener('pointerdown', (e) => {
+      const grip = e.target.closest && e.target.closest('.dt-grip');
+      if (!grip) return;
+      const li = grip.closest('.dt-item');
+      const list = li && li.closest('.dt-list');
+      if (!li || !list) return;
+      e.preventDefault();
+      try { grip.setPointerCapture(e.pointerId); } catch (_) {}
+      li.classList.add('is-dragging');
+      drag = { list, li, pid: e.pointerId, moved: false };
+    });
+
+    document.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.pid) return;
+      drag.moved = true;
+      const items = [...drag.list.querySelectorAll('.dt-item')];
+      for (const other of items) {
+        if (other === drag.li) continue;
+        const r = other.getBoundingClientRect();
+        if (e.clientY >= r.top && e.clientY <= r.bottom) {
+          const before = (e.clientY - r.top) < r.height / 2;
+          drag.list.insertBefore(drag.li, before ? other : other.nextSibling);
+          break;
+        }
+      }
+    });
+
+    const finish = (e) => {
+      if (!drag || e.pointerId !== drag.pid) return;
+      const { list, li, moved } = drag;
+      drag = null;
+      li.classList.remove('is-dragging');
+      if (!moved) return;
+      commitDayOrder(list.dataset.day, [...list.querySelectorAll('.dt-item')].map(x => x.dataset.item));
+    };
+    document.addEventListener('pointerup', finish);
+    document.addEventListener('pointercancel', finish);
+  }
+
   // ---------------- 初始化 ----------------
   function init() {
     Store.subscribe(render);
@@ -1506,6 +1829,8 @@ window.App = (() => {
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
+    initDayItemDrag();
+    initPoolDrag();
     // 记账分类切换时重填二级字段（细分 + 车次/航班号）
     document.addEventListener('change', (e) => {
       if (e.target && e.target.id === 'expCat') {

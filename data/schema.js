@@ -54,6 +54,124 @@ const CURRENCY_SYMBOL = {
   KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
 };
 
+// 打包模板：按旅行类型给推荐物品，减少逐条输入。
+// category 必须落在 CATEGORIES.checklist 的六个分类里。
+const PACKING_TEMPLATES = [
+  {
+    id: 'tpl_general', name: '通用', icon: '🎒',
+    items: [
+      { name: '身份证', category: '证件' }, { name: '护照', category: '证件' },
+      { name: '银行卡', category: '证件' }, { name: '现金', category: '证件' },
+      { name: '内衣裤', category: '衣物' }, { name: '袜子', category: '衣物' },
+      { name: '睡衣', category: '衣物' }, { name: '换洗T恤', category: '衣物' },
+      { name: '外套', category: '衣物' },
+      { name: '牙刷', category: '洗漱' }, { name: '牙膏', category: '洗漱' },
+      { name: '洗面奶', category: '洗漱' }, { name: '毛巾', category: '洗漱' },
+      { name: '洗发水', category: '洗漱' }, { name: '沐浴露', category: '洗漱' },
+      { name: '手机', category: '电子' }, { name: '充电器', category: '电子' },
+      { name: '充电宝', category: '电子' }, { name: '耳机', category: '电子' },
+      { name: '感冒药', category: '药品' }, { name: '肠胃药', category: '药品' },
+      { name: '创可贴', category: '药品' },
+      { name: '纸巾', category: '其他' }, { name: '湿巾', category: '其他' },
+      { name: '水杯', category: '其他' }, { name: '雨伞', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_island', name: '海岛', icon: '🏝️',
+    items: [
+      { name: '护照', category: '证件' }, { name: '身份证', category: '证件' },
+      { name: '泳衣', category: '衣物' }, { name: '沙滩裤', category: '衣物' },
+      { name: '遮阳帽', category: '衣物' }, { name: '防晒衫', category: '衣物' },
+      { name: '沙滩拖鞋', category: '衣物' }, { name: '墨镜', category: '衣物' },
+      { name: '防晒霜', category: '洗漱' }, { name: '晒后修复', category: '洗漱' },
+      { name: '防水手机套', category: '电子' }, { name: '运动相机', category: '电子' },
+      { name: '浮潜面镜', category: '其他' }, { name: '沙滩巾', category: '其他' },
+      { name: '防水袋', category: '其他' }, { name: '防蚊液', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_city', name: '城市', icon: '🏙️',
+    items: [
+      { name: '身份证', category: '证件' }, { name: '学生证/优待证', category: '证件' },
+      { name: '舒适走路鞋', category: '衣物' }, { name: '轻便外套', category: '衣物' },
+      { name: '换洗衣物', category: '衣物' }, { name: '遮阳帽', category: '衣物' },
+      { name: '防晒霜', category: '洗漱' }, { name: '免洗洗手液', category: '洗漱' },
+      { name: '充电宝', category: '电子' }, { name: '耳机', category: '电子' },
+      { name: '购物袋', category: '其他' }, { name: '折叠伞', category: '其他' },
+      { name: '保温杯', category: '其他' }, { name: '双肩包', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_ski', name: '滑雪', icon: '⛷️',
+    items: [
+      { name: '身份证', category: '证件' }, { name: '保险单', category: '证件' },
+      { name: '滑雪服', category: '衣物' }, { name: '保暖内衣', category: '衣物' },
+      { name: '滑雪袜', category: '衣物' }, { name: '雪地靴', category: '衣物' },
+      { name: '帽子手套围巾', category: '衣物' },
+      { name: '润肤霜', category: '洗漱' }, { name: '唇膏', category: '洗漱' },
+      { name: '防晒霜', category: '洗漱' },
+      { name: '滑雪镜', category: '其他' }, { name: '头盔', category: '其他' },
+      { name: '护膝护臀', category: '其他' }, { name: '暖宝宝', category: '其他' },
+      { name: '保温杯', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_road', name: '自驾', icon: '🚗',
+    items: [
+      { name: '驾照', category: '证件' }, { name: '行驶证', category: '证件' },
+      { name: '身份证', category: '证件' },
+      { name: '墨镜', category: '衣物' }, { name: '舒适鞋子', category: '衣物' },
+      { name: '车充', category: '电子' }, { name: '手机支架', category: '电子' },
+      { name: '行车记录仪', category: '电子' }, { name: '充电宝', category: '电子' },
+      { name: '零食', category: '其他' }, { name: '饮用水', category: '其他' },
+      { name: '车载垃圾袋', category: '其他' }, { name: '纸巾', category: '其他' },
+      { name: '雨伞', category: '其他' }, { name: 'U型枕', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_hike', name: '登山', icon: '🥾',
+    items: [
+      { name: '身份证', category: '证件' }, { name: '保险单', category: '证件' },
+      { name: '登山鞋', category: '衣物' }, { name: '速干衣', category: '衣物' },
+      { name: '冲锋衣', category: '衣物' }, { name: '登山袜', category: '衣物' },
+      { name: '帽子', category: '衣物' },
+      { name: '防晒霜', category: '洗漱' }, { name: '湿巾', category: '洗漱' },
+      { name: '头灯', category: '电子' }, { name: '充电宝', category: '电子' },
+      { name: '创可贴', category: '药品' }, { name: '碘伏', category: '药品' },
+      { name: '弹力绷带', category: '药品' }, { name: '藿香正气水', category: '药品' },
+      { name: '登山杖', category: '其他' }, { name: '登山包', category: '其他' },
+      { name: '水袋', category: '其他' }, { name: '能量棒', category: '其他' },
+      { name: '防水袋', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_cruise', name: '游轮', icon: '🚢',
+    items: [
+      { name: '护照', category: '证件' }, { name: '签证', category: '证件' },
+      { name: '船票', category: '证件' }, { name: '旅行保险单', category: '证件' },
+      { name: '正装', category: '衣物' }, { name: '泳衣', category: '衣物' },
+      { name: '防风外套', category: '衣物' }, { name: '沙滩拖鞋', category: '衣物' },
+      { name: '晕船药', category: '药品' }, { name: '肠胃药', category: '药品' },
+      { name: '防晒霜', category: '洗漱' },
+      { name: '望远镜', category: '其他' }, { name: '防水袋', category: '其他' },
+    ],
+  },
+  {
+    id: 'tpl_biz', name: '商务', icon: '💼',
+    items: [
+      { name: '身份证', category: '证件' }, { name: '护照', category: '证件' },
+      { name: '名片', category: '证件' },
+      { name: '正装', category: '衣物' }, { name: '皮鞋', category: '衣物' },
+      { name: '领带/丝巾', category: '衣物' }, { name: '换洗衬衫', category: '衣物' },
+      { name: '笔记本电脑', category: '电子' }, { name: '电脑充电器', category: '电子' },
+      { name: '鼠标', category: '电子' }, { name: '转接头', category: '电子' },
+      { name: 'U盘', category: '电子' }, { name: '手机充电器', category: '电子' },
+      { name: '文件袋', category: '其他' }, { name: '笔记本', category: '其他' },
+      { name: '钢笔', category: '其他' },
+    ],
+  },
+];
+
 function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -72,9 +190,10 @@ function defaultTrip() {
       avatars: ['😎', '🥰'],   // 与 members 一一对应
       colors: ['#e6a877', '#6f9e8f'],   // 与 members 一一对应，用于按付款人区分
       archived: false,
+      packingTypes: [],   // 本趟用到的打包模板 id，候选池取并集；空则只显示「通用」
     },
-    itinerary: [], // [{ id, date, items: [{ id, time, endTime, title, location, lat, lng, note, category, subCategory, refNo, estimatedCost, payer, expenseId }] }]
-    expenses: [],  // [{ id, date, time, amount, category, payer, split, note, itemId }]  itemId 反向关联行程条目
+    itinerary: [], // [{ id, date, order?, items: [{ id, time, startDate, endTime, endDate, title, location, lat, lng, note, category, subCategory, refNo, amount, payer, participants, expenseId }] }]  order 存展示顺序，startDate/endDate 只作跨天记录不参与排序
+    expenses: [],  // [{ id, date, time, title, amount, category, payer, participants, note, itemId }]  title/note 与行程条目同名同义，同步是纯复制；participants 是参与分摊的成员名数组（缺省视为全员），itemId 反向关联行程条目
     checklist: [], // [{ id, name, category, checked, owner }]
     wishlist: [],  // [{ id, name, location, note, priority, status }]
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
@@ -100,6 +219,24 @@ function normalizeMemo(raw) {
   return m;
 }
 
+// 打包模板条目只认 { name, category }，category 不在六分类里的落到「其他」
+function normalizeTemplate(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+  const items = (Array.isArray(raw.items) ? raw.items : [])
+    .filter(i => i && typeof i.name === 'string' && i.name.trim())
+    .map(i => ({
+      name: i.name.trim(),
+      category: CATEGORIES.checklist.includes(i.category) ? i.category : '其他',
+    }));
+  return {
+    id: typeof raw.id === 'string' && raw.id ? raw.id : uid('tpl'),
+    name: name || '未命名',
+    icon: typeof raw.icon === 'string' && raw.icon ? raw.icon : '📦',
+    items,
+  };
+}
+
 // 文档级元信息：乐观并发 + 首页背景色（首页与每趟旅行各存各的，互不影响）
 const DEFAULT_WELCOME_THEME = '#f2ece0';
 function defaultDoc() {
@@ -107,6 +244,10 @@ function defaultDoc() {
     meta: { version: 1, updatedAt: new Date().toISOString(), welcomeTheme: DEFAULT_WELCOME_THEME },
     trips: [defaultTrip()],
     memos: [],
+    packingTemplates: PACKING_TEMPLATES.map(t => ({
+      id: t.id, name: t.name, icon: t.icon,
+      items: t.items.map(i => ({ name: i.name, category: i.category })),
+    })),
   };
 }
 
@@ -136,8 +277,32 @@ function normalizeTrip(raw) {
   const cl = Array.isArray(t.meta.colors) ? t.meta.colors : [];
   t.meta.colors = t.meta.members.map((_, i) => (cl[i] ? String(cl[i]) : DEFAULT_COLORS[i % DEFAULT_COLORS.length]));
   t.meta.archived = !!t.meta.archived;
+  // 本趟用到的打包模板 id：只留字符串，模板本身存不存在由前端兜底
+  t.meta.packingTypes = Array.isArray(t.meta.packingTypes)
+    ? t.meta.packingTypes.filter(x => typeof x === 'string' && x)
+    : [];
 
   for (const k of TRIP_LISTS) t[k] = Array.isArray(src[k]) ? src[k] : [];
+
+  // 行程条目的 estimatedCost 改名为 amount，与记账同名，两边同步就不再是「翻译」。
+  // 一次性迁移，改完即删旧字段，前端永远只看到 amount。
+  for (const day of t.itinerary) {
+    for (const it of ((day && day.items) || [])) {
+      if (it && it.estimatedCost !== undefined) {
+        if (it.amount === undefined) it.amount = it.estimatedCost;
+        delete it.estimatedCost;
+      }
+    }
+  }
+
+  // 记账早先只有一个 note，它实际充当「名称」（列表拿它当标题）。
+  // 改名为 title 与行程条目同名，另留 note 作备注，两边同步变纯复制。
+  for (const ex of t.expenses) {
+    if (ex && ex.title === undefined && ex.note !== undefined) {
+      ex.title = ex.note;
+      ex.note = '';
+    }
+  }
 
   return Object.assign({}, src, t);
 }
@@ -180,6 +345,11 @@ function normalize(doc) {
 
   // 备忘录是文档级的，不属于任何一趟旅行；tripId 只是可选关联
   d.memos = Array.isArray(source.memos) ? source.memos.map(normalizeMemo) : [];
+
+  // 打包模板也是文档级的，跨旅行复用。老数据没有就补内置的，用户改过的一律保留。
+  d.packingTemplates = Array.isArray(source.packingTemplates) && source.packingTemplates.length
+    ? source.packingTemplates.map(normalizeTemplate).filter(Boolean)
+    : d.packingTemplates;
 
   for (const k of Object.keys(source)) {
     if (!(k in d) && !warnedUnknown.has(k)) {

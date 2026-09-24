@@ -140,6 +140,26 @@ window.Render = (() => {
       </div>`;
   }
 
+  // 参与人多选：勾选谁就在谁之间平摊。隐藏域存 JSON 数组，FormData 原样读得到
+  function memberMultiPicker(members, selected, meta, name) {
+    const list = members || [];
+    const picked = Array.isArray(selected) ? selected.filter(m => list.includes(m)) : list.slice();
+    const chips = list.map((m, i) => {
+      const mc = colorOf(meta, i);
+      const on = picked.includes(m);
+      return `<button type="button" class="member-multi-opt ${on ? 'is-on' : ''}" data-action="member-multi-opt" data-name="${esc(m)}" aria-pressed="${on}">
+        <span class="member-multi-check">${on ? '✓' : ''}</span>
+        <span class="member-chip"${mc ? ` style="--mc:${esc(mc)}"` : ''}><span class="member-ava">${avatarImg(meta, i)}</span>${esc(dispName(list, m))}</span>
+      </button>`;
+    }).join('');
+    const allOn = picked.length === list.length;
+    return `<input type="hidden" name="${esc(name)}" value="${esc(JSON.stringify(picked))}">
+      <div class="member-multi">
+        <div class="member-multi-opts">${chips}</div>
+        <button type="button" class="member-multi-all" data-action="member-multi-all">${allOn ? '全不选' : '全选'}</button>
+      </div>`;
+  }
+
   function pad(n) { return String(n).padStart(2, '0'); }
 
   function today() {
@@ -169,6 +189,33 @@ window.Render = (() => {
   // ---------------- 汇总计算 ----------------
   // 已订/已完成是真花出去的钱，待订只是计划、已取消不作数
   const SPLIT_OPTIONS = ['均摊', '单方'];
+  // 一笔支出由谁承担。优先读 participants；老数据用 split 兜底——
+  // 「单方」等价于参与人只有付款人，所以新旧两套语义能收敛到同一条路径
+  function expenseParticipants(e, members) {
+    const all = members || [];
+    if (Array.isArray(e.participants)) {
+      const list = e.participants.filter(m => all.includes(m));
+      return list.length ? list : all;
+    }
+    if (e.split === '单方') {
+      return all.includes(e.payer) ? [e.payer] : all;
+    }
+    return all;
+  }
+
+  // 记账列表里的参与人小头像叠放，超过 3 个只显示 +n
+  function participantAvatars(meta, e) {
+    const members = (meta && meta.members) || [];
+    const parts = expenseParticipants(e, members);
+    if (!parts.length) return '';
+    const MAX = 3;
+    const avas = parts.slice(0, MAX).map(m => {
+      const i = members.indexOf(m);
+      return `<span class="member-ava" title="${esc(dispName(members, m))}">${i >= 0 ? avatarImg(meta, i) : esc(m)}</span>`;
+    }).join('');
+    const more = parts.length > MAX ? `<span class="exp-parts-more">+${parts.length - MAX}</span>` : '';
+    return `<span class="exp-parts" title="涉及 ${esc(parts.map(m => dispName(members, m)).join('、'))}">${avas}${more}</span>`;
+  }
   function summarizeExpenses(s) {
     const members = s.meta.members || [];
     const n = Math.max(1, members.length);
@@ -190,12 +237,9 @@ window.Render = (() => {
       const payer = e.payer || members[0] || '';
       byCategory[e.category || '其他'] = (byCategory[e.category || '其他'] || 0) + amt;
       credit(amt, payer);
-      if (e.split === '单方') {
-        if (isMember(payer)) shouldPay[payer] += amt;
-        else members.forEach(m => shouldPay[m] += amt / n);
-      } else {
-        members.forEach(m => shouldPay[m] += amt / n);
-      }
+      const parts = expenseParticipants(e, members);
+      const k = Math.max(1, parts.length);
+      parts.forEach(m => shouldPay[m] += amt / k);
     }
 
     const balance = {};
@@ -637,7 +681,7 @@ window.Render = (() => {
   function renderItinerary(s, mode) {
     const isDetail = mode === 'detail';
     const days = [...s.itinerary].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const estTotal = s.itinerary.reduce((a, d) => a + (d.items || []).reduce((x, i) => x + (Number(i.estimatedCost) || 0), 0), 0);
+    const estTotal = s.itinerary.reduce((a, d) => a + (d.items || []).reduce((x, i) => x + (Number(i.amount) || 0), 0), 0);
     const head = `<div class="list-head">
       <span>共 ${days.length} 天 · 预估 ${money(estTotal, s.meta.currency)}</span>
       <div class="head-actions">
@@ -658,8 +702,8 @@ window.Render = (() => {
   }
 
   function renderDaySimple(s, d, idx) {
-    const items = d.items || [];
-    const dayTotal = items.reduce((x, i) => x + (Number(i.estimatedCost) || 0), 0);
+    const items = orderDayItems(d);
+    const dayTotal = items.reduce((x, i) => x + (Number(i.amount) || 0), 0);
     const date = d.date || '';
     const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
       ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
@@ -691,26 +735,43 @@ window.Render = (() => {
   }
 
   // 弹窗里的条目：点向下箭头直接展开详细信息
+  // 2026-09-30 → 9月30日；没有日期返回空串
+  function fmtMD(d) {
+    if (!d) return '';
+    const p = d.split('-').map(Number);
+    return p.length < 3 ? d : `${p[1]}月${p[2]}日`;
+  }
+
   function dayDetailItem(s, dayId, i) {
     const cat = i.category || '其他';
     const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
     const cur = s.meta.currency;
+    const dayObj = (s.itinerary || []).find(x => x.id === dayId);
+    const dayDate = dayObj ? dayObj.date : '';
+    // 日期只是记录，不参与排序；老数据没有 startDate 就当是这天
+    const sd = i.startDate || dayDate;
+    const ed = i.endDate || i.startDate || dayDate;
+    const crossDay = !!(sd && ed && sd !== ed);
     const row = (label, val) => val ? `<div class="dt-row"><span class="dt-k">${label}</span><span class="dt-v">${val}</span></div>` : '';
+    const startTxt = `${fmtMD(sd)} ${i.time || ''}`.trim() || '—';
+    const endTxt = i.endTime ? `${fmtMD(ed)} ${i.endTime}`.trim() : '';
     const rows = [
-      row('开始时间', esc(i.time || '—') + (i.endTime ? ` – ${esc(i.endTime)}` : '')),
+      row('开始时间', esc(startTxt) + (endTxt ? ` – ${esc(endTxt)}` : '')),
       row(spec.title, esc(i.title || '（未命名）')),
       spec.location && row(spec.location, esc(i.location)),
       spec.refNo && row(spec.refNo, esc(i.refNo)),
-      row(spec.cost, i.estimatedCost ? `${money(i.estimatedCost, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}` : '—'),
+      row(spec.cost, i.amount ? `${money(i.amount, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}` : '—'),
       row('备注', esc(i.note)),
     ].filter(Boolean).join('');
-    return `<li class="dt-item">
-      <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${esc(i.endTime)}</small>` : ''}</div>
+    return `<li class="dt-item" data-item="${esc(i.id)}">
+      <button type="button" class="dt-grip" aria-label="拖动排序">⠿</button>
+      <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${crossDay ? esc(shortDate(ed)) + ' ' : ''}${esc(i.endTime)}</small>` : ''}</div>
       <button type="button" class="dt-main" data-action="dt-item-toggle">
         <span class="dt-title">${esc(i.title || '（未命名）')}</span>
         <span class="badge" data-cat="${esc(cat)}">${esc(cat)}</span>
         <span class="dt-arrow">▾</span>
       </button>
+      <button class="icon-btn danger dt-del" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
       <div class="dt-detail" hidden>
         <button class="icon-btn dt-edit" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
         <div class="dt-rows">${rows}</div>
@@ -718,17 +779,34 @@ window.Render = (() => {
     </li>`;
   }
 
+  // 一天内的条目排序：手动调过顺序（有 order 数组）就按它排，否则按时间排。
+  // 拖动只改 order，不动 time——用户填的时间是事实，展示顺序是偏好。
+  function orderDayItems(day) {
+    const items = day.items || [];
+    const ord = day.order;
+    if (!Array.isArray(ord) || !ord.length) {
+      return [...items].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+    }
+    const pos = new Map(ord.map((id, i) => [id, i]));
+    return [...items].sort((a, b) => {
+      const pa = pos.has(a.id) ? pos.get(a.id) : 1e9;
+      const pb = pos.has(b.id) ? pos.get(b.id) : 1e9;
+      if (pa !== pb) return pa - pb;
+      return (a.time || '99:99').localeCompare(b.time || '99:99');
+    });
+  }
+
   function dayDetail(s, dayId) {
     const day = s.itinerary.find(d => d.id === dayId);
     if (!day) return '<p class="empty small">找不到这一天</p>';
-    const items = [...(day.items || [])].sort((a, b) => (a.time ? (b.time ? a.time.localeCompare(b.time) : -1) : 1));
+    const items = orderDayItems(day);
     return `<div class="detail">
       <div class="detail-head">
         <h3>${fmtDate(day.date)} ${weekday(day.date)}</h3>
         <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 安排</button>
       </div>
       ${items.length
-        ? `<ul class="dt-list">${items.map(i => dayDetailItem(s, day.id, i)).join('')}</ul>`
+        ? `<ul class="dt-list" data-day="${esc(day.id)}">${items.map(i => dayDetailItem(s, day.id, i)).join('')}</ul>`
         : '<p class="empty small">这天还没有安排</p>'}
     </div>`;
   }
@@ -741,8 +819,8 @@ window.Render = (() => {
   }
 
   function renderDay(s, d, idx) {
-    const items = [...(d.items || [])].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-    const dayTotal = items.reduce((x, i) => x + (Number(i.estimatedCost) || 0), 0);
+    const items = orderDayItems(d);
+    const dayTotal = items.reduce((x, i) => x + (Number(i.amount) || 0), 0);
     const date = d.date || '';
     const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
       ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
@@ -770,7 +848,7 @@ window.Render = (() => {
         </div>
         ${stopTxt ? `<div class="tl-stops">${emo('📍')} ${esc(stopTxt)}${stops.length > 2 ? ` 等 ${stops.length} 地` : ''}</div>` : ''}
         ${items.length
-          ? `<ul class="tl-items">${items.slice().sort((a, b) => (a.time ? (b.time ? a.time.localeCompare(b.time) : -1) : 1)).map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
+          ? `<ul class="tl-items">${items.map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
           : '<p class="tl-empty">这天还没有安排</p>'}
       </div>
     </div>`;
@@ -785,10 +863,10 @@ window.Render = (() => {
     const rows = [
       i.location && row(spec.location || '地点', esc(i.location)),
       i.refNo && row(spec.refNo || '编号', esc(i.refNo)),
-      i.estimatedCost ? row(spec.cost, `${money(i.estimatedCost, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}`) : '',
+      i.amount ? row(spec.cost, `${money(i.amount, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}`) : '',
       i.note && row('备注', esc(i.note)),
     ].filter(Boolean).join('');
-    return `<li class="tl-item ${i.estimatedCost ? 'has-value' : ''}">
+    return `<li class="tl-item ${i.amount ? 'has-value' : ''}">
       <div class="tl-time">${esc(t || '—')}${i.endTime ? `<small>${esc(i.endTime)}</small>` : ''}</div>
       <div class="tl-card">
         <button type="button" class="tl-main tl-toggle" data-action="iti-item-toggle">
@@ -899,12 +977,13 @@ window.Render = (() => {
       <span class="exp-dot"></span>
       <span class="exp-t">${esc(e.time || '—')}</span>
       <span class="exp-what">
-        <span class="exp-n">${esc(e.note || e.category || '支出')}</span>
+        <span class="exp-n">${esc(e.title || e.note || e.category || '支出')}</span>
         <span class="exp-sub">
           <span class="badge" data-cat="${esc(e.category || '其他')}">${esc(e.category || '其他')}</span>
           ${e.subCategory ? `<span class="exp-subcat">${esc(e.subCategory)}</span>` : ''}
           ${e.refNo ? `<span class="exp-ref">${emo('🎫')} ${esc(e.refNo)}</span>` : ''}
           ${memberChip(s.meta, e.payer || '')}
+          ${participantAvatars(s.meta, e)}
         </span>
       </span>
       <span class="exp-amt">${money(e.amount, cur)}</span>
@@ -925,34 +1004,121 @@ window.Render = (() => {
   }
 
   // ---------------- 打包清单 ----------------
+  // 候选物品池：按旅行类型给推荐，点一下加入清单，已加的置灰可再点移除
+  function packingPoolHtml(s) {
+    const templates = Store.getTemplates();
+    const chosen = ((s.meta && s.meta.packingTypes) || []).filter(id => templates.some(t => t.id === id));
+    // 一趟旅行还没选类型时默认看「通用」，避免一进来是空的
+    const activeIds = chosen.length
+      ? chosen
+      : templates.filter(t => t.name === '通用').map(t => t.id);
+
+    const typeBar = templates.map(t => `
+      <button type="button" class="tpl-chip ${activeIds.includes(t.id) ? 'is-on' : ''}"
+        data-action="packing-type" data-id="${esc(t.id)}" title="${esc(t.name)}">
+        <span class="tpl-icon">${t.icon}</span>${esc(t.name)}
+      </button>`).join('');
+
+    // 多个模板取并集，同名物品只留一个（分类以先出现的为准）
+    const pool = new Map();
+    for (const t of templates) {
+      if (!activeIds.includes(t.id)) continue;
+      for (const it of t.items) if (!pool.has(it.name)) pool.set(it.name, it);
+    }
+    // 清单里同名可以有多件（两件 T 恤），所以按名字计数，卡片上标出来
+    const owned = new Map();
+    for (const c of (s.checklist || [])) owned.set(c.name, (owned.get(c.name) || 0) + 1);
+
+    const groups = Store.CONST.checklistCategories.map(cat => {
+      const items = [...pool.values()].filter(i => i.category === cat);
+      if (!items.length) return '';
+      return `<div class="pool-group">
+        <div class="pool-cat">${esc(cat)}</div>
+        <div class="pool-cards">${items.map(i => {
+          const n = owned.get(i.name) || 0;
+          return `<button type="button" class="pool-card ${n ? 'is-on' : ''}" draggable="${n ? 'false' : 'true'}"
+            data-action="pool-toggle" data-name="${esc(i.name)}" data-category="${esc(i.category)}">
+            <span class="pool-check">${n ? '✓' : ''}</span><span class="pool-name">${esc(i.name)}</span>
+            ${n > 1 ? `<span class="pool-n">${n}</span>` : ''}
+          </button>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+
+    return `<section class="card pool-wrap">
+      <div class="day-head">
+        <h3>${emo('💡')} 推荐物品</h3>
+        <div class="pool-actions">
+          <button class="btn btn-ghost btn-sm" data-action="template-manage">管理模板</button>
+          <button class="btn btn-ghost btn-sm" data-action="template-save">存为模板</button>
+        </div>
+      </div>
+      <div class="pool-types">${typeBar}</div>
+      ${groups || '<p class="empty-hint">选一个旅行类型，就能看到推荐物品</p>'}
+    </section>`;
+  }
+
+  // 打包清单分类的小图标，日记本章节标题用
+  const CHECKLIST_CAT_ICON = { '证件': '🧾', '衣物': '🧥', '洗漱': '🧴', '电子': '🔌', '药品': '💊', '其他': '📦' };
+
+  // 日记本封面的日期栏：2026.09.24 — 2026.10.02
+  function nbDateRange(s) {
+    const m = s.meta || {};
+    const f = (d) => (d ? d.replace(/-/g, '.') : '');
+    if (m.startDate && m.endDate) return `${f(m.startDate)} — ${f(m.endDate)}`;
+    return f(m.startDate || m.endDate) || '未定日期';
+  }
+
   function renderChecklist(s) {
     const total = s.checklist.length;
     const done = s.checklist.filter(c => c.checked).length;
     const pct = total ? Math.round(done / total * 100) : 0;
+    const pool = packingPoolHtml(s);
     const head = `<div class="list-head">
       <span>已打包 ${done}/${total}</span>
       <button class="btn btn-primary" data-action="checklist-add">＋ 添加物品</button>
     </div>`;
 
     if (!total) {
-      return `<div class="card">${head}<div class="empty"><p>打包清单是空的</p><p class="empty-hint">把要带的东西加进来吧 ${emo('🎒')}</p></div></div>`;
+      return pool + `<div class="chk-drop">${head}<section class="notebook">
+        <div class="nb-binds" aria-hidden="true"></div>
+        <header class="nb-head">
+          <h2 class="nb-title">${emo('🎒')} 行李清单</h2>
+          <div class="nb-date">${esc(nbDateRange(s))}</div>
+        </header>
+        <div class="nb-body">
+          <p class="nb-blank">还没写上要带的东西 ${emo('✍️')}</p>
+          <p class="nb-blank-hint">点上面的推荐物品，或把它们拖进来</p>
+        </div>
+        <footer class="nb-foot"><div class="nb-foot-hint">共 0 件</div></footer>
+      </section></div>`;
     }
 
-    const progress = `<div class="card progress-wrap">
-      <div class="progress"><div class="progress-fill" style="--pct:${pct}%"></div></div>
-      <div class="progress-hint">${pct}% · ${done}/${total}</div>
-    </div>`;
-
+    // 所有分类连成一页横线纸，类别只是纸上的章节标题，不再是独立卡片
     const grouped = groupByCategory(s.checklist, Store.CONST.checklistCategories);
     const body = grouped.map(g => {
       const gdone = g.items.filter(c => c.checked).length;
-      return `<section class="card">
-        <div class="day-head"><h3>${esc(g.category)}</h3><span class="muted">${gdone}/${g.items.length}</span></div>
-        <ul class="chk-list">${g.items.map(c => renderChecklistItem(s, c)).join('')}</ul>
-      </section>`;
+      return `<div class="nb-cat">
+        <span class="nb-cat-ico">${emo(CHECKLIST_CAT_ICON[g.category] || '📦')}</span>
+        <h3 class="nb-cat-name" data-cat="${esc(g.category)}">${esc(g.category)}</h3>
+        <span class="nb-cat-rule"></span>
+        <span class="nb-cat-n">${gdone}/${g.items.length}</span>
+      </div>
+      <ul class="chk-list">${g.items.map(c => renderChecklistItem(s, c)).join('')}</ul>`;
     }).join('');
 
-    return head + progress + body;
+    return pool + `<div class="chk-drop">${head}<section class="notebook">
+      <div class="nb-binds" aria-hidden="true"></div>
+      <header class="nb-head">
+        <h2 class="nb-title">${emo('🎒')} 行李清单</h2>
+        <div class="nb-date">${esc(nbDateRange(s))}</div>
+      </header>
+      <div class="nb-body">${body}</div>
+      <footer class="nb-foot">
+        <div class="progress"><div class="progress-fill" style="--pct:${pct}%"></div></div>
+        <div class="nb-foot-hint">${pct}% · 已打包 ${done}/${total}</div>
+      </footer>
+    </section></div>`;
   }
 
   function renderChecklistItem(s, c) {
@@ -1023,26 +1189,36 @@ window.Render = (() => {
     '其他': { endTime: '结束时间', title: '安排内容', location: '地点', cost: '花费' },
   };
 
-  function itemFieldsHtml(cat, v, meta) {
+  // datetime-local 的值必须是 YYYY-MM-DDTHH:MM；日期缺省用这天自己的日期
+  function dtValue(dateStr, timeStr, fallbackDate) {
+    const d = dateStr || fallbackDate || today();
+    return `${d}T${timeStr || '09:00'}`;
+  }
+
+  function itemFieldsHtml(cat, v, meta, dayDate) {
     const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
     const out = [];
     out.push(`<div class="form-row">
-      <label>开始时间<input type="time" name="time" value="${esc(v.time || '09:00')}"></label>
-      ${spec.endTime ? `<label>${spec.endTime}<input type="time" name="endTime" value="${esc(v.endTime || '')}"></label>` : ''}
+      <label>开始时间<input type="datetime-local" name="time" value="${esc(dtValue(v.startDate, v.time, dayDate))}"></label>
+      ${spec.endTime ? `<label>${spec.endTime}<input type="datetime-local" name="endTime" value="${esc(v.endTime ? dtValue(v.endDate, v.endTime, v.startDate || dayDate) : '')}"></label>` : ''}
     </div>`);
     out.push(`<label>${spec.title}<input name="title" required placeholder="${esc(spec.titlePh || '')}" value="${esc(v.title || '')}"></label>`);
     if (spec.location) out.push(`<label>${spec.location}<input name="location" placeholder="${esc(spec.locationPh || '')}" value="${esc(v.location || '')}"></label>`);
     if (spec.refNo) out.push(`<label>${spec.refNo}<input name="refNo" placeholder="${esc(spec.refNoPh || '')}" value="${esc(v.refNo || '')}"></label>`);
     out.push(`<div class="form-row">
-      <label>${spec.cost}<input type="number" name="estimatedCost" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.estimatedCost || '')}"></label>
+      <label>${spec.cost}<input type="number" name="amount" min="0" step="0.01" placeholder="0" inputmode="decimal" value="${esc(v.amount || '')}"></label>
       <label>谁付的${memberPicker(meta.members || [], v.payer, meta, 'payer')}</label>
     </div>`);
+    if (spec.cost) out.push(`<label>涉及谁<span class="field-hint">在这几个人之间平摊</span>${memberMultiPicker(meta.members || [], v.participants, meta, 'participants')}</label>`);
     out.push(`<label>备注<input name="note" placeholder="预约信息、路线等" value="${esc(v.note || '')}"></label>`);
     return out.join('');
   }
 
   function formItem(dayId, item) {
-    const meta = Store.getState().meta || {};
+    const data = Store.getState();
+    const meta = data.meta || {};
+    const day = (data.itinerary || []).find(x => x.id === dayId);
+    const dayDate = day ? day.date : '';
     const cats = Store.CONST.itineraryCategories;
     const v = item || {};
     const cur = item ? (v.category || '其他') : '';
@@ -1052,7 +1228,7 @@ window.Render = (() => {
       <label>类别<div class="cat-picker">${cats.map(c =>
         `<button type="button" class="btn btn-sm ${c === cur ? 'btn-primary' : 'btn-ghost'}" data-action="pick-item-cat" data-cat="${esc(c)}">${esc(c)}</button>`
       ).join('')}</div><input type="hidden" name="category" value="${esc(cur)}"></label>
-      <div id="itemFields">${cur ? itemFieldsHtml(cur, v, meta) : '<p class="form-hint">先选一个类别，再填对应的信息</p>'}</div>
+      <div id="itemFields">${cur ? itemFieldsHtml(cur, v, meta, dayDate) : '<p class="form-hint">先选一个类别，再填对应的信息</p>'}</div>
       <div class="form-actions">
         <button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button>
         ${item ? `<button type="button" class="btn btn-ghost" data-action="item-back" data-day="${esc(dayId)}">返回</button>` : ''}
@@ -1077,24 +1253,78 @@ window.Render = (() => {
 
   function formExpense(members, item) {
     const cats = Store.CONST.expenseCategories;
-    const splits = Store.CONST.splitOptions;
     const v = item || {};
     const curCat = item ? (v.category || '其他') : '';
     return `<form data-form="expense">
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
+      <label>时间<input type="datetime-local" name="time" value="${esc(dtValue(v.date, v.time, today()))}"></label>
+      <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
-        <label>日期<input type="date" name="date" required value="${esc(item ? (v.date || '') : today())}"></label>
-        <label>时间<input type="time" name="time" value="${esc(v.time || '')}"></label>
-      </div>
-      <label>金额<input type="number" name="amount" min="0" step="0.01" required placeholder="0.00" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
-      <div class="form-row">
-        <label>分类<select name="category" id="expCat">${cats.map(c => `<option ${item && c === curCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
         <label>谁付的${memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer')}</label>
       </div>
+      <label>分类<select name="category" id="expCat">${cats.map(c => `<option ${item && c === curCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <div id="expFields">${item ? expFieldsHtml(curCat, v) : ''}</div>
-      <label>分摊<select name="split">${splits.map(sp => `<option ${item && sp === (v.split || '均摊') ? 'selected' : ''}>${sp}</option>`).join('')}</select></label>
-      <label>备注<input name="note" placeholder="如：晚饭 · 烤肉" value="${esc(v.note || '')}"></label>
+      <label>涉及谁<span class="field-hint">在这几个人之间平摊</span>${memberMultiPicker(members, item ? v.participants : undefined, Store.getState().meta, 'participants')}</label>
+      <label>备注<input name="note" placeholder="补充说明" value="${esc(v.note || '')}"></label>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button></div>
+    </form>`;
+  }
+
+  // 模板管理：改名、删除、进入条目编辑
+  function formTemplateManage() {
+    const tpls = Store.getTemplates();
+    return `<form data-form="tpl-manage">
+      <div class="tpl-list">
+        ${tpls.map(t => `
+        <div class="tpl-row">
+          <span class="tpl-row-icon">${t.icon}</span>
+          <input class="tpl-row-name" name="name_${esc(t.id)}" value="${esc(t.name)}" maxlength="8">
+          <span class="muted">${t.items.length} 项</span>
+          <button type="button" class="icon-btn" data-action="template-edit" data-id="${esc(t.id)}" title="编辑物品">✎</button>
+          <button type="button" class="icon-btn danger" data-action="template-del" data-id="${esc(t.id)}" title="删除模板">✕</button>
+        </div>`).join('')}
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" data-action="template-new">＋ 新建模板</button>
+        <button class="btn btn-primary" type="submit">保存改名</button>
+      </div>
+    </form>`;
+  }
+
+  // 单个模板的条目编辑：逐条删，底部加新条目
+  function formTemplateEdit(tpl) {
+    const cats = Store.CONST.checklistCategories;
+    return `<form data-form="tpl-edit">
+      <input type="hidden" name="tplId" value="${esc(tpl.id)}">
+      <p class="field-hint">${tpl.icon} ${esc(tpl.name)} · ${tpl.items.length} 项</p>
+      <div class="tpl-items">
+        ${(tpl.items || []).map((it, idx) => `
+        <div class="tpl-item-row">
+          <span class="badge" data-cat="${esc(it.category)}">${esc(it.category)}</span>
+          <span class="tpl-item-name">${esc(it.name)}</span>
+          <button type="button" class="icon-btn danger" data-action="template-item-del" data-idx="${idx}" title="移除">✕</button>
+        </div>`).join('') || '<p class="empty-hint">还没有物品</p>'}
+      </div>
+      <div class="form-row">
+        <label>物品<input name="newName" placeholder="如：防晒霜"></label>
+        <label>分类<select name="newCat">${cats.map(c => `<option ${c === '其他' ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" data-action="template-item-add">＋ 加入模板</button>
+        <button type="button" class="btn btn-ghost" data-action="template-manage">返回</button>
+      </div>
+    </form>`;
+  }
+
+  // 把当前清单沉淀成模板，下次旅行直接用
+  function formSaveTemplate(s) {
+    const total = (s.checklist || []).length;
+    return `<form data-form="tpl-save">
+      <label>模板名称<input name="name" required placeholder="如：我们的海岛标配" maxlength="8"></label>
+      <label>图标<input name="icon" value="📦" placeholder="如 🏝️"></label>
+      <p class="field-hint">把当前清单的 ${total} 件物品存成模板，下次直接用</p>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">存为模板</button></div>
     </form>`;
   }
 
@@ -1108,6 +1338,7 @@ window.Render = (() => {
         <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
         <label>谁带${memberPicker(members, item ? v.owner : undefined, Store.getState().meta, 'owner')}</label>
       </div>
+      ${item ? '' : `<label class="chk"><input type="checkbox" name="saveToTpl" checked><span class="chk-box"></span><span class="chk-name">同时存入当前模板</span></label>`}
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
@@ -1907,6 +2138,7 @@ window.Render = (() => {
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
     formDay, formItem, itemFields: itemFieldsHtml, formExpense, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace, formBooking,
+    formTemplateManage, formTemplateEdit, formSaveTemplate,
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
     formGuide,
     extractUrl, extractTitle,
