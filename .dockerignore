@@ -1,0 +1,9 @@
+.git
+.local
+node_modules
+data/db.json
+data/auth.json
+data/setup-token
+data/uploads
+data/backups
+*.pem

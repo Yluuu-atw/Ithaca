@@ -3,6 +3,7 @@ data/db.json
 data/db.json.tmp
 data/auth.json
 data/auth.json.*.tmp
+data/setup-token
 data/uploads/
 data/backups/
 
