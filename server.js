@@ -23,6 +23,7 @@ const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, 
 const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
 const { createAuth } = require('./data/auth');
 const { createPasskeys } = require('./data/passkeys');
+const { createSharing } = require('./data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -35,6 +36,7 @@ const AUTH_PATH = path.join(DATA_DIR, 'auth.json');
 const SETUP_TOKEN_PATH = process.env.ITHACA_SETUP_TOKEN_PATH || path.join(__dirname, '.local', 'setup-token');
 const ORIGIN = process.env.ITHACA_ORIGIN || `http://localhost:${PORT}`;
 const COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_sid' : 'ithaca_sid';
+const SHARE_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_share' : 'ithaca_share';
 
 // ---------------- 数据加载 & 原子持久化 ----------------
 
@@ -51,6 +53,7 @@ function loadDb() {
 let db = loadDb();
 const auth = createAuth(AUTH_PATH, SETUP_TOKEN_PATH);
 const passkeys = createPasskeys(auth, ORIGIN);
+const sharing = createSharing(auth, () => db, commit);
 
 // 写盘：临时文件 + rename，避免写一半损坏原文件
 function writeDb(data) {
@@ -115,18 +118,19 @@ const sseClients = new Set();
 function broadcast() {
   for (const client of sseClients) {
     try {
-      if (!auth.resolve(client.token)) {
+      const principal = resolvePrincipal(client.cookies);
+      if (!principal) {
         client.res.end();
         sseClients.delete(client);
         continue;
       }
-      const data = project(db, client.principal);
+      const data = project(db, principal);
       client.res.write(`data: ${JSON.stringify({ type: 'data', data, version: db.meta.version })}\n\n`);
     } catch (_) { sseClients.delete(client); }
   }
 }
 
-function handleSSE(req, res, principal, token) {
+function handleSSE(req, res, principal) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -135,7 +139,7 @@ function handleSSE(req, res, principal, token) {
   res.write('retry: 3000\n\n');
   const data = project(db, principal);
   res.write(`data: ${JSON.stringify({ type: 'data', data, version: db.meta.version })}\n\n`);
-  const client = { res, principal, token };
+  const client = { res, cookies: req.headers.cookie || '' };
   sseClients.add(client);
   req.on('close', () => sseClients.delete(client));
 }
@@ -167,8 +171,8 @@ function serveStatic(req, res, pathname) {
   const isUpload = rel.startsWith('uploads/');
   if (isUpload) {
     const name = rel.slice('uploads/'.length);
-    const session = auth.resolve(cookieValue(req, COOKIE_NAME));
-    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || !session || !canReadAsset(db, { userId: session.user.id }, name)) {
+    const principal = resolvePrincipal(req.headers.cookie || '');
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || !principal || !canReadAsset(db, principal, name)) {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end('Not Found');
       return;
@@ -220,15 +224,29 @@ function sendJSON(res, code, obj, extra = {}) {
   res.end(JSON.stringify(obj));
 }
 
-function cookieValue(req, name) {
-  const raw = req.headers.cookie || '';
+function cookieValue(raw, name) {
+  if (typeof raw !== 'string') raw = raw.headers.cookie || '';
   const item = raw.split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`));
   return item ? item.slice(name.length + 1) : '';
+}
+
+function resolvePrincipal(cookies) {
+  const session = auth.resolve(cookieValue(cookies, COOKIE_NAME));
+  const shared = sharing.resolve(cookieValue(cookies, SHARE_COOKIE_NAME));
+  if (!session && !shared) return null;
+  return { ...(session ? { userId: session.user.id } : {}), ...(shared || {}) };
 }
 
 function sessionCookie(token, maxAge) {
   const parts = [`${COOKIE_NAME}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
   if (COOKIE_NAME.startsWith('__Host-')) parts.push('Secure');
+  if (maxAge !== undefined) parts.push(`Max-Age=${maxAge}`);
+  return parts.join('; ');
+}
+
+function shareCookie(token, maxAge) {
+  const parts = [`${SHARE_COOKIE_NAME}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+  if (SHARE_COOKIE_NAME.startsWith('__Host-')) parts.push('Secure');
   if (maxAge !== undefined) parts.push(`Max-Age=${maxAge}`);
   return parts.join('; ');
 }
@@ -322,6 +340,59 @@ async function handlePasskeys(req, res, pathname) {
     return sendJSON(res, 404, { error: 'Not Found' });
   } catch (error) {
     return sendJSON(res, 400, { error: error.message });
+  }
+}
+
+async function handleSharing(req, res, pathname) {
+  if (pathname === '/api/share/exchange') {
+    if (req.method !== 'POST' || !sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+    if (limited(req, pathname, 30, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '尝试次数过多' });
+    try {
+      const { token } = await readJSON(req);
+      const principal = sharing.resolve(token);
+      if (!principal) return sendJSON(res, 404, { error: '分享链接无效或已撤销' });
+      return sendJSON(res, 200, { ok: true, tripId: principal.shareTripId }, { 'Set-Cookie': shareCookie(token, 7 * 24 * 60 * 60) });
+    } catch (error) { return sendJSON(res, 400, { error: error.message }); }
+  }
+  if (pathname === '/api/share/leave') {
+    if (req.method !== 'POST' || !sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+    return sendJSON(res, 200, { ok: true }, { 'Set-Cookie': shareCookie('', 0) });
+  }
+  const session = auth.resolve(cookieValue(req, COOKIE_NAME));
+  if (!session) return sendJSON(res, 401, { error: '请先登录' });
+  if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== session.csrf)) {
+    return sendJSON(res, 403, { error: '安全令牌无效' });
+  }
+  try {
+    if (pathname === '/api/invites/redeem' && req.method === 'POST') {
+      return sendJSON(res, 200, await sharing.redeem((await readJSON(req)).token, session.user.id));
+    }
+    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share)$/.exec(pathname);
+    if (!match) return sendJSON(res, 404, { error: 'Not Found' });
+    const [, tripId, action] = match;
+    const userId = session.user.id;
+    if (action === 'access' && req.method === 'GET') return sendJSON(res, 200, sharing.details(tripId, userId));
+    if (action === 'members' && req.method === 'POST') {
+      const body = await readJSON(req);
+      return sendJSON(res, 200, await sharing.setMember(tripId, userId, body.username, body.role));
+    }
+    if (action === 'members' && req.method === 'DELETE') {
+      return sendJSON(res, 200, await sharing.removeMember(tripId, userId, (await readJSON(req)).userId));
+    }
+    if (action === 'invites' && req.method === 'POST') {
+      return sendJSON(res, 200, await sharing.createInvite(tripId, userId, (await readJSON(req)).role));
+    }
+    if (action === 'invites' && req.method === 'DELETE') {
+      return sendJSON(res, 200, await sharing.revokeInvite(tripId, userId, (await readJSON(req)).id));
+    }
+    if (action === 'share' && req.method === 'POST') return sendJSON(res, 200, await sharing.createShare(tripId, userId));
+    if (action === 'share' && req.method === 'DELETE') {
+      await sharing.revokeShare(tripId, userId);
+      return sendJSON(res, 200, { ok: true });
+    }
+    return sendJSON(res, 405, { error: 'Method Not Allowed' });
+  } catch (error) {
+    return sendJSON(res, error instanceof AccessDeniedError ? 403 : 400, { error: error.message });
   }
 }
 
@@ -531,8 +602,7 @@ async function handlePhotoUpload(req, res, pathname, principal) {
   return null;
 }
 
-async function handleApi(req, res, pathname, session) {
-  const principal = { userId: session.user.id };
+async function handleApi(req, res, pathname, principal) {
   const photoResult = await handlePhotoUpload(req, res, pathname, principal);
   if (photoResult !== null) return photoResult;
 
@@ -670,14 +740,19 @@ const server = http.createServer((req, res) => {
 
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname);
   if (pathname.startsWith('/api/passkeys/')) return handlePasskeys(req, res, pathname);
+  if (pathname.startsWith('/api/share/') || pathname.startsWith('/api/invites/') || /^\/api\/trips\//.test(pathname)) {
+    return handleSharing(req, res, pathname);
+  }
   if (pathname.startsWith('/api/')) {
     const session = auth.resolve(cookieValue(req, COOKIE_NAME));
-    if (!session) return sendJSON(res, 401, { error: '请先登录' });
+    const principal = resolvePrincipal(req.headers.cookie || '');
+    if (!principal) return sendJSON(res, 401, { error: '请先登录' });
+    if (!session && !['GET', 'HEAD'].includes(req.method)) return sendJSON(res, 403, { error: '只读分享不能修改数据' });
     if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== session.csrf)) {
       return sendJSON(res, 403, { error: '安全令牌无效' });
     }
-    if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res, { userId: session.user.id }, cookieValue(req, COOKIE_NAME));
-    return handleApi(req, res, pathname, session);
+    if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res, principal);
+    return handleApi(req, res, pathname, principal);
   }
   return serveStatic(req, res, pathname);
 });
