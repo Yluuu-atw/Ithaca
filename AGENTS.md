@@ -17,19 +17,19 @@
 
 ## 服务端改动需要重启
 
-`server.js` 与 `data/schema.js` 是 `require` 进进程的，**只在启动时加载一次**。
+`server.js` 与 `data/*.js` 是 `require` 进进程的，**只在启动时加载一次**。
 改了它们必须重启 `npm start` 才生效；前端改动刷新浏览器即可，两者不同步。
 
 未重启的症状是「改动看起来没生效」甚至静默丢数据（旧 `normalize` 不认识新字段）。
 验证脚本各自起新进程，所以**测试全绿不代表用户那个进程是最新的**。
 凡改动涉及服务端，在交付时提醒用户重启。
 
-**还原 db.json 后也必须重启**：进程把数据读在内存里，只还原磁盘文件的话，
+**还原 db.json 或 auth.json 后也必须重启**：进程把数据读在内存里，只还原磁盘文件的话，
 `/api/data` 仍返回旧内存态，下一次写入还会把还原结果覆盖掉。
 
 ## 数据
 
-`data/db.json` 与 `data/uploads/` 是运行时私有数据，已被 gitignore。
+`data/db.json`、`data/auth.json` 与 `data/uploads/` 是运行时私有数据，已被 gitignore。
 
-完整备份必须**同时**包含 `db.json` 和 `uploads/`——`db.json` 按 URL 引用照片文件，
-只备份 JSON 会导致恢复后照片裂图。页面右上角的「导出」只导 JSON，不含照片。
+完整备份必须**同时**包含 `db.json`、`auth.json` 和 `uploads/`——`db.json` 按 URL 引用照片文件，
+`auth.json` 保存账号、密码摘要、通行密钥公钥和会话。页面右上角的「导出」只导当前可访问的 JSON，不含照片与账号。
