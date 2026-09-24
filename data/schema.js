@@ -244,6 +244,8 @@ function defaultDoc() {
     meta: { version: 1, updatedAt: new Date().toISOString(), welcomeTheme: DEFAULT_WELCOME_THEME },
     trips: [defaultTrip()],
     memos: [],
+    access: {},
+    assets: {},
     packingTemplates: PACKING_TEMPLATES.map(t => ({
       id: t.id, name: t.name, icon: t.icon,
       items: t.items.map(i => ({ name: i.name, category: i.category })),
@@ -345,6 +347,33 @@ function normalize(doc) {
 
   // 备忘录是文档级的，不属于任何一趟旅行；tripId 只是可选关联
   d.memos = Array.isArray(source.memos) ? source.memos.map(normalizeMemo) : [];
+
+  // Access and asset ownership are server-only. Browser document updates must never
+  // pass these fields through to persistence.
+  d.access = {};
+  for (const [tripId, entry] of Object.entries(source.access || {})) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const ownerId = typeof entry.ownerId === 'string' ? entry.ownerId : '';
+    if (!ownerId) continue;
+    const members = {};
+    for (const [userId, role] of Object.entries(entry.members || {})) {
+      if (role === 'editor' || role === 'viewer') members[userId] = role;
+    }
+    d.access[tripId] = {
+      ownerId,
+      members,
+      invites: Array.isArray(entry.invites) ? entry.invites : [],
+      share: entry.share && typeof entry.share === 'object' ? entry.share : null,
+    };
+  }
+  d.assets = {};
+  for (const [name, entry] of Object.entries(source.assets || {})) {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || !entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const tripId = typeof entry.tripId === 'string' ? entry.tripId : null;
+    const ownerId = typeof entry.ownerId === 'string' ? entry.ownerId : null;
+    if (!tripId && !ownerId) continue;
+    d.assets[name] = { tripId, ownerId, createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : '' };
+  }
 
   // 打包模板也是文档级的，跨旅行复用。老数据没有就补内置的，用户改过的一律保留。
   d.packingTemplates = Array.isArray(source.packingTemplates) && source.packingTemplates.length
