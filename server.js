@@ -19,13 +19,19 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { normalize, defaultDoc } = require('./data/schema');
+const { claimLegacy } = require('./data/access');
+const { createAuth } = require('./data/auth');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.ITHACA_DATA_DIR ? path.resolve(process.env.ITHACA_DATA_DIR) : path.join(__dirname, 'data');
 const DB_PATH = path.join(DATA_DIR, 'db.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+const AUTH_PATH = path.join(DATA_DIR, 'auth.json');
+const SETUP_TOKEN_PATH = process.env.ITHACA_SETUP_TOKEN_PATH || path.join(__dirname, '.local', 'setup-token');
+const ORIGIN = process.env.ITHACA_ORIGIN || `http://localhost:${PORT}`;
+const COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_sid' : 'ithaca_sid';
 
 // ---------------- 数据加载 & 原子持久化 ----------------
 
@@ -40,6 +46,7 @@ function loadDb() {
 }
 
 let db = loadDb();
+const auth = createAuth(AUTH_PATH, SETUP_TOKEN_PATH);
 
 // 写盘：临时文件 + rename，避免写一半损坏原文件
 function writeDb(data) {
@@ -186,9 +193,85 @@ function serveStatic(req, res, pathname) {
 
 // ---------------- REST API ----------------
 
-function sendJSON(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+function sendJSON(res, code, obj, extra = {}) {
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra });
   res.end(JSON.stringify(obj));
+}
+
+function cookieValue(req, name) {
+  const raw = req.headers.cookie || '';
+  const item = raw.split(';').map(part => part.trim()).find(part => part.startsWith(`${name}=`));
+  return item ? item.slice(name.length + 1) : '';
+}
+
+function sessionCookie(token, maxAge) {
+  const parts = [`${COOKIE_NAME}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+  if (COOKIE_NAME.startsWith('__Host-')) parts.push('Secure');
+  if (maxAge !== undefined) parts.push(`Max-Age=${maxAge}`);
+  return parts.join('; ');
+}
+
+function sameOrigin(req) {
+  const expected = process.env.ITHACA_ORIGIN || `http://${req.headers.host}`;
+  return req.headers.origin === expected;
+}
+
+const attempts = new Map();
+function limited(req, action, max, interval) {
+  const key = `${req.socket.remoteAddress}:${action}`;
+  const now = Date.now();
+  const recent = (attempts.get(key) || []).filter(time => now - time < interval);
+  recent.push(now);
+  attempts.set(key, recent);
+  return recent.length > max;
+}
+
+async function handleAuth(req, res, pathname) {
+  if (pathname === '/api/auth/me' && req.method === 'GET') {
+    const session = auth.resolve(cookieValue(req, COOKIE_NAME));
+    return session ? sendJSON(res, 200, session) : sendJSON(res, 401, { error: '请先登录' });
+  }
+  if (!['/api/auth/register', '/api/auth/login', '/api/auth/logout', '/api/auth/setup'].includes(pathname)) return false;
+  if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+  if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+  if (limited(req, pathname, pathname === '/api/auth/login' ? 20 : 8, 15 * 60 * 1000)) {
+    return sendJSON(res, 429, { error: '尝试次数过多，请稍后再试' });
+  }
+  try {
+    if (pathname === '/api/auth/logout') {
+      const token = cookieValue(req, COOKIE_NAME);
+      const session = auth.resolve(token);
+      if (session && req.headers['x-csrf-token'] !== session.csrf) return sendJSON(res, 403, { error: '安全令牌无效' });
+      await auth.logout(token);
+      return sendJSON(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie('', 0) });
+    }
+    const body = await readJSON(req);
+    let user;
+    if (pathname === '/api/auth/register') user = await auth.register(body.username, body.password);
+    if (pathname === '/api/auth/login') user = await auth.login(body.username, body.password);
+    if (pathname === '/api/auth/setup') {
+      if (!db.trips.some(trip => !db.access[trip.id])) return sendJSON(res, 409, { error: '初始设置已完成' });
+      user = await auth.setup(body.username, body.password, body.token);
+      await auth.store.mutate(state => {
+        const record = state.users.find(item => item.id === user.id);
+        record.private = {
+          welcomeTheme: db.meta.welcomeTheme,
+          memos: db.memos,
+          packingTemplates: db.packingTemplates,
+        };
+      });
+      await commit(current => {
+        const next = claimLegacy(current, user.id);
+        next.meta.version = current.meta.version + 1;
+        return next;
+      });
+      await auth.finishSetup(user.id);
+    }
+    const session = await auth.createSession(user.id);
+    return sendJSON(res, 200, { user, csrf: session.csrf }, { 'Set-Cookie': sessionCookie(session.token) });
+  } catch (error) {
+    return sendJSON(res, 400, { error: error.message });
+  }
 }
 
 /**
@@ -423,12 +506,25 @@ const server = http.createServer((req, res) => {
     res.writeHead(400); res.end('Bad Request'); return;
   }
 
-  if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res);
-  if (pathname.startsWith('/api/')) return handleApi(req, res, pathname);
+  if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname);
+  if (pathname.startsWith('/api/')) {
+    const session = auth.resolve(cookieValue(req, COOKIE_NAME));
+    if (!session) return sendJSON(res, 401, { error: '请先登录' });
+    if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== session.csrf)) {
+      return sendJSON(res, 403, { error: '安全令牌无效' });
+    }
+    if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res);
+    return handleApi(req, res, pathname);
+  }
   return serveStatic(req, res, pathname);
 });
 
-server.listen(PORT, HOST, () => {
+async function start() {
+  if (db.trips.some(trip => !db.access[trip.id])) {
+    await auth.prepareSetup();
+    console.log(`[auth] 初始设置链接令牌已写入 ${SETUP_TOKEN_PATH}`);
+  }
+  server.listen(PORT, HOST, () => {
   const addrs = [];
   for (const ifaces of Object.values(os.networkInterfaces())) {
     for (const iface of ifaces || []) {
@@ -441,4 +537,10 @@ server.listen(PORT, HOST, () => {
   console.log(`  本机访问:    http://localhost:${PORT}`);
   for (const a of addrs) console.log(`  局域网访问:  http://${a}:${PORT}   ← 发给 TA`);
   console.log(`  数据文件:    ${DB_PATH}`);
+  });
+}
+
+start().catch(error => {
+  console.error('[startup]', error);
+  process.exitCode = 1;
 });
