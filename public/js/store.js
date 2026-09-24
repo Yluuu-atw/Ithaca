@@ -56,6 +56,7 @@ window.Store = (() => {
   const listeners = new Set();
   let statusHandler = null;
   let es = null;
+  let csrf = '';
   let whoami = null; // 本设备的成员索引（0=男方, 1=女方），存 localStorage
   try { const w = localStorage.getItem('journey.whoami'); if (w != null) whoami = Number(w); } catch (_) {}
 
@@ -67,6 +68,8 @@ window.Store = (() => {
   const notify = () => { for (const fn of listeners) fn(getState()); };
 
   function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+  function setCsrf(token) { csrf = token || ''; }
+  function getCsrf() { return csrf; }
 
   function uid(prefix) {
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -113,7 +116,7 @@ window.Store = (() => {
 
       const res = await fetch('/api/data', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
         body: JSON.stringify({ baseVersion: base, data: next }),
       });
 
@@ -217,7 +220,7 @@ window.Store = (() => {
       next.meta.updatedAt = new Date().toISOString();
       const res = await fetch('/api/data', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
         body: JSON.stringify({ baseVersion: base, data: next }),
       });
       if (res.status === 409) {
@@ -275,10 +278,11 @@ window.Store = (() => {
   }
 
   // 上传照片，返回服务端生成的 URL
-  async function uploadPhoto(blob) {
-    const res = await fetch('/api/photos', {
+  async function uploadPhoto(blob, scope) {
+    const target = scope === 'memo' ? '?scope=memo' : `?tripId=${encodeURIComponent(currentTripId() || '')}`;
+    const res = await fetch('/api/photos' + target, {
       method: 'POST',
-      headers: { 'Content-Type': blob.type || 'image/jpeg' },
+      headers: { 'Content-Type': blob.type || 'image/jpeg', 'X-CSRF-Token': csrf },
       body: blob,
     });
     if (!res.ok) {
@@ -289,9 +293,17 @@ window.Store = (() => {
     return data.url;
   }
 
+  function previewLink(url) {
+    return fetch('/api/link-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      body: JSON.stringify({ url, tripId: currentTripId() }),
+    });
+  }
+
   return {
-    CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, setIdentity, uploadPhoto,
+    CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
+    getState, getWelcomeTheme, listMemos, getIdentity, setIdentity, uploadPhoto, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getBoardOpen, setBoardOpen,
   };

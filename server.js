@@ -18,8 +18,9 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { normalize, defaultDoc } = require('./data/schema');
-const { claimLegacy } = require('./data/access');
+const crypto = require('crypto');
+const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
+const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
 const { createAuth } = require('./data/auth');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 
@@ -126,7 +127,7 @@ function broadcast() {
 function handleSSE(req, res, principal, token) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-store',
     'Connection': 'keep-alive',
   });
   res.write('retry: 3000\n\n');
@@ -162,6 +163,15 @@ const MIME = {
 function serveStatic(req, res, pathname) {
   const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
   const isUpload = rel.startsWith('uploads/');
+  if (isUpload) {
+    const name = rel.slice('uploads/'.length);
+    const session = auth.resolve(cookieValue(req, COOKIE_NAME));
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || !session || !canReadAsset(db, { userId: session.user.id }, name)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end('Not Found');
+      return;
+    }
+  }
   const base = isUpload ? UPLOAD_DIR : PUBLIC_DIR;
   const inner = isUpload ? rel.slice('uploads/'.length) : rel;
   const filePath = path.resolve(base, inner);
@@ -184,7 +194,7 @@ function serveStatic(req, res, pathname) {
     const immutable = rel.startsWith('vendor/');
     const headers = {
       'Content-Type': MIME[ext] || 'application/octet-stream',
-      'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+      'Cache-Control': isUpload ? 'private, no-store' : immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
       'ETag': etag,
       'Last-Modified': lastModified,
     };
@@ -321,7 +331,35 @@ function extFromType(contentType) {
 }
 
 function photoUid() {
-  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function remapUploads(value, replacements) {
+  if (typeof value === 'string') return replacements.get(value) || value;
+  if (Array.isArray(value)) return value.map(item => remapUploads(item, replacements));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, remapUploads(item, replacements)]));
+  }
+  return value;
+}
+
+async function copyReferencedUploads(value, principal) {
+  const replacements = new Map();
+  const copies = [];
+  try {
+    for (const name of uploadNames(value)) {
+      if (!canReadAsset(db, principal, name)) throw new AccessDeniedError('导入文件包含无法访问的照片');
+      const oldPath = path.join(UPLOAD_DIR, name);
+      const newName = photoUid() + path.extname(name);
+      await fs.promises.copyFile(oldPath, path.join(UPLOAD_DIR, newName));
+      replacements.set(`/uploads/${name}`, `/uploads/${newName}`);
+      copies.push({ oldName: name, newName });
+    }
+  } catch (error) {
+    await Promise.all(copies.map(copy => fs.promises.rm(path.join(UPLOAD_DIR, copy.newName), { force: true })));
+    throw error;
+  }
+  return { value: remapUploads(value, replacements), copies };
 }
 
 // 抓笔记页的 og:image / og:title。浏览器跨域取不到，只能服务端代抓。
@@ -416,18 +454,39 @@ function pickCover(html) {
   return url.startsWith('//') ? 'https:' + url : url;
 }
 
-async function handlePhotoUpload(req, res, pathname) {
+async function handlePhotoUpload(req, res, pathname, principal) {
   if (pathname === '/api/photos' && req.method === 'POST') {
+    const params = new URL(req.url, 'http://localhost').searchParams;
+    const tripId = params.get('tripId');
+    const privateMemo = params.get('scope') === 'memo' && !tripId;
+    if (!privateMemo && (!tripId || !canEdit(db, principal, tripId))) {
+      return sendJSON(res, 403, { error: '没有上传权限' });
+    }
     try {
       const buf = await readBody(req, 20 * 1024 * 1024);
       const ct = (req.headers['content-type'] || '').split(';')[0].trim();
+      if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'].includes(ct)) {
+        return sendJSON(res, 400, { error: '不支持的图片类型' });
+      }
       const ext = extFromType(ct);
       const name = photoUid() + ext;
       if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
       await fs.promises.writeFile(path.join(UPLOAD_DIR, name), buf);
+      try {
+        await commit(current => {
+          if (tripId && !canEdit(current, principal, tripId)) throw new AccessDeniedError();
+          const next = structuredClone(current);
+          next.assets[name] = { tripId: tripId || null, ownerId: privateMemo ? principal.userId : null, createdAt: new Date().toISOString() };
+          next.meta.version = current.meta.version + 1;
+          return next;
+        });
+      } catch (error) {
+        await fs.promises.rm(path.join(UPLOAD_DIR, name), { force: true });
+        throw error;
+      }
       return sendJSON(res, 200, { url: '/uploads/' + name });
     } catch (err) {
-      return sendJSON(res, 400, { error: err.message });
+      return sendJSON(res, err instanceof AccessDeniedError ? 403 : 400, { error: err.message });
     }
   }
   return null;
@@ -435,17 +494,33 @@ async function handlePhotoUpload(req, res, pathname) {
 
 async function handleApi(req, res, pathname, session) {
   const principal = { userId: session.user.id };
-  const photoResult = await handlePhotoUpload(req, res, pathname);
+  const photoResult = await handlePhotoUpload(req, res, pathname, principal);
   if (photoResult !== null) return photoResult;
 
-  if (pathname === '/api/link-preview' && req.method === 'GET') {
-    const target = new URL(req.url, 'http://localhost').searchParams.get('url');
+  if (pathname === '/api/link-preview' && req.method === 'POST') {
+    const { tripId, url: target } = await readJSON(req);
+    if (!tripId || !canEdit(db, principal, tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
     if (!target) return sendJSON(res, 400, { error: '缺少 url' });
     const html = await fetchOG(target);
     if (!html) return sendJSON(res, 200, { cover: '', title: '' });
     const remote = pickCover(html);
     // 落到本地，CDN 链接过期后才不会裂图；下载失败退回原链接
-    const local = remote ? await downloadImage(remote) : '';
+    let local = remote ? await downloadImage(remote) : '';
+    if (local) {
+      const name = local.slice('/uploads/'.length);
+      try {
+        await commit(current => {
+          if (!canEdit(current, principal, tripId)) throw new AccessDeniedError();
+          const next = structuredClone(current);
+          next.assets[name] = { tripId, ownerId: null, createdAt: new Date().toISOString() };
+          next.meta.version = current.meta.version + 1;
+          return next;
+        });
+      } catch (_) {
+        await fs.promises.rm(path.join(UPLOAD_DIR, name), { force: true });
+        local = '';
+      }
+    }
     return sendJSON(res, 200, { cover: local || remote, title: ogContent(html, 'og:title') });
   }
 
@@ -483,7 +558,62 @@ async function handleApi(req, res, pathname, session) {
   }
 
   if (pathname === '/api/import' && req.method === 'POST') {
-    return sendJSON(res, 501, { error: '安全导入功能正在更新' });
+    const copied = [];
+    try {
+      const incoming = await readJSON(req);
+      if (!incoming || !Array.isArray(incoming.trips) || !incoming.trips.length) throw new Error('导入文件没有旅行');
+      const tripIds = new Map();
+      const trips = [];
+      for (const source of incoming.trips) {
+        const trip = normalizeTrip(source);
+        const nextId = uid('trip');
+        tripIds.set(trip.id, nextId);
+        const result = await copyReferencedUploads(trip, principal);
+        copied.push(...result.copies.map(copy => ({ ...copy, tripId: nextId })));
+        result.value.id = nextId;
+        trips.push(result.value);
+      }
+      const memoResult = await copyReferencedUploads(Array.isArray(incoming.memos) ? incoming.memos : [], principal);
+      copied.push(...memoResult.copies.map(copy => ({ ...copy, ownerId: principal.userId })));
+      const memos = memoResult.value.map(source => {
+        const memo = normalizeMemo(source);
+        memo.id = uid('memo');
+        memo.tripId = tripIds.get(memo.tripId) || '';
+        return memo;
+      });
+      const templates = (Array.isArray(incoming.packingTemplates) ? incoming.packingTemplates : [])
+        .map(normalizeTemplate).filter(Boolean).map(template => ({ ...template, id: uid('tpl') }));
+
+      const saved = await commit(current => {
+        for (const copy of copied) {
+          if (!canReadAsset(current, principal, copy.oldName)) throw new AccessDeniedError('导入照片的访问权限已改变');
+        }
+        const next = structuredClone(current);
+        for (const trip of trips) {
+          next.trips.push(trip);
+          next.access[trip.id] = { ownerId: principal.userId, members: {}, invites: [], share: null };
+        }
+        for (const copy of copied) {
+          next.assets[copy.newName] = {
+            tripId: copy.tripId || null,
+            ownerId: copy.ownerId || null,
+            createdAt: new Date().toISOString(),
+          };
+        }
+        const profile = next.profiles[principal.userId] || {
+          welcomeTheme: '#f2ece0', memos: [], packingTemplates: defaultDoc().packingTemplates,
+        };
+        profile.memos.push(...memos);
+        profile.packingTemplates.push(...templates);
+        next.profiles[principal.userId] = profile;
+        next.meta.version = current.meta.version + 1;
+        return next;
+      });
+      return sendJSON(res, 200, { data: project(saved, principal), version: saved.meta.version, importedTripIds: trips.map(trip => trip.id) });
+    } catch (error) {
+      await Promise.all(copied.map(copy => fs.promises.rm(path.join(UPLOAD_DIR, copy.newName), { force: true })));
+      return sendJSON(res, error instanceof AccessDeniedError ? 403 : 400, { error: error.message });
+    }
   }
 
   return sendJSON(res, 404, { error: 'Not Found' });

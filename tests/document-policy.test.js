@@ -64,3 +64,12 @@ test('new trips are assigned to the author, without accepting client ACL fields'
   assert.equal(next.access[fresh.id].ownerId, 'alice');
   assert.equal('access' in next.trips.find(trip => trip.id === fresh.id), false);
 });
+
+test('an editor cannot attach a photo owned by another trip', () => {
+  const db = fixture();
+  const principal = { userId: 'alice' };
+  db.assets['private.jpg'] = { tripId: db.trips[1].id, ownerId: null, createdAt: '' };
+  const view = project(db, principal);
+  view.trips[0].photos.push({ url: '/uploads/private.jpg' });
+  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+});

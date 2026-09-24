@@ -1,7 +1,7 @@
 'use strict';
 
 const { defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate } = require('./schema');
-const { roleFor, publicTripRoles } = require('./access');
+const { roleFor, canReadAsset, uploadNames, publicTripRoles } = require('./access');
 
 class AccessDeniedError extends Error {
   constructor(message = '没有访问权限') {
@@ -35,6 +35,14 @@ function cleanTrip(input) {
   return normalizeTrip(trip);
 }
 
+function checkTripAssets(db, trip) {
+  for (const name of uploadNames(trip)) {
+    if (!db.assets[name] || db.assets[name].tripId !== trip.id) {
+      throw new AccessDeniedError('旅行包含无权使用的附件');
+    }
+  }
+}
+
 function updateDocument(db, principal, submitted) {
   if (!principal || !principal.userId) throw new AccessDeniedError();
   if (!submitted || !Array.isArray(submitted.trips) || !submitted.meta) throw new Error('文档格式无效');
@@ -64,12 +72,16 @@ function updateDocument(db, principal, submitted) {
       merged.push(trip);
       continue;
     }
-    merged.push(cleanTrip(changed));
+    const cleaned = cleanTrip(changed);
+    checkTripAssets(db, cleaned);
+    merged.push(cleaned);
   }
 
   for (const [id, trip] of incoming) {
     if (existing.has(id)) throw new AccessDeniedError('不能访问这趟旅行');
-    merged.push(cleanTrip(trip));
+    const cleaned = cleanTrip(trip);
+    checkTripAssets(db, cleaned);
+    merged.push(cleaned);
     next.access[id] = { ownerId: userId, members: {}, invites: [], share: null };
   }
   next.trips = merged;
@@ -82,6 +94,9 @@ function updateDocument(db, principal, submitted) {
     packingTemplates: Array.isArray(submitted.packingTemplates)
       ? submitted.packingTemplates.map(normalizeTemplate).filter(Boolean) : oldProfile.packingTemplates,
   };
+  for (const name of uploadNames(next.profiles[userId].memos)) {
+    if (!canReadAsset(db, principal, name)) throw new AccessDeniedError('备忘录包含无权使用的附件');
+  }
   return next;
 }
 

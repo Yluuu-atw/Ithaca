@@ -27,6 +27,13 @@ function canManage(db, principal, tripId) {
   return roleFor(db, principal, tripId) === 'owner';
 }
 
+function canReadAsset(db, principal, name) {
+  const asset = db.assets && db.assets[name];
+  if (!asset) return false;
+  if (asset.ownerId && principal && asset.ownerId === principal.userId) return true;
+  return !!(asset.tripId && canRead(db, principal, asset.tripId));
+}
+
 function uploadNames(value, result = new Set()) {
   if (typeof value === 'string') {
     const match = UPLOAD_NAME.exec(value);
@@ -73,4 +80,4 @@ function publicTripRoles(db, principal) {
   return roles;
 }
 
-module.exports = { roleFor, canRead, canEdit, canManage, uploadNames, claimLegacy, publicTripRoles };
+module.exports = { roleFor, canRead, canEdit, canManage, canReadAsset, uploadNames, claimLegacy, publicTripRoles };

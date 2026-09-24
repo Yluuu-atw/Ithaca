@@ -1037,7 +1037,7 @@ window.App = (() => {
         if (files.length) toast('照片上传中…', 'info');
         const uploaded = [];
         for (const f of files) {
-          try { uploaded.push(await Store.uploadPhoto(f)); }
+          try { uploaded.push(await Store.uploadPhoto(f, 'memo')); }
           catch (_) { toast('有照片上传失败，其余已保存', 'error'); }
         }
         const photos = carried.concat(uploaded);
@@ -1387,7 +1387,7 @@ window.App = (() => {
       const url = Render.extractUrl(fields.link || '');
       if (!url || !/^https?:\/\//i.test(url)) return;
       try {
-        const r = await fetch('/api/link-preview?url=' + encodeURIComponent(url));
+        const r = await Store.previewLink(url);
         if (!r.ok) return;
         const og = await r.json();
         if (!og || (!og.cover && !og.title)) return;
@@ -1442,7 +1442,7 @@ window.App = (() => {
       const url = Render.extractUrl(g.link);
       if (!/^https?:\/\//i.test(url)) continue;
       try {
-        const r = await fetch('/api/link-preview?url=' + encodeURIComponent(url));
+        const r = await Store.previewLink(url);
         if (!r.ok) continue;
         const og = await r.json();
         if (!og || !og.cover) continue;
@@ -1664,7 +1664,7 @@ window.App = (() => {
         const data = JSON.parse(reader.result);
         const res = await fetch('/api/import', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': Store.getCsrf() },
           body: JSON.stringify(data),
         });
         if (!res.ok) throw new Error('服务端拒绝导入');

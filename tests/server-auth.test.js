@@ -64,6 +64,42 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
       body: JSON.stringify({ baseVersion: visitorData.meta.version, data: ownerData }),
     });
     assert.equal(injected.status, 403);
+    const image = Buffer.from('89504e470d0a1a0a', 'hex');
+    const upload = await fetch(`${origin}/api/photos?tripId=${ownerData.trips[0].id}`, {
+      method: 'POST',
+      headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'image/png' },
+      body: image,
+    });
+    assert.equal(upload.status, 200);
+    const photoUrl = (await upload.json()).url;
+    assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: cookie } })).status, 200);
+    assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: visitorCookie } })).status, 404);
+    const latest = await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json();
+    latest.trips[0].photos.push({ id: 'photo_1', url: photoUrl });
+    const savedPhoto = await fetch(`${origin}/api/data`, {
+      method: 'PUT',
+      headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseVersion: latest.meta.version, data: latest }),
+    });
+    assert.equal(savedPhoto.status, 200);
+    const exportData = (await savedPhoto.json()).data;
+    assert.equal((await fetch(`${origin}/api/link-preview`, {
+      method: 'POST',
+      headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com' }),
+    })).status, 403);
+    const importResponse = await fetch(`${origin}/api/import`, {
+      method: 'POST',
+      headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify(exportData),
+    });
+    assert.equal(importResponse.status, 200);
+    const afterImport = (await importResponse.json()).data;
+    assert.equal(afterImport.trips.length, 2);
+    const copiedPhotoUrl = afterImport.trips[1].photos[0].url;
+    assert.notEqual(copiedPhotoUrl, photoUrl);
+    assert.equal((await fetch(`${origin}${copiedPhotoUrl}`, { headers: { Cookie: cookie } })).status, 200);
+    assert.equal((await (await fetch(`${origin}/api/data`, { headers: { Cookie: visitorCookie } })).json()).trips.length, 0);
     assert.equal((await fetch(`${origin}/api/auth/logout`, { method: 'POST', headers: { Cookie: cookie, Origin: origin } })).status, 403);
     assert.equal((await fetch(`${origin}/api/auth/logout`, { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf } })).status, 200);
     assert.equal((await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).status, 401);
