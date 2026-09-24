@@ -22,6 +22,7 @@ const crypto = require('crypto');
 const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
 const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
 const { createAuth } = require('./data/auth');
+const { createPasskeys } = require('./data/passkeys');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -49,6 +50,7 @@ function loadDb() {
 
 let db = loadDb();
 const auth = createAuth(AUTH_PATH, SETUP_TOKEN_PATH);
+const passkeys = createPasskeys(auth, ORIGIN);
 
 // 写盘：临时文件 + rename，避免写一半损坏原文件
 function writeDb(data) {
@@ -281,6 +283,43 @@ async function handleAuth(req, res, pathname) {
     }
     const session = await auth.createSession(user.id);
     return sendJSON(res, 200, { user, csrf: session.csrf }, { 'Set-Cookie': sessionCookie(session.token) });
+  } catch (error) {
+    return sendJSON(res, 400, { error: error.message });
+  }
+}
+
+async function handlePasskeys(req, res, pathname) {
+  if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+  if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+  const session = auth.resolve(cookieValue(req, COOKIE_NAME));
+  const isLogin = pathname.startsWith('/api/passkeys/login/');
+  if (!isLogin && (!session || req.headers['x-csrf-token'] !== session.csrf)) {
+    return sendJSON(res, 403, { error: '请先登录' });
+  }
+  if (limited(req, pathname, isLogin ? 20 : 12, 15 * 60 * 1000)) {
+    return sendJSON(res, 429, { error: '尝试次数过多，请稍后再试' });
+  }
+  try {
+    const body = await readJSON(req);
+    if (pathname === '/api/passkeys/register/options') {
+      return sendJSON(res, 200, await passkeys.registrationOptions(session.user.id));
+    }
+    if (pathname === '/api/passkeys/register/verify') {
+      return sendJSON(res, 200, { user: await passkeys.register(session.user.id, body.flowId, body.response, body.label) });
+    }
+    if (pathname === '/api/passkeys/remove') {
+      await passkeys.remove(session.user.id, body.id);
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === '/api/passkeys/login/options') {
+      return sendJSON(res, 200, await passkeys.authenticationOptions(body.username));
+    }
+    if (pathname === '/api/passkeys/login/verify') {
+      const user = await passkeys.authenticate(body.username, body.flowId, body.response);
+      const next = await auth.createSession(user.id);
+      return sendJSON(res, 200, { user, csrf: next.csrf }, { 'Set-Cookie': sessionCookie(next.token) });
+    }
+    return sendJSON(res, 404, { error: 'Not Found' });
   } catch (error) {
     return sendJSON(res, 400, { error: error.message });
   }
@@ -630,6 +669,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname);
+  if (pathname.startsWith('/api/passkeys/')) return handlePasskeys(req, res, pathname);
   if (pathname.startsWith('/api/')) {
     const session = auth.resolve(cookieValue(req, COOKIE_NAME));
     if (!session) return sendJSON(res, 401, { error: '请先登录' });
