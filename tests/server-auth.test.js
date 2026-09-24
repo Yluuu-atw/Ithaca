@@ -46,7 +46,24 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     const { csrf } = await setup.json();
     const data = await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } });
     assert.equal(data.status, 200);
-    assert.equal((await data.json()).trips.length, 1);
+    const ownerData = await data.json();
+    assert.equal(ownerData.trips.length, 1);
+    const register = await fetch(`${origin}/api/auth/register`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify({ username: 'visitor', password: 'a secure visitor password' }),
+    });
+    assert.equal(register.status, 200);
+    const visitorCookie = register.headers.get('set-cookie').split(';')[0];
+    const visitorCsrf = (await register.json()).csrf;
+    const visitorData = await (await fetch(`${origin}/api/data`, { headers: { Cookie: visitorCookie } })).json();
+    assert.equal(visitorData.trips.length, 0);
+    assert.equal(JSON.parse(await (await fetch(`${origin}/api/export`, { headers: { Cookie: visitorCookie } })).text()).trips.length, 0);
+    const injected = await fetch(`${origin}/api/data`, {
+      method: 'PUT',
+      headers: { Cookie: visitorCookie, Origin: origin, 'Content-Type': 'application/json', 'X-CSRF-Token': visitorCsrf },
+      body: JSON.stringify({ baseVersion: visitorData.meta.version, data: ownerData }),
+    });
+    assert.equal(injected.status, 403);
     assert.equal((await fetch(`${origin}/api/auth/logout`, { method: 'POST', headers: { Cookie: cookie, Origin: origin } })).status, 403);
     assert.equal((await fetch(`${origin}/api/auth/logout`, { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf } })).status, 200);
     assert.equal((await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).status, 401);

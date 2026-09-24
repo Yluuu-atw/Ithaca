@@ -246,6 +246,7 @@ function defaultDoc() {
     memos: [],
     access: {},
     assets: {},
+    profiles: {},
     packingTemplates: PACKING_TEMPLATES.map(t => ({
       id: t.id, name: t.name, icon: t.icon,
       items: t.items.map(i => ({ name: i.name, category: i.category })),
@@ -374,6 +375,16 @@ function normalize(doc) {
     if (!tripId && !ownerId) continue;
     d.assets[name] = { tripId, ownerId, createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : '' };
   }
+  d.profiles = {};
+  for (const [userId, entry] of Object.entries(source.profiles || {})) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    d.profiles[userId] = {
+      welcomeTheme: typeof entry.welcomeTheme === 'string' ? entry.welcomeTheme : DEFAULT_WELCOME_THEME,
+      memos: Array.isArray(entry.memos) ? entry.memos.map(normalizeMemo) : [],
+      packingTemplates: Array.isArray(entry.packingTemplates)
+        ? entry.packingTemplates.map(normalizeTemplate).filter(Boolean) : [],
+    };
+  }
 
   // 打包模板也是文档级的，跨旅行复用。老数据没有就补内置的，用户改过的一律保留。
   d.packingTemplates = Array.isArray(source.packingTemplates) && source.packingTemplates.length
@@ -408,5 +419,7 @@ module.exports = {
   defaultTrip,
   normalize,
   normalizeTrip,
+  normalizeMemo,
+  normalizeTemplate,
   TRIP_LISTS,
 };

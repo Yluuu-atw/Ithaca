@@ -42,6 +42,13 @@ function uploadNames(value, result = new Set()) {
 function claimLegacy(raw, ownerId) {
   const db = normalize(raw);
   if (!ownerId) throw new Error('Owner ID required');
+  if (!db.profiles[ownerId]) {
+    db.profiles[ownerId] = {
+      welcomeTheme: db.meta.welcomeTheme,
+      memos: db.memos,
+      packingTemplates: db.packingTemplates,
+    };
+  }
   for (const trip of db.trips) {
     if (db.access[trip.id]) continue;
     db.access[trip.id] = { ownerId, members: {}, invites: [], share: null };

@@ -21,6 +21,7 @@ const os = require('os');
 const { normalize, defaultDoc } = require('./data/schema');
 const { claimLegacy } = require('./data/access');
 const { createAuth } = require('./data/auth');
+const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -108,23 +109,32 @@ function commit(mutateFn, baseVersion) {
 
 const sseClients = new Set();
 
-function broadcast(payload) {
-  const data = `data: ${JSON.stringify(payload)}\n\n`;
-  for (const res of sseClients) {
-    try { res.write(data); } catch (_) { sseClients.delete(res); }
+function broadcast() {
+  for (const client of sseClients) {
+    try {
+      if (!auth.resolve(client.token)) {
+        client.res.end();
+        sseClients.delete(client);
+        continue;
+      }
+      const data = project(db, client.principal);
+      client.res.write(`data: ${JSON.stringify({ type: 'data', data, version: db.meta.version })}\n\n`);
+    } catch (_) { sseClients.delete(client); }
   }
 }
 
-function handleSSE(req, res) {
+function handleSSE(req, res, principal, token) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
   });
   res.write('retry: 3000\n\n');
-  res.write(`data: ${JSON.stringify({ type: 'data', data: db, version: db.meta.version })}\n\n`);
-  sseClients.add(res);
-  req.on('close', () => sseClients.delete(res));
+  const data = project(db, principal);
+  res.write(`data: ${JSON.stringify({ type: 'data', data, version: db.meta.version })}\n\n`);
+  const client = { res, principal, token };
+  sseClients.add(client);
+  req.on('close', () => sseClients.delete(client));
 }
 
 // ---------------- 静态文件服务 ----------------
@@ -252,14 +262,6 @@ async function handleAuth(req, res, pathname) {
     if (pathname === '/api/auth/setup') {
       if (!db.trips.some(trip => !db.access[trip.id])) return sendJSON(res, 409, { error: '初始设置已完成' });
       user = await auth.setup(body.username, body.password, body.token);
-      await auth.store.mutate(state => {
-        const record = state.users.find(item => item.id === user.id);
-        record.private = {
-          welcomeTheme: db.meta.welcomeTheme,
-          memos: db.memos,
-          packingTemplates: db.packingTemplates,
-        };
-      });
       await commit(current => {
         const next = claimLegacy(current, user.id);
         next.meta.version = current.meta.version + 1;
@@ -431,7 +433,8 @@ async function handlePhotoUpload(req, res, pathname) {
   return null;
 }
 
-async function handleApi(req, res, pathname) {
+async function handleApi(req, res, pathname, session) {
+  const principal = { userId: session.user.id };
   const photoResult = await handlePhotoUpload(req, res, pathname);
   if (photoResult !== null) return photoResult;
 
@@ -447,7 +450,7 @@ async function handleApi(req, res, pathname) {
   }
 
   if (pathname === '/api/data' && req.method === 'GET') {
-    return sendJSON(res, 200, db);
+    return sendJSON(res, 200, project(db, principal));
   }
 
   if (pathname === '/api/data' && req.method === 'PUT') {
@@ -456,15 +459,16 @@ async function handleApi(req, res, pathname) {
       const baseVersion = Number(payload.baseVersion) || 0;
       // 乐观并发控制：校验版本、更新内存、落盘作为一个原子步骤串行执行
       const saved = await commit((cur) => {
-        const next = normalize(payload.data);
+        const next = updateDocument(cur, principal, payload.data);
         next.meta.version = cur.meta.version + 1;
         return next;
       }, baseVersion);
-      return sendJSON(res, 200, { data: saved, version: saved.meta.version });
+      return sendJSON(res, 200, { data: project(saved, principal), version: saved.meta.version });
     } catch (err) {
       if (err instanceof VersionConflictError) {
         return sendJSON(res, 409, { error: '版本冲突', version: err.latestVersion });
       }
+      if (err instanceof AccessDeniedError) return sendJSON(res, 403, { error: err.message });
       return sendJSON(res, 400, { error: err.message });
     }
   }
@@ -475,22 +479,11 @@ async function handleApi(req, res, pathname) {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Disposition': `attachment; filename="journey-${stamp}.json"`,
     });
-    return res.end(JSON.stringify(db, null, 2));
+    return res.end(JSON.stringify(project(db, principal), null, 2));
   }
 
   if (pathname === '/api/import' && req.method === 'POST') {
-    try {
-      const incoming = await readJSON(req);
-      // 导入是用户显式选择的整份覆盖，不做版本校验（不传 baseVersion）
-      const saved = await commit((cur) => {
-        const next = normalize(incoming);
-        next.meta.version = cur.meta.version + 1;
-        return next;
-      });
-      return sendJSON(res, 200, { data: saved, version: saved.meta.version });
-    } catch (err) {
-      return sendJSON(res, 400, { error: err.message });
-    }
+    return sendJSON(res, 501, { error: '安全导入功能正在更新' });
   }
 
   return sendJSON(res, 404, { error: 'Not Found' });
@@ -513,8 +506,8 @@ const server = http.createServer((req, res) => {
     if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== session.csrf)) {
       return sendJSON(res, 403, { error: '安全令牌无效' });
     }
-    if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res);
-    return handleApi(req, res, pathname);
+    if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res, { userId: session.user.id }, cookieValue(req, COOKIE_NAME));
+    return handleApi(req, res, pathname, session);
   }
   return serveStatic(req, res, pathname);
 });
