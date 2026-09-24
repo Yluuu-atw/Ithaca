@@ -1,7 +1,7 @@
 {
-  "name": "journey",
+  "name": "ithaca",
   "version": "1.0.0",
-  "description": "情侣旅行规划 + 记账 · 数据与呈现分离的跨端响应式网站",
+  "description": "九州 ITHACA · 情侣旅行规划与记账",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

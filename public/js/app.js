@@ -10,56 +10,10 @@ window.App = (() => {
   const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
 
-  // 页面配色：只存一个底色，其余全部由它派生，选什么底色全站都协调
-  const DEFAULT_BG = '#f2ece0';
-  function hexRgb(hex) {
-    const h = String(hex || '').replace('#', '');
-    const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
-    const n = parseInt(f, 16);
-    return Number.isFinite(n) && f.length === 6 ? [(n >> 16) & 255, (n >> 8) & 255, n & 255] : null;
-  }
-  const clamp255 = (v) => Math.max(0, Math.min(255, Math.round(v)));
-  const rgbHex = (r) => '#' + r.map(v => clamp255(v).toString(16).padStart(2, '0')).join('');
-  function rgbToHsl([r, g, b]) {
-    r /= 255; g /= 255; b /= 255;
-    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-    let h = 0;
-    if (d) {
-      if (mx === r) h = ((g - b) / d) % 6;
-      else if (mx === g) h = (b - r) / d + 2;
-      else h = (r - g) / d + 4;
-      h *= 60; if (h < 0) h += 360;
-    }
-    const l = (mx + mn) / 2;
-    const s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
-    return [h, s, l];
-  }
-  function hslToRgb([h, s, l]) {
-    const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
-    const seg = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
-      : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
-    return seg.map(v => (v + m) * 255);
-  }
-  const hslHex = (h, s, l) => rgbHex(hslToRgb([h, Math.max(0, Math.min(1, s)), Math.max(0, Math.min(1, l))]));
-
   function applyTheme(base) {
-    const rgb = hexRgb(base) || hexRgb(DEFAULT_BG);
-    const [h, s] = rgbToHsl(rgb);
-    const root = document.documentElement.style;
-    // 底色本身偏灰，取色时把饱和度抬起来才够用作强调色
-    const sat = Math.max(s, 0.34);
-    root.setProperty('--bg', rgbHex(rgb));
-    root.setProperty('--surface', hslHex(h, sat * 0.22, 0.985));
-    root.setProperty('--surface-2', hslHex(h, sat * 0.3, 0.955));
-    root.setProperty('--border', hslHex(h, sat * 0.32, 0.885));
-    root.setProperty('--primary', hslHex(h, sat, 0.62));
-    root.setProperty('--primary-600', hslHex(h, sat, 0.4));
-    root.setProperty('--primary-soft', hslHex(h, sat * 0.55, 0.93));
-    // 单序列图表（打包进度环、每日花费柱）用 chart-1，跟主题走；
-    // 甜甜圈多序列仍用 2-6 的固定色相，否则各块分不出来
-    root.setProperty('--chart-1', hslHex(h, sat, 0.55));
-    // 顶栏与开启页各有一个色点，都跟着走
-    document.querySelectorAll('.theme-dot').forEach((d) => { d.style.background = rgbHex(rgb); });
+    const theme = Theme.apply(base);
+    Brand.apply(theme.brand);
+    document.querySelectorAll('.theme-dot').forEach(d => { d.style.background = theme.base; });
     if (dockKick) dockKick();
   }
   const $ = (sel) => document.querySelector(sel);
@@ -112,6 +66,7 @@ window.App = (() => {
       // 切回首页要主动应用首页自己的底色；这里没有数据变更，不会走 notify→render
       applyTheme(Store.getWelcomeTheme());
       $('#welcome').innerHTML = Render.renderWelcome();
+      Brand.refresh();
       fetchWeather();
       paintWelcomeBg();
       return;
@@ -270,7 +225,7 @@ window.App = (() => {
     $('#pageTitle').textContent = Render.tabTitle(current.tab);
     $('#board').innerHTML = Render.renderTripBoard();
     const tripNameEl = $('#topbarTripName');
-    if (tripNameEl) tripNameEl.textContent = data.meta.tripName || 'Journey';
+    if (tripNameEl) tripNameEl.textContent = data.meta.tripName || '九州 ITHACA';
     // 开启页下主内容区不渲染，但侧栏、看板、导航要保持最新
     if (current.view === 'welcome') return;
 

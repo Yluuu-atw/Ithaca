@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Journey 服务端 —— 零依赖（仅用 Node 内置模块）。
+ * Ithaca server — no external dependencies.
  *
  * 职责：
  *   1. 托管 public/ 静态资源
@@ -436,7 +436,7 @@ server.listen(PORT, HOST, () => {
     }
   }
   console.log('┌──────────────────────────────────────────┐');
-  console.log('│   Journey · 情侣旅行规划 · 已启动         │');
+  console.log('│   九州 ITHACA · 旅行规划 · 已启动        │');
   console.log('└──────────────────────────────────────────┘');
   console.log(`  本机访问:    http://localhost:${PORT}`);
   for (const a of addrs) console.log(`  局域网访问:  http://${a}:${PORT}   ← 发给 TA`);

@@ -1878,7 +1878,7 @@ window.Render = (() => {
       </button>
       ${spans ? `<div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}" aria-hidden="true">${spans}</div>` : ''}
       <div class="welcome-inner">
-        <div class="welcome-brand"><img class="emo" src="vendor/fluent-emoji/1f5fa.png" alt=""> Journey</div>
+        <div class="welcome-brand"><img data-brand-asset="horizontal" src="brand/logo-horizontal.svg" alt="九州 ITHACA"></div>
 
         <div class="meta-card">
           <span class="tape" aria-hidden="true"></span>
@@ -2068,13 +2068,12 @@ window.Render = (() => {
   }
 
   // ---------------- 背景色选择 ----------------
-  // 页面底色必须是浅调：卡片色由底色派生在近白区间，底色过饱和会和卡片打架
-  const BG_PRESETS = ['#f2ece0', '#e9e4d6', '#efe2d8', '#e4e9de', '#dfe6ea', '#f0e2e2', '#f3ead6', '#e8e2ea'];
+  const BG_PRESETS = ['#f2ece0', '#e9e4d6', '#efe2d8', '#e4e9de', '#dfe6ea', '#f0e2e2', '#f3ead6', '#e8e2ea', Theme.DARK_BG];
   function themePicker(current) {
     const cur = (current || '#f2ece0').toLowerCase();
     const sw = BG_PRESETS.map(c => `
       <button type="button" class="theme-swatch ${c === cur ? 'is-on' : ''}"
-        data-action="theme-pick" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('');
+        data-action="theme-pick" data-color="${c}" style="--sw:${c}" aria-label="${c === Theme.DARK_BG ? '深色配色' : c}"></button>`).join('');
     return `<form data-form="theme">
       <input type="hidden" name="bg" value="${esc(cur)}">
       <div class="theme-pick">

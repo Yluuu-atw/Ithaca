@@ -1,5 +1,5 @@
 /* ============================================================
-   Journey · 情侣旅行规划 — 样式表
+   九州 ITHACA · 情侣旅行规划 — 样式表
    清新优雅 · 跨端响应式（电脑 / 平板 / 手机）
    ============================================================ */
 
@@ -129,12 +129,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   padding: 0 10px 18px;
 }
 .brand:hover { background: none; }
-.brand-logo { font-size: 32.5px; }
-.brand-name {
-  font-size: 21.5px;
-  font-weight: 700;
-  letter-spacing: .4px;
-}
+.brand-wordmark { display: block; width: 225px; max-width: 100%; height: auto; }
 
 /* 旅行看板占纵向空间，导航可能被挤出视口；让 nav 自己滚动，看板保持可见 */
 .nav { display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0; overflow-y: auto; }
@@ -1836,7 +1831,7 @@ body:not(.is-welcome) .welcome { display: none; }
   font-size: 30px; font-weight: 700; letter-spacing: .5px;
   color: var(--text);
 }
-.welcome-brand .emo { width: 30px; height: 30px; }
+.welcome-brand img { display: block; width: clamp(210px, 35vw, 300px); max-width: 100%; height: auto; }
 
 /* 方格纹信息卡：手账方格本的底纹，与语录便签的纯色底区分开。
    底色压到半透明并加模糊，能透出后面的插画 */
@@ -2148,8 +2143,7 @@ body:not(.is-welcome) .welcome { display: none; }
 @media (max-width: 520px) {
   .welcome { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
   .welcome-inner { gap: 14px; }
-  .welcome-brand { font-size: 25px; }
-  .welcome-brand .emo { width: 25px; height: 25px; }
+  .welcome-brand img { width: min(230px, 70vw); }
   .meta-card { padding: 12px 13px 13px; background-size: 13px 13px; }
   .meta-card > .tape { width: 58px; height: 18px; }
   /* 手机屏宽有限，日期与天气挤进一行靠字号与间距一起收 */
@@ -2177,7 +2171,7 @@ body:not(.is-welcome) .welcome { display: none; }
     object-fit: cover; object-position: center 62%;
     display: block;
   }
-  /* 插画上下分段，中间整块让给 Journey 模组块。
+  /* 插画上下分段，中间整块让给品牌模组块。
      mask 必须加在容器层，加在内联 SVG 自身上不生效 */
   .welcome-bg {
     -webkit-mask-image: linear-gradient(180deg,
@@ -2304,3 +2298,40 @@ body:not(.is-welcome) .welcome { display: none; }
   .exp-amt { position: absolute; top: 8px; right: 4px; font-size: 15.5px; min-width: 0; text-align: right; }
   .exp-del { display: none; }
 }
+
+/* Dark backgrounds use the same derived tokens as the logo. */
+:root[data-theme-mode="dark"] .notebook {
+  --nb-paper: var(--surface);
+  --nb-rule: var(--border);
+}
+:root[data-theme-mode="dark"] .welcome-bg img,
+:root[data-theme-mode="dark"] .welcome-bg svg { filter: brightness(.52) saturate(.72); }
+:root[data-theme-mode="dark"] .welcome-bg::after {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bg) 50%, transparent),
+    color-mix(in srgb, var(--bg) 80%, transparent));
+}
+:root[data-theme-mode="dark"] .welcome::before {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent), transparent);
+}
+:root[data-theme-mode="dark"] .welcome::after { display: none; }
+:root[data-theme-mode="dark"] .welcome-corner,
+:root[data-theme-mode="dark"] .meta-card,
+:root[data-theme-mode="dark"] .welcome-bubble {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+:root[data-theme-mode="dark"] .welcome-mini,
+:root[data-theme-mode="dark"] .welcome-mini:nth-child(1),
+:root[data-theme-mode="dark"] .welcome-mini:nth-child(2) { background: var(--surface-2); }
+:root[data-theme-mode="dark"] .brush-name { text-shadow: 0 1px 8px var(--bg); }
+:root[data-theme-mode="dark"] .tripmgr-row {
+  background: color-mix(in srgb, var(--trip-color, var(--primary)) 12%, var(--surface));
+}
+:root[data-theme-mode="dark"] .photo-img-wrap { background: var(--surface-2); }
+:root[data-theme-mode="dark"] .photo-del { background: var(--surface); }
+:root[data-theme-mode="dark"] .st-booked {
+  background: color-mix(in srgb, #7abf94 20%, var(--surface));
+  color: #a5dcb6;
+}
+:root[data-theme-mode="dark"] input::placeholder,
+:root[data-theme-mode="dark"] textarea::placeholder { color: var(--muted); }

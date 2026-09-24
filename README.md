@@ -1,10 +1,11 @@
-# Journey 🧭 情侣旅行规划 + 记账
+# 九州 ITHACA · 情侣旅行规划 + 记账
 
 一个**数据与呈现分离**的跨端响应式网站，两个人一起规划旅行、记账、打包、收藏心愿。
 
 - 清新优雅的交互界面，自动适配 **电脑 / 平板 / 手机**
 - **多设备实时同步**：两人各开一个浏览器，一方改动，另一方即时看到
 - 数据存成 **JSON 文件**，可随时导出备份 / 导入恢复
+- 品牌标志随页面背景色调整，支持深色配色
 - 零依赖，仅用 Node 内置模块，无需 `npm install`
 - 图标使用 [Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT）的 3D 样式，已内置在 `public/vendor/fluent-emoji/`
 
@@ -26,7 +27,7 @@
 ## 快速开始
 
 ```bash
-cd Journey
+cd Ithaca
 npm start        # 或 node server.js
 ```
 
@@ -42,7 +43,7 @@ npm start        # 或 node server.js
 ## 数据与呈现分离（架构）
 
 ```
-Journey/
+Ithaca/
 ├── server.js            # 后端：静态服务 + REST + SSE 实时 + JSON 原子持久化
 ├── data/
 │   ├── schema.js        # ★ 数据模型唯一真相源（结构/分类/默认值/归一化）
