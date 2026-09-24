@@ -28,7 +28,7 @@ window.Render = (() => {
     '🍀': '1f340.png', '🍉': '1f349.png', '🎈': '1f388.png', '🎒': '1f392.png',
     '🎫': '1f3ab.png', '🏠': '1f3e0.png', '🏨': '1f3e8.png', '🐰': '1f430.png',
     '🐱': '1f431.png', '🐶': '1f436.png', '🐸': '1f438.png', '🐻': '1f43b.png',
-    '🐼': '1f43c.png', '👤': '1f464.png', '💰': '1f4b0.png', '💸': '1f4b8.png',
+    '🐼': '1f43c.png', '👤': '1f9d1.png', '💰': '1f4b0.png', '💸': '1f4b8.png',
     '💺': '1f4ba.png', '📅': '1f4c5.png', '📌': '1f4cc.png', '📍': '1f4cd.png',
     '📕': '1f4d5.png', '📦': '1f4e6.png', '📷': '1f4f7.png', '🔗': '1f517.png',
     '🕐': '1f550.png', '🗓': '1f5d3.png', '🗺': '1f5fa.png', '😎': '1f60e.png',
@@ -1876,7 +1876,7 @@ window.Render = (() => {
       <button type="button" class="welcome-corner" data-action="theme-open">
         <span class="theme-dot"></span> 背景色
       </button>
-      <button type="button" class="welcome-account" data-action="account-open"><img class="emo" src="vendor/fluent-emoji/1f464.png" alt=""> 账号</button>
+      <button type="button" class="welcome-account" data-action="account-open"><img class="emo" src="vendor/fluent-emoji/1f510.png" alt=""> 账号</button>
       ${spans ? `<div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}" aria-hidden="true">${spans}</div>` : ''}
       <div class="welcome-inner">
         <div class="welcome-brand"><img data-brand-asset="horizontal" src="brand/logo-horizontal.svg" alt="九州 ITHACA"></div>

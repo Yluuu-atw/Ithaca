@@ -75,6 +75,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 .permission-hidden { display: none !important; }
+.is-welcome .sidebar-footer [data-action="account-open"] { display: none; }
 
 .auth-gate {
   position: fixed;
