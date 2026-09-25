@@ -52,6 +52,7 @@ test('display name changes keep the account identifier and session stable', asyn
     const user = await auth.register('饼饼饼', 'a long private password');
     const { token } = await auth.createSession(user.id);
     assert.equal(user.displayName, '饼饼饼');
+    assert.equal(auth.store.get().users.find(entry => entry.id === user.id).displayName, '饼饼饼');
     assert.equal((await auth.updateDisplayName(user.id, ' 饼饼 ')).displayName, '饼饼');
     assert.equal(auth.resolve(token).user.displayName, '饼饼');
     assert.equal((await auth.login('饼饼饼', 'a long private password')).id, user.id);

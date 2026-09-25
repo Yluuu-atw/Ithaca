@@ -51,3 +51,55 @@ test('owner grants roles, redeems one-use invites and revokes anonymous access',
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('trip profiles inherit account names and reserve appearances per trip', async () => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '../.local/trip-profile-'));
+  try {
+    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const owner = await auth.register('owner', 'owner private password');
+    const viewer = await auth.register('viewer', 'viewer private password');
+    let db = claimLegacy(defaultDoc(), owner.id);
+    const tripId = db.trips[0].id;
+    const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
+    const originalName = db.access[tripId].people[0].name;
+    const originalAvatar = db.access[tripId].people[0].avatar;
+    const originalColor = db.access[tripId].people[0].color;
+    db.trips[0].expenses.push({ id: 'expense_1', payer: originalName, participants: [originalName] });
+
+    assert.equal(project(db, { userId: owner.id }, auth.store.get().users).rosters[tripId][0].displayName, 'owner');
+    await auth.updateDisplayName(owner.id, 'Account Name');
+    assert.equal(project(db, { userId: owner.id }, auth.store.get().users).rosters[tripId][0].displayName, 'Account Name');
+    await sharing.setMember(tripId, owner.id, viewer.username, 'viewer');
+    const people = db.access[tripId].people;
+    const viewerPerson = people.find(person => person.userId === viewer.id);
+    assert.equal(people.filter(person => person.avatar === viewerPerson.avatar).length, 1);
+    assert.equal(people.filter(person => person.color === viewerPerson.color).length, 1);
+
+    const ownerPrincipal = { userId: owner.id };
+    await sharing.updateProfile(tripId, ownerPrincipal, { tripNickname: ' Trip Name ', avatar: originalAvatar, color: originalColor });
+    assert.equal(project(db, ownerPrincipal, auth.store.get().users).rosters[tripId][0].displayName, 'Trip Name');
+    assert.equal(db.trips[0].expenses[0].payer, originalName);
+    assert.equal(db.trips[0].meta.members[0], originalName);
+    await assert.rejects(sharing.updateProfile(tripId, { userId: viewer.id }, {
+      tripNickname: 'Visitor', avatar: originalAvatar, color: viewerPerson.color,
+    }), /头像已被其他成员使用/);
+    await assert.rejects(sharing.updateProfile(tripId, { userId: viewer.id }, {
+      tripNickname: 'Visitor', avatar: viewerPerson.avatar, color: originalColor,
+    }), /颜色已被其他成员使用/);
+    await assert.rejects(sharing.updateProfile(tripId, { shareTripId: tripId }, {
+      tripNickname: 'Guest', avatar: originalAvatar, color: originalColor,
+    }), /只有旅行成员/);
+
+    const temporary = await sharing.createTemporary(tripId, owner.id, 'Guest');
+    assert.equal(new Set(db.access[tripId].people.map(person => person.avatar)).size, people.length + 1);
+    assert.equal(new Set(db.access[tripId].people.map(person => person.color)).size, people.length + 1);
+    await sharing.updateProfile(tripId, sharing.resolveTemporary(temporary.token), {
+      tripNickname: 'Day Guest', avatar: temporary.person.avatar, color: temporary.person.color,
+    });
+    assert.equal(project(db, sharing.resolveTemporary(temporary.token)).rosters[tripId].find(person => person.id === temporary.person.id).displayName, 'Day Guest');
+    await sharing.updateProfile(tripId, ownerPrincipal, { tripNickname: '', avatar: originalAvatar, color: originalColor });
+    assert.equal(project(db, ownerPrincipal, auth.store.get().users).rosters[tripId][0].displayName, 'Account Name');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

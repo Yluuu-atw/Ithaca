@@ -416,17 +416,26 @@ async function handleSharing(req, res, pathname) {
     return sendJSON(res, 200, { ok: true }, { 'Set-Cookie': shareCookie('', 0) });
   }
   const session = auth.resolve(cookieValue(req, COOKIE_NAME));
-  if (!session) return sendJSON(res, 401, { error: '请先登录' });
-  if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== session.csrf)) {
+  const temporaryToken = cookieValue(req, TEMP_COOKIE_NAME);
+  const temporary = !session && sharing.resolveTemporary(temporaryToken);
+  if (!session && !temporary) return sendJSON(res, 401, { error: '请先登录' });
+  const writeCsrf = session ? session.csrf : temporaryCsrf(temporaryToken);
+  if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== writeCsrf)) {
     return sendJSON(res, 403, { error: '安全令牌无效' });
   }
   try {
     if (pathname === '/api/invites/redeem' && req.method === 'POST') {
+      if (!session) return sendJSON(res, 403, { error: '只有正式成员可以接受邀请' });
       return sendJSON(res, 200, await sharing.redeem((await readJSON(req)).token, session.user.id));
     }
-    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share|temporary)$/.exec(pathname);
+    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share|temporary|profile)$/.exec(pathname);
     if (!match) return sendJSON(res, 404, { error: 'Not Found' });
     const [, tripId, action] = match;
+    if (action === 'profile' && req.method === 'PATCH') {
+      const principal = session ? { userId: session.user.id, username: session.user.username } : temporary;
+      return sendJSON(res, 200, await sharing.updateProfile(tripId, principal, await readJSON(req)));
+    }
+    if (!session) return sendJSON(res, 403, { error: '只有正式成员可以管理旅行' });
     const userId = session.user.id;
     if (action === 'access' && req.method === 'GET') return sendJSON(res, 200, sharing.details(tripId, userId));
     if (action === 'members' && req.method === 'POST') {

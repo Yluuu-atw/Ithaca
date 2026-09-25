@@ -2,7 +2,7 @@
 
 const { defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate } = require('./schema');
 const { roleFor, canReadAsset, uploadNames, publicTripRoles } = require('./access');
-const { COLLECTIONS, formalPerson, personForUser, publicRoster } = require('./people');
+const { COLLECTIONS, AVATAR_CHOICES, COLOR_CHOICES, formalPerson, personForUser, publicRoster } = require('./people');
 
 class AccessDeniedError extends Error {
   constructor(message = '没有访问权限') {
@@ -26,6 +26,7 @@ function project(db, principal, users = []) {
     packingTemplates: principal && principal.userId ? structuredClone(profile.packingTemplates) : [],
     permissions,
     rosters: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip => [trip.id, publicRoster(db.access[trip.id], users)])),
+    appearanceChoices: { avatars: AVATAR_CHOICES, colors: COLOR_CHOICES },
   };
 }
 

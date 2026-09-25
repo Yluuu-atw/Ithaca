@@ -3,15 +3,27 @@
 const crypto = require('node:crypto');
 
 const COLLECTIONS = ['itinerary', 'expenses', 'checklist', 'wishlist', 'tracks', 'photos', 'places', 'bookings', 'guides'];
-const DEFAULT_AVATARS = ['😎', '🥰', '🐻', '🐱'];
-const DEFAULT_COLORS = ['#e6a877', '#6f9e8f', '#7c9fd9', '#c98bb8'];
+const AVATAR_CHOICES = ['😎', '🥰', '🐻', '🐱', '🐶', '🦊', '🐰', '🐼', '🦁', '🐸', '🦄', '🌸', '🍀', '⭐', '🍉', '🎈'];
+const COLOR_CHOICES = ['#c4714b', '#8b9a7e', '#7d94a8', '#c08e8e', '#d4a44c', '#a89478', '#b07d5a', '#8a7fa0',
+  '#a87079', '#6d9b9b', '#b5814f', '#827ba6', '#719b71', '#bc7e9b', '#5e8dad', '#9a8b65'];
+const DEFAULT_COLORS = COLOR_CHOICES;
+const DEFAULT_AVATARS = AVATAR_CHOICES;
+function avatarKey(value) { return String(value || '').replace(/\ufe0f/g, ''); }
+
+function unusedAppearance(people, excludingId) {
+  const others = (people || []).filter(person => person.id !== excludingId);
+  const avatar = AVATAR_CHOICES.find(value => !others.some(person => avatarKey(person.avatar) === avatarKey(value)));
+  const color = COLOR_CHOICES.find(value => !others.some(person => String(person.color || '').toLowerCase() === value));
+  if (!avatar || !color) throw new Error('当前旅行的头像或颜色已用完，无法添加更多成员');
+  return { avatar, color };
+}
 
 function stableId(value) {
   return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
 }
 
 function formalPerson(userId, name, avatar, color) {
-  return { id: `person_user_${userId}`, kind: 'formal', userId, name: String(name || userId), avatar: avatar || '😎', color: color || DEFAULT_COLORS[0] };
+  return { id: `person_user_${userId}`, kind: 'formal', userId, name: String(name || userId), avatar: avatar || AVATAR_CHOICES[0], color: color || COLOR_CHOICES[0] };
 }
 
 function personForUser(grant, userId) {
@@ -31,11 +43,13 @@ function ensureRoster(trip, grant) {
       });
   }
   if (!personForUser(grant, grant.ownerId)) {
-    grant.people.unshift(formalPerson(grant.ownerId, grant.ownerId));
+    const appearance = unusedAppearance(grant.people);
+    grant.people.unshift(formalPerson(grant.ownerId, grant.ownerId, appearance.avatar, appearance.color));
   }
   for (const userId of Object.keys(grant.members || {})) {
     if (!personForUser(grant, userId)) {
-      grant.people.push(formalPerson(userId, `账号 ${userId.slice(0, 8)}`));
+      const appearance = unusedAppearance(grant.people);
+      grant.people.push(formalPerson(userId, `账号 ${userId.slice(0, 8)}`, appearance.avatar, appearance.color));
     }
   }
   syncTripRoster(trip, grant);
@@ -80,10 +94,10 @@ function assignAuthors(trip, personId) {
 
 function publicRoster(grant, users = []) {
   const byId = new Map(users.map(user => [user.id, user]));
-  return (grant && grant.people || []).map(({ id, kind, userId, name, avatar, color }) => {
-    const person = { id, kind, userId, name, avatar, color };
+  return (grant && grant.people || []).map(({ id, kind, userId, name, avatar, color, tripNickname }) => {
+    const person = { id, kind, userId, name, avatar, color, tripNickname: tripNickname || '' };
     const account = kind === 'formal' && byId.get(userId);
-    if (account && account.displayName) person.displayName = account.displayName;
+    person.displayName = tripNickname || account && (account.displayName || account.username) || name;
     return person;
   });
 }
@@ -128,4 +142,4 @@ function rewrite(value, from, to) {
   else for (const nested of Object.values(value)) if (nested && typeof nested === 'object') rewrite(nested, from, to);
 }
 
-module.exports = { COLLECTIONS, formalPerson, personForUser, ensureRoster, syncTripRoster, stampAuthors, assignAuthors, publicRoster, uniquePerson, rewritePersonReferences, hasPersonReferences };
+module.exports = { COLLECTIONS, AVATAR_CHOICES, COLOR_CHOICES, avatarKey, unusedAppearance, formalPerson, personForUser, ensureRoster, syncTripRoster, stampAuthors, assignAuthors, publicRoster, uniquePerson, rewritePersonReferences, hasPersonReferences };

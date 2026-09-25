@@ -83,7 +83,7 @@ function createAuth(file, setupFile) {
       }
       user = {
         id: crypto.randomUUID(), username: name, usernameKey: key,
-        password: secret, passkeys: [],
+        displayName: name, password: secret, passkeys: [],
         createdAt: new Date().toISOString(),
       };
       state.users.push(user);

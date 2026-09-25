@@ -1,10 +1,10 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { canManage } = require('./access');
+const { canManage, canRead } = require('./access');
 const { AccessDeniedError } = require('./document-policy');
 const { usernameKey } = require('./auth');
-const { formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences, rewritePersonReferences } = require('./people');
+const { AVATAR_CHOICES, COLOR_CHOICES, avatarKey, unusedAppearance, formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences, rewritePersonReferences } = require('./people');
 
 function token() { return crypto.randomBytes(32).toString('base64url'); }
 function hash(value) { return crypto.createHash('sha256').update(String(value || '')).digest('hex'); }
@@ -29,6 +29,37 @@ function createSharing(auth, getDb, commit) {
     };
   }
 
+  async function updateProfile(tripId, principal, input) {
+    if (!input || typeof input !== 'object' || typeof input.tripNickname !== 'string' || typeof input.avatar !== 'string' || typeof input.color !== 'string') {
+      throw new Error('成员资料格式无效');
+    }
+    const tripNickname = input.tripNickname.trim().normalize('NFC');
+    if (Array.from(tripNickname).length > 40 || /[\p{Cc}\p{Cf}]/u.test(tripNickname)) throw new Error('旅行昵称最多 40 个字符，不能包含控制字符');
+    let updated;
+    await commit(current => {
+      if (!canRead(current, principal, tripId)) throw new AccessDeniedError();
+      const next = structuredClone(current);
+      const grant = next.access[tripId];
+      const person = principal.userId ? personForUser(grant, principal.userId)
+        : (grant.people || []).find(entry => entry.kind === 'temporary' && principal.tempTripId === tripId && entry.id === principal.tempPersonId);
+      if (!person) throw new AccessDeniedError('只有旅行成员可以编辑资料');
+      const avatar = input.avatar;
+      const color = input.color.toLowerCase();
+      if (avatar !== person.avatar && grant.people.some(entry => entry.id !== person.id && avatarKey(entry.avatar) === avatarKey(avatar))) throw new Error('头像已被其他成员使用');
+      if (color !== String(person.color || '').toLowerCase() && grant.people.some(entry => entry.id !== person.id && String(entry.color || '').toLowerCase() === color)) throw new Error('颜色已被其他成员使用');
+      if (avatar !== person.avatar && !AVATAR_CHOICES.includes(avatar)) throw new Error('头像选项无效');
+      if (color !== String(person.color || '').toLowerCase() && !COLOR_CHOICES.includes(color)) throw new Error('颜色选项无效');
+      person.tripNickname = tripNickname;
+      person.avatar = avatar;
+      person.color = color;
+      syncTripRoster(next.trips.find(entry => entry.id === tripId), grant);
+      next.meta.version = current.meta.version + 1;
+      updated = { ...person };
+      return next;
+    });
+    return publicRoster({ people: [updated] }, auth.store.get().users)[0];
+  }
+
   async function setMember(tripId, userId, username, role) {
     owner(tripId, userId);
     if (!['editor', 'viewer'].includes(role)) throw new Error('权限无效');
@@ -44,7 +75,8 @@ function createSharing(auth, getDb, commit) {
       ensureRoster(trip, grant);
       let person = personForUser(grant, user.id);
       if (!person) {
-        person = formalPerson(user.id, user.username);
+        const appearance = unusedAppearance(grant.people);
+        person = formalPerson(user.id, user.username, appearance.avatar, appearance.color);
         uniquePerson(grant, person);
         grant.people.push(person);
       }
@@ -165,7 +197,7 @@ function createSharing(auth, getDb, commit) {
     const raw = token();
     const person = {
       id: `person_temp_${crypto.randomUUID()}`, kind: 'temporary', name: label,
-      avatar: '🙂', color: '#8b9a7e', tokenHash: hash(raw),
+      tokenHash: hash(raw),
     };
     await commit(current => {
       if (!canManage(current, { userId }, tripId)) throw new AccessDeniedError();
@@ -174,6 +206,7 @@ function createSharing(auth, getDb, commit) {
       const trip = next.trips.find(entry => entry.id === tripId);
       ensureRoster(trip, grant);
       uniquePerson(grant, person);
+      Object.assign(person, unusedAppearance(grant.people));
       grant.people.push(person);
       syncTripRoster(trip, grant);
       next.meta.version = current.meta.version + 1;
@@ -218,7 +251,8 @@ function createSharing(auth, getDb, commit) {
           const user = auth.store.get().users.find(entry => entry.id === userId);
           if (!user) throw new Error('账号不存在');
           if (!personForUser(grant, userId)) {
-            const person = formalPerson(userId, user.username);
+            const appearance = unusedAppearance(grant.people);
+            const person = formalPerson(userId, user.username, appearance.avatar, appearance.color);
             uniquePerson(grant, person);
             grant.people.push(person);
             syncTripRoster(trip, grant);
@@ -267,7 +301,7 @@ function createSharing(auth, getDb, commit) {
     return grant ? { shareTripId: grant[0] } : null;
   }
 
-  return { details, setMember, removeMember, removePerson, replacePerson, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
+  return { details, updateProfile, setMember, removeMember, removePerson, replacePerson, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
 }
 
 module.exports = { createSharing };
