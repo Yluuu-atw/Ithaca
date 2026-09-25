@@ -955,32 +955,31 @@ window.Render = (() => {
     return head + summary + (frame || empty);
   }
 
-  // 日期 × 成员 的支出总览：点单元格展开那天该成员付了什么。末列是当日总计
+  // Trip day × member amounts; bill details remain in the dated receipts below.
   function renderExpenseMatrix(s) {
     const members = s.meta.members || [];
-    const dates = [...new Set(s.expenses.map(e => e.date).filter(Boolean))].sort();
+    const dates = [...new Set([
+      ...(s.itinerary || []).map(day => day.date),
+      ...(s.expenses || []).map(expense => expense.date),
+    ].filter(Boolean))].sort();
     if (!dates.length) return '';
     const cur = s.meta.currency;
-    const rows = dates.map(date => {
+    const rows = dates.map((date, index) => {
       const dayExp = s.expenses.filter(e => e.date === date);
       const daySum = dayExp.reduce((a, e) => a + (Number(e.amount) || 0), 0);
       const cells = members.map(name => {
         const mine = dayExp.filter(e => e.payer === name);
         const sum = mine.reduce((a, e) => a + (Number(e.amount) || 0), 0);
-        const detail = mine.map(e =>
-          `<div class="exp-mx-line"><span>${esc(e.note || e.category)}</span><span>${money(e.amount, cur)}</span></div>`
-        ).join('');
-        return `<td class="exp-mx-cell ${sum ? 'has' : ''}"${sum ? ' data-action="exp-mx-toggle"' : ''}>
-          <div class="exp-mx-sum">${mine.length ? `${mine.length} 笔 · ${money(sum, cur)}` : '—'}</div>
-          ${mine.length ? `<div class="exp-mx-detail" hidden>${detail}</div>` : ''}
-        </td>`;
+        return `<td class="exp-mx-cell">${mine.length ? money(sum, cur) : '—'}</td>`;
       }).join('');
-      return `<tr><th class="exp-mx-date">${fmtDate(date)} ${weekday(date)}</th>${cells}` +
-        `<td class="exp-mx-total">${dayExp.length} 笔 · ${money(daySum, cur)}</td></tr>`;
+      return `<tr><th scope="row" class="exp-mx-date" title="${esc(fmtDate(date))}">第 ${index + 1} 天</th>${cells}` +
+        `<td class="exp-mx-total">${money(daySum, cur)}</td></tr>`;
     }).join('');
     return `<section class="exp-sec"><h3 class="exp-sec-h">${emo('📊')} 每日支出</h3>
-      <table class="exp-mx"><thead><tr><th>日期</th>${members.map(m => `<th>${memberChip(s.meta, m)}</th>`).join('')}<th class="exp-mx-total">当日总计</th></tr></thead>
-      <tbody>${rows}</tbody></table></section>`;
+      <div class="exp-mx-scroll" role="region" aria-label="每日支出，成员列可横向滚动" tabindex="0">
+        <table class="exp-mx" style="--member-count:${members.length}"><thead><tr><th class="exp-mx-date">第几天</th>${members.map(m => `<th>${memberChip(s.meta, m)}</th>`).join('')}<th class="exp-mx-total">总支出</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div></section>`;
   }
 
   // 明细走账本流水式：左侧时间轴竖线，每笔按时间点排，金额右对齐等宽数字

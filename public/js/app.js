@@ -13,7 +13,7 @@ window.App = (() => {
   let sharePeople = [];
   const viewActions = new Set([
     'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
-    'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle', 'exp-mx-toggle',
+    'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
     'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
@@ -656,12 +656,6 @@ window.App = (() => {
       case 'itinerary-add-item':
         openModal('添加安排', Render.formItem(el.dataset.day));
         break;
-
-      case 'exp-mx-toggle': {
-        const detail = el.querySelector('.exp-mx-detail');
-        if (detail) detail.hidden = !detail.hidden;
-        break;
-      }
 
       case 'dt-item-toggle': {
         const detail = el.parentElement.querySelector('.dt-detail');

@@ -952,37 +952,37 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .tl-more { margin-left: auto; color: var(--muted); transition: transform .15s; font-size: 14px; line-height: 1; }
 .tl-item.is-open .tl-more { transform: rotate(180deg); }
 .tl-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
-.tl-detail[hidden], .exp-mx-detail[hidden] { display: none; }
+.tl-detail[hidden] { display: none; }
 .tl-ops { display: flex; gap: 4px; margin-top: 4px; }
 
-/* 每日支出：无边框表格，表头用底线分隔，首列左对齐不缩进 */
-.exp-mx { width: 100%; table-layout: fixed; border-collapse: collapse; }
-.exp-mx th, .exp-mx td { padding: 10px 12px; text-align: left; vertical-align: top; }
+/* The scroll container owns horizontal movement; outer columns stay in view. */
+.exp-mx-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-gutter: stable; }
+.exp-mx-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.exp-mx { width: 100%; min-width: max(100%, calc(192px + var(--member-count) * 126px)); table-layout: fixed; border-collapse: separate; border-spacing: 0; }
+.exp-mx th, .exp-mx td { padding: 10px 12px; text-align: left; vertical-align: middle; white-space: nowrap; }
 .exp-mx thead th {
   color: var(--muted);
   font-weight: 600;
   font-size: 13px;
   letter-spacing: .04em;
   border-bottom: 2px solid var(--line);
-  padding-left: 0;
 }
-.exp-mx tbody th, .exp-mx tbody td { border-bottom: 1px solid var(--line); padding-left: 0; }
+.exp-mx tbody th, .exp-mx tbody td { border-bottom: 1px solid var(--line); }
 .exp-mx tbody tr:last-child th, .exp-mx tbody tr:last-child td { border-bottom: none; }
-.exp-mx-date { white-space: nowrap; color: var(--text); font-weight: 600; padding-left: 0 !important; width: 92px; }
-.exp-mx-cell { cursor: default; }
-.exp-mx-cell.has { cursor: pointer; }
-.exp-mx-cell.has:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
-.exp-mx-sum { font-weight: 500; }
-.exp-mx-detail { margin-top: 6px; display: grid; gap: 3px; font-size: 13px; color: var(--muted); font-weight: 400; }
-.exp-mx-line { display: flex; justify-content: space-between; gap: 12px; }
+.exp-mx-date { color: var(--text); font-weight: 600; width: 82px; }
+.exp-mx-cell { font-weight: 500; font-variant-numeric: tabular-nums; }
 .exp-mx-total {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  word-break: break-word;
+  width: 110px;
   border-left: 1px dashed var(--border);
   color: var(--accent);
 }
 thead .exp-mx-total { color: var(--text); }
+.exp-mx-date, .exp-mx-total { position: sticky; z-index: 1; background: var(--surface); }
+.exp-mx-date { left: 0; box-shadow: 2px 0 0 var(--border); }
+.exp-mx-total { right: 0; box-shadow: -2px 0 0 var(--border); }
+.exp-mx thead .exp-mx-date, .exp-mx thead .exp-mx-total { z-index: 2; }
 
 .dt-list { display: grid; }
 .dt-item { display: grid; grid-template-columns: 22px 62px minmax(0, 1fr) 30px; column-gap: 8px; padding: 11px 0; border-bottom: 1px solid var(--border); }
@@ -2422,7 +2422,7 @@ body:not(.is-welcome) .welcome { display: none; }
   .exp-frame { padding: 15px 14px 6px; }
   .exp-mx th, .exp-mx td { padding: 9px 6px; }
   .exp-mx thead th { font-size: 11.5px; letter-spacing: 0; }
-  .exp-mx-sum { font-size: 12.5px; }
+  .exp-mx-cell { font-size: 12.5px; }
   .exp-mx-total { font-size: 12.5px; }
   .exp-mx-date { font-size: 12.5px; width: 74px; }
   .exp-mx .member-ava { display: none; }        /* 窄栏只留名字，头像让位给金额 */
