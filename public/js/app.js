@@ -190,6 +190,11 @@ window.App = (() => {
       <button class="btn btn-ghost btn-sm" data-action="passkey-remove" data-id="${Render.esc(key.id)}">移除</button></div>`).join('');
     openModal('账号与通行密钥', `
       <p>用户名：<b>${Render.esc(user.username)}</b></p>
+      <form data-form="account-profile">
+        <label>昵称<input name="displayName" value="${Render.esc(user.displayName || user.username)}" maxlength="40" autocomplete="nickname" placeholder="输入昵称"></label>
+        <p class="access-hint">昵称用于成员展示；登录仍使用用户名。留空可恢复用户名。</p>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">保存昵称</button></div>
+      </form>
       <p class="access-hint">通行密钥可通过 Apple 密码、Face ID、Touch ID、指纹或跨设备扫码使用，具体方式由设备决定。</p>
       ${keys || '<p class="access-hint">尚未添加通行密钥。</p>'}
       <div class="form-actions"><button class="btn btn-primary" data-action="passkey-add">添加通行密钥</button>
@@ -208,10 +213,14 @@ window.App = (() => {
     const data = await AuthUI.request(`/api/trips/${encodeURIComponent(tripId)}/access`);
     sharePeople = data.people || [];
     const roles = new Map(data.members.map(member => [member.id, member.role]));
+    const usernames = new Map(data.members.map(member => [member.id, member.username]));
     const members = (data.people || []).map(person => {
       const owner = person.userId === AuthUI.user.id;
       const label = owner ? '所有者' : person.kind === 'temporary' ? '临时成员 · 仅本旅行' : person.kind === 'legacy' ? '待关联' : roles.get(person.userId) === 'viewer' ? '正式成员 · 只读' : '正式成员 · 可编辑';
-      return `<div class="access-row"><span>${Render.esc(person.name)} · ${label}</span>${owner ? '' : `<span class="access-row-actions"><button class="btn btn-ghost btn-sm" data-action="share-member-replace" data-person-id="${Render.esc(person.id)}">替换</button>${person.kind === 'legacy' ? '' : `<button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-person-id="${Render.esc(person.id)}">移除</button>`}</span>`}</div>`;
+      const displayName = person.displayName || person.name;
+      const username = owner ? AuthUI.user.username : usernames.get(person.userId);
+      const account = person.kind === 'formal' && username && displayName !== username ? ` · @${Render.esc(username)}` : '';
+      return `<div class="access-row"><span>${Render.esc(displayName)}${account} · ${label}</span>${owner ? '' : `<span class="access-row-actions"><button class="btn btn-ghost btn-sm" data-action="share-member-replace" data-person-id="${Render.esc(person.id)}">替换</button>${person.kind === 'legacy' ? '' : `<button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-person-id="${Render.esc(person.id)}">移除</button>`}</span>`}</div>`;
     }).join('');
     const invites = data.invites.map(invite => `<div class="access-row"><span>${invite.role === 'editor' ? '可编辑' : '只读'}邀请 · ${new Date(invite.expiresAt).toLocaleDateString()} 到期</span><button class="btn btn-ghost btn-sm" data-action="share-invite-remove" data-id="${Render.esc(invite.id)}">撤销</button></div>`).join('');
     openModal('分享与权限', `
@@ -219,7 +228,7 @@ window.App = (() => {
       ${shareNotice ? `<label>新链接<input id="shareNotice" readonly value="${Render.esc(shareNotice)}" onclick="this.select()"></label><button type="button" class="btn btn-ghost btn-sm" data-action="copy-share-link">复制链接</button>` : ''}
       <h3>旅行成员</h3>${members || '<p class="access-hint">尚无协作成员。</p>'}
       <form data-form="share-member" class="access-form">
-        <input id="registeredMemberName" name="username" list="registeredMembers" autocomplete="off" placeholder="搜索已注册的用户名" required><datalist id="registeredMembers"></datalist>
+        <input id="registeredMemberName" name="username" list="registeredMembers" autocomplete="off" placeholder="搜索用户名或昵称" required><datalist id="registeredMembers"></datalist>
         <select name="role"><option value="editor">可编辑</option><option value="viewer">只读</option></select>
         <button class="btn btn-primary" type="submit">添加正式成员</button>
       </form>
@@ -498,7 +507,7 @@ window.App = (() => {
           <p class="access-hint">替换后，原成员的记录和账目归属转到新身份；原临时链接或账号权限立即失效。</p>
           <form data-form="replace-formal" class="access-form">
             <input type="hidden" name="personId" value="${Render.esc(person.id)}">
-            <input id="replacementMemberName" name="username" list="registeredMembers" autocomplete="off" placeholder="搜索已注册的用户名" required><datalist id="registeredMembers"></datalist>
+            <input id="replacementMemberName" name="username" list="registeredMembers" autocomplete="off" placeholder="搜索用户名或昵称" required><datalist id="registeredMembers"></datalist>
             <button class="btn btn-primary" type="submit">替换为正式成员</button>
           </form>
           <form data-form="replace-temporary" class="access-form">
@@ -1141,6 +1150,15 @@ window.App = (() => {
     e.preventDefault();
     const kind = form.dataset.form;
     const fd = new FormData(form);
+    if (kind === 'account-profile') {
+      try {
+        await AuthUI.updateDisplayName(String(fd.get('displayName') || ''));
+        await Store.load();
+        accountModal();
+        toast('昵称已保存', 'success');
+      } catch (error) { toast(error.message, 'error'); }
+      return;
+    }
     if (kind === 'share-member') {
       try {
         await AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/members`, 'POST', {
@@ -1987,6 +2005,7 @@ window.App = (() => {
           choices.replaceChildren(...result.users.map(user => {
             const option = document.createElement('option');
             option.value = user.username;
+            option.label = user.displayName === user.username ? user.username : `${user.displayName}（@${user.username}）`;
             return option;
           }));
         } catch (_) { choices.replaceChildren(); }

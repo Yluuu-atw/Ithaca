@@ -26,6 +26,17 @@ test('data projections exclude hidden trips, ACLs, assets, and other profiles', 
   assert.notEqual(view.meta.welcomeTheme, '#112233');
 });
 
+test('formal member nicknames are projected without changing stored trip names', () => {
+  const db = fixture();
+  const tripId = db.trips[0].id;
+  const originalName = db.access[tripId].people[0].name;
+  const view = project(db, { userId: 'alice' }, [{ id: 'alice', username: '饼饼饼', displayName: '饼饼' }]);
+  assert.equal(view.rosters[tripId][0].displayName, '饼饼');
+  assert.equal(view.rosters[tripId][0].name, originalName);
+  assert.deepEqual(view.trips[0].meta.members, db.trips[0].meta.members);
+  assert.equal(db.access[tripId].people[0].displayName, undefined);
+});
+
 test('document update preserves hidden trips and denies injected IDs', () => {
   const db = fixture();
   const principal = { userId: 'alice' };

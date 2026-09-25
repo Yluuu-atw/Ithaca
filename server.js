@@ -57,6 +57,10 @@ const auth = createAuth(AUTH_PATH, SETUP_TOKEN_PATH);
 const passkeys = createPasskeys(auth, ORIGIN);
 const sharing = createSharing(auth, () => db, commit);
 
+function projectFor(source, principal) {
+  return project(source, principal, auth.store.get().users);
+}
+
 // 写盘：临时文件 + rename，避免写一半损坏原文件
 function writeDb(data) {
   return new Promise((resolve, reject) => {
@@ -126,7 +130,7 @@ function broadcast() {
         sseClients.delete(client);
         continue;
       }
-      const data = project(db, principal);
+      const data = projectFor(db, principal);
       client.res.write(`data: ${JSON.stringify({ type: 'data', data, version: db.meta.version })}\n\n`);
     } catch (_) { sseClients.delete(client); }
   }
@@ -139,7 +143,7 @@ function handleSSE(req, res, principal) {
     'Connection': 'keep-alive',
   });
   res.write('retry: 3000\n\n');
-  const data = project(db, principal);
+  const data = projectFor(db, principal);
   res.write(`data: ${JSON.stringify({ type: 'data', data, version: db.meta.version })}\n\n`);
   const client = { res, cookies: req.headers.cookie || '' };
   sseClients.add(client);
@@ -671,8 +675,9 @@ async function handleApi(req, res, pathname, principal) {
     if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以搜索账号' });
     const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().toLocaleLowerCase('en-US');
     if (query.length < 2) return sendJSON(res, 200, { users: [] });
-    const users = auth.store.get().users.filter(user => user.usernameKey.includes(query)).slice(0, 20)
-      .map(user => ({ id: user.id, username: user.username }));
+    const users = auth.store.get().users.filter(user => user.usernameKey.includes(query) ||
+      (user.displayName || '').toLocaleLowerCase('en-US').includes(query)).slice(0, 20)
+      .map(user => ({ id: user.id, username: user.username, displayName: user.displayName || user.username }));
     return sendJSON(res, 200, { users });
   }
   const photoResult = await handlePhotoUpload(req, res, pathname, principal);
@@ -707,7 +712,7 @@ async function handleApi(req, res, pathname, principal) {
   }
 
   if (pathname === '/api/data' && req.method === 'GET') {
-    return sendJSON(res, 200, project(db, principal));
+    return sendJSON(res, 200, projectFor(db, principal));
   }
 
   if (pathname === '/api/data' && req.method === 'PUT') {
@@ -720,7 +725,7 @@ async function handleApi(req, res, pathname, principal) {
         next.meta.version = cur.meta.version + 1;
         return next;
       }, baseVersion);
-      return sendJSON(res, 200, { data: project(saved, principal), version: saved.meta.version });
+      return sendJSON(res, 200, { data: projectFor(saved, principal), version: saved.meta.version });
     } catch (err) {
       if (err instanceof VersionConflictError) {
         return sendJSON(res, 409, { error: '版本冲突', version: err.latestVersion });
@@ -736,7 +741,7 @@ async function handleApi(req, res, pathname, principal) {
       'Content-Type': 'application/json; charset=utf-8',
       'Content-Disposition': `attachment; filename="journey-${stamp}.json"`,
     });
-    return res.end(JSON.stringify(project(db, principal), null, 2));
+    return res.end(JSON.stringify(projectFor(db, principal), null, 2));
   }
 
   if (pathname === '/api/import' && req.method === 'POST') {
@@ -796,7 +801,7 @@ async function handleApi(req, res, pathname, principal) {
         next.meta.version = current.meta.version + 1;
         return next;
       });
-      return sendJSON(res, 200, { data: project(saved, principal), version: saved.meta.version, importedTripIds: trips.map(trip => trip.id) });
+      return sendJSON(res, 200, { data: projectFor(saved, principal), version: saved.meta.version, importedTripIds: trips.map(trip => trip.id) });
     } catch (error) {
       await Promise.all(copied.map(copy => fs.promises.rm(path.join(UPLOAD_DIR, copy.newName), { force: true })));
       return sendJSON(res, error instanceof AccessDeniedError ? 403 : 400, { error: error.message });

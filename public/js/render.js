@@ -102,8 +102,10 @@ window.Render = (() => {
   // The authenticated account or temporary link determines the current member.
   function dispName(members, name) {
     const idx = Store.getIdentity();
-    if (idx != null && name === members[idx]) return '我';
-    return name || '';
+    const person = Store.getRoster().find(entry => entry.name === name);
+    const displayName = person && person.displayName || name || '';
+    if (idx != null && name === members[idx]) return displayName === name ? '我' : `我 · ${displayName}`;
+    return displayName;
   }
 
   function memberChip(meta, name) {
@@ -2123,7 +2125,7 @@ window.Render = (() => {
       return `<div class="identity-row ${active ? 'is-active' : ''}"${colorOf(meta, i) ? ` style="--mc:${esc(colorOf(meta, i))}"` : ''}>
         <span class="identity-main">
           <span class="identity-ava">${avatarImg(meta, i)}</span>
-          <span class="identity-name">${esc(person.name)} · ${kind}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
+          <span class="identity-name">${esc(person.displayName || person.name)} · ${kind}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
         </span>
       </div>`;
     }).join('');

@@ -59,6 +59,9 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     assert.equal(data.status, 200);
     const ownerData = await data.json();
     assert.equal(ownerData.trips.length, 1);
+    assert.equal(ownerData.rosters[ownerData.trips[0].id][0].displayName, 'Owner Name');
+    const accountSearch = await fetch(`${origin}/api/users?q=Name`, { headers: { Cookie: cookie } });
+    assert.equal((await accountSearch.json()).users[0].username, 'owner');
     const register = await fetch(`${origin}/api/auth/register`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin },
       body: JSON.stringify({ username: 'visitor', password: 'a secure visitor password' }),

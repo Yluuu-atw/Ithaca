@@ -19,7 +19,7 @@ function createSharing(auth, getDb, commit) {
     const grant = getDb().access[tripId];
     const users = auth.store.get().users;
     return {
-      people: publicRoster(grant),
+      people: publicRoster(grant, users),
       members: Object.entries(grant.members).map(([id, role]) => ({
         id, role, username: (users.find(user => user.id === id) || {}).username || '已删除账号',
       })),

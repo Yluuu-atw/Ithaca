@@ -222,6 +222,13 @@ window.AuthUI = (() => {
     setSession(session);
   }
 
+  async function updateDisplayName(displayName) {
+    if (!currentUser) throw new Error('请先登录');
+    const result = await request('/api/auth/profile', 'PATCH', { displayName });
+    currentUser = result.user;
+    return currentUser;
+  }
+
   async function logout() {
     if (currentUser) await request('/api/auth/logout', 'POST', {});
     await request('/api/temporary/leave', 'POST', {});
@@ -229,5 +236,5 @@ window.AuthUI = (() => {
     location.reload();
   }
 
-  return { start, request, registerPasskey, removePasskey, logout, get user() { return currentUser; }, get temporary() { return currentTemporary; } };
+  return { start, request, registerPasskey, removePasskey, updateDisplayName, logout, get user() { return currentUser; }, get temporary() { return currentTemporary; } };
 })();

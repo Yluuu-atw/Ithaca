@@ -16,7 +16,7 @@ function profileFor(db, userId) {
   return stored || { welcomeTheme: '#f2ece0', memos: [], packingTemplates: defaultDoc().packingTemplates };
 }
 
-function project(db, principal) {
+function project(db, principal, users = []) {
   const profile = profileFor(db, principal && principal.userId);
   const permissions = publicTripRoles(db, principal);
   return {
@@ -25,7 +25,7 @@ function project(db, principal) {
     memos: principal && principal.userId ? structuredClone(profile.memos) : [],
     packingTemplates: principal && principal.userId ? structuredClone(profile.packingTemplates) : [],
     permissions,
-    rosters: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip => [trip.id, publicRoster(db.access[trip.id])])),
+    rosters: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip => [trip.id, publicRoster(db.access[trip.id], users)])),
   };
 }
 

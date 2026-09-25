@@ -78,8 +78,14 @@ function assignAuthors(trip, personId) {
   }
 }
 
-function publicRoster(grant) {
-  return (grant && grant.people || []).map(({ id, kind, userId, name, avatar, color }) => ({ id, kind, userId, name, avatar, color }));
+function publicRoster(grant, users = []) {
+  const byId = new Map(users.map(user => [user.id, user]));
+  return (grant && grant.people || []).map(({ id, kind, userId, name, avatar, color }) => {
+    const person = { id, kind, userId, name, avatar, color };
+    const account = kind === 'formal' && byId.get(userId);
+    if (account && account.displayName) person.displayName = account.displayName;
+    return person;
+  });
 }
 
 function uniquePerson(grant, candidate, excludingId) {
