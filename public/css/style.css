@@ -1893,6 +1893,55 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 .welcome-brand img { display: block; width: clamp(210px, 35vw, 300px); max-width: 100%; height: auto; }
 
+.welcome-journey {
+  width: 100%;
+  padding: 15px;
+  border: 2.5px solid var(--line);
+  border-radius: 22px 255px 20px 225px / 225px 22px 255px 20px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(13px) saturate(1.1);
+  -webkit-backdrop-filter: blur(13px) saturate(1.1);
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+.welcome-journey-head { display: flex; justify-content: space-between; gap: 12px; margin: 0 5px 9px; color: var(--muted); font-size: 13px; font-weight: 700; letter-spacing: .05em; }
+.welcome-trip-primary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 92px;
+  padding: 14px 16px;
+  border: 2px solid var(--primary);
+  border-radius: 15px;
+  background: var(--primary-soft);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.welcome-trip-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.welcome-trip-primary:active { transform: translateY(1px); box-shadow: none; }
+.welcome-trip-icon { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 14px; background: var(--surface); }
+.welcome-trip-icon .emo { width: 35px; height: 35px; }
+.welcome-trip-copy { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.welcome-trip-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 21px; line-height: 1.35; }
+.welcome-trip-copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.welcome-trip-go { flex: none; padding: 8px 12px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 14px; font-weight: 700; }
+.welcome-other-trips { display: flex; align-items: center; gap: 10px; margin: 11px 5px 1px; color: var(--muted); font-size: 13px; }
+.welcome-other-trips > span { flex: none; }
+.welcome-other-trips > div { display: flex; gap: 8px; min-width: 0; overflow: auto; scrollbar-width: none; }
+.welcome-other-trips > div::-webkit-scrollbar { display: none; }
+.welcome-other-trips button { flex: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.welcome-other-trips button:hover { border-color: var(--primary); }
+.welcome-journey-empty { display: flex; align-items: center; flex-direction: column; gap: 8px; padding: 22px 20px; text-align: center; }
+.welcome-empty-mark { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px; background: var(--primary-soft); }
+.welcome-empty-mark .emo { width: 40px; height: 40px; }
+.welcome-journey-empty h1 { margin: 0; font-size: 25px; line-height: 1.35; }
+.welcome-journey-empty p { margin: 0 0 7px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.welcome-journey-empty .welcome-main { max-width: 380px; }
+.welcome-trip-primary:focus-visible, .welcome-other-trips button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+
 /* 方格纹信息卡：手账方格本的底纹，与语录便签的纯色底区分开。
    底色压到半透明并加模糊，能透出后面的插画 */
 .meta-card {
@@ -2201,9 +2250,17 @@ body:not(.is-welcome) .welcome { display: none; }
 @media (max-width: 767px) { .only-mobile { display: inline-flex; } }
 
 @media (max-width: 520px) {
-  .welcome { padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
-  .welcome-inner { gap: 14px; }
+  .welcome { align-items: flex-start; padding: 70px 16px calc(24px + env(safe-area-inset-bottom)); }
+  .welcome-inner { gap: 13px; }
   .welcome-brand img { width: min(230px, 70vw); }
+  .welcome-journey { padding: 12px; }
+  .welcome-trip-primary { min-height: 84px; gap: 10px; padding: 11px; }
+  .welcome-trip-icon { width: 44px; height: 44px; }
+  .welcome-trip-icon .emo { width: 30px; height: 30px; }
+  .welcome-trip-copy strong { font-size: 18px; }
+  .welcome-trip-copy > span { font-size: 12px; }
+  .welcome-trip-go { padding: 7px 9px; font-size: 12px; }
+  .welcome-other-trips { margin-top: 9px; }
   .meta-card { padding: 12px 13px 13px; background-size: 13px 13px; }
   .meta-card > .tape { width: 58px; height: 18px; }
   /* 手机屏宽有限，日期与天气挤进一行靠字号与间距一起收 */
@@ -2221,8 +2278,9 @@ body:not(.is-welcome) .welcome { display: none; }
   .bubble-place { font-size: 14px; }
   .bubble-text { font-size: 18px; line-height: 1.8; }
   .welcome-main { font-size: 20px; padding: 16px 18px; }
-  .welcome-mini { font-size: 15.5px; padding: 13px 10px; }
-  .welcome-mini .emo { width: 20px; height: 20px; }
+  .welcome-sub { gap: 8px; }
+  .welcome-mini { flex-direction: column; gap: 3px; min-height: 70px; padding: 9px 4px; font-size: 14px; line-height: 1.25; white-space: nowrap; }
+  .welcome-mini .emo { width: 22px; height: 22px; }
 
   /* ==== 以下仅手机端，桌面不受影响 ==== */
   /* 内联 SVG 默认按自身 1600×900 渲染，手机上会溢出裁切，先拉回满屏 */
@@ -2380,6 +2438,7 @@ body:not(.is-welcome) .welcome { display: none; }
 :root[data-theme-mode="dark"] .welcome-bubble {
   background: color-mix(in srgb, var(--surface) 82%, transparent);
 }
+:root[data-theme-mode="dark"] .welcome-journey { background: color-mix(in srgb, var(--surface) 88%, transparent); }
 :root[data-theme-mode="dark"] .welcome-mini,
 :root[data-theme-mode="dark"] .welcome-mini:nth-child(1),
 :root[data-theme-mode="dark"] .welcome-mini:nth-child(2) { background: var(--surface-2); }

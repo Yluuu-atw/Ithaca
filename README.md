@@ -10,6 +10,7 @@
 - 邀请正式成员加入旅行，或生成可撤销的匿名只读链接
 - 数据存成 **JSON 文件**；浏览器可导出或导入旅行
 - 个人背景主题在首页和所有旅行页面生效，品牌标志随主题调整，支持深色配色
+- 首页可直接继续上次访问的旅行；手机端针对无旅行、单旅行和多旅行显示对应入口
 - 服务端使用 Node.js 22 及 WebAuthn 验证依赖
 - 图标使用 [Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT）的 3D 样式，已内置在 `public/vendor/fluent-emoji/`
 

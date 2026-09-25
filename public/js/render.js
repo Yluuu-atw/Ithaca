@@ -1865,6 +1865,14 @@ window.Render = (() => {
     const quote = quoteOfToday();
     const shot = quote ? doodleFor({ meta: { destination: quote[0], tripName: '' }, itinerary: [] }) : 'scenes/sky.svg';
     const now = new Date();
+    const trips = Store.listTrips();
+    const recent = trips.find(trip => trip.id === Store.getActiveTripId()) || trips[0];
+    const otherTrips = recent ? trips.filter(trip => trip.id !== recent.id) : [];
+    const details = recent && tripDates(recent);
+    const start = recent && (recent.meta.startDate || details.start);
+    const end = recent && (recent.meta.endDate || details.end);
+    const dateRange = start ? `${fmtDate(start)}${end && end !== start ? ` – ${fmtDate(end)}` : ''}` : '';
+    const tripInfo = recent && [recent.meta.destination, dateRange, (recent.itinerary || []).length ? `${recent.itinerary.length} 天行程` : ''].filter(Boolean).join(' · ');
     // 中国地名用中文软笔书法逐字写，外国城市用英文花体逐词写
     const place = quote ? quote[0] : '';
     const en = quote ? (window.JOURNEY_QUOTE_EN || {})[place] : null;
@@ -1880,6 +1888,21 @@ window.Render = (() => {
       ${spans ? `<div class="brush-name ${isCJK ? 'is-cjk' : 'is-en'}" aria-hidden="true">${spans}</div>` : ''}
       <div class="welcome-inner">
         <div class="welcome-brand"><img data-brand-asset="horizontal" src="brand/logo-horizontal.svg" alt="九州 ITHACA"></div>
+
+        ${recent ? `<section class="welcome-journey" aria-label="旅行快捷入口">
+          <div class="welcome-journey-head"><span>${trips.length === 1 ? '我的旅行' : '最近打开'}</span>${trips.length > 1 ? `<span>共 ${trips.length} 趟旅行</span>` : ''}</div>
+          <button type="button" class="welcome-trip-primary" data-action="trip-open" data-id="${esc(recent.id)}">
+            <span class="welcome-trip-icon"><img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""></span>
+            <span class="welcome-trip-copy"><strong>${esc(recent.meta.tripName || '未命名旅行')}</strong><span>${esc(tripInfo || '开始规划这趟旅行')}</span></span>
+            <span class="welcome-trip-go">继续旅行</span>
+          </button>
+          ${otherTrips.length ? `<div class="welcome-other-trips"><span>快速切换</span><div>${otherTrips.slice(0, 2).map(trip => `<button type="button" data-action="trip-open" data-id="${esc(trip.id)}">${esc(trip.meta.tripName || '未命名旅行')}</button>`).join('')}</div></div>` : ''}
+        </section>` : `<section class="welcome-journey welcome-journey-empty" aria-label="创建旅行">
+          <span class="welcome-empty-mark"><img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""></span>
+          <h1>${AuthUI.user ? '从第一趟旅行开始' : '还没有可访问的旅行'}</h1>
+          <p>${AuthUI.user ? '把行程、花费和想去的地方收进同一本旅行手账。' : '登录正式账号后可创建自己的旅行。'}</p>
+          ${AuthUI.user ? '<button type="button" class="welcome-main" data-action="trip-create">创建我的旅行</button>' : ''}
+        </section>`}
 
         <div class="meta-card">
           <span class="tape" aria-hidden="true"></span>
@@ -1900,19 +1923,15 @@ window.Render = (() => {
         </blockquote>` : ''}
 
         <div class="welcome-actions">
-          <button type="button" class="welcome-main" data-action="welcome-enter">
-            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> ${Store.listTrips().length === 0 && AuthUI.user ? '创建我的旅行' : '查看旅行'}
-          </button>
           <div class="welcome-sub">
-            <button type="button" class="welcome-mini" data-action="welcome-trips">
-              <img class="emo" src="vendor/fluent-emoji/1f4cc.png" alt=""> 管理旅行
-            </button>
+            ${trips.length > 1 ? `<button type="button" class="welcome-mini" data-action="welcome-trips"><img class="emo" src="vendor/fluent-emoji/1f4cc.png" alt=""> 全部旅行</button>` : AuthUI.user && trips.length === 1 ? `<button type="button" class="welcome-mini" data-action="trip-create"><img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> 新建旅行</button>` : ''}
+            ${trips.length ? `
             <button type="button" class="welcome-mini" data-action="welcome-calendar">
               <img class="emo" src="vendor/fluent-emoji/1f4c5.png" alt=""> 旅行日历
-            </button>
-            <button type="button" class="welcome-mini" data-action="welcome-memo">
+            </button>` : ''}
+            ${AuthUI.user ? `<button type="button" class="welcome-mini" data-action="welcome-memo">
               <img class="emo" src="vendor/fluent-emoji/1f5d3.png" alt=""> 备忘录
-            </button>
+            </button>` : ''}
           </div>
         </div>
       </div>`;
