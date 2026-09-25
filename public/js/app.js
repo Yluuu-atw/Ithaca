@@ -32,7 +32,7 @@ window.App = (() => {
       return !!AuthUI.user;
     }
     if (action === 'theme-open' || action === 'theme-pick') {
-      return !!AuthUI.user && (current.view === 'welcome' || Store.canEditTrip());
+      return !!AuthUI.user;
     }
     return Store.canEditTrip(el.dataset.id && Store.getRole(el.dataset.id) ? el.dataset.id : undefined);
   }
@@ -98,7 +98,7 @@ window.App = (() => {
     current.view = view;
     document.body.classList.toggle('is-welcome', view === 'welcome');
     if (view === 'welcome') {
-      // 切回首页要主动应用首页自己的底色；这里没有数据变更，不会走 notify→render
+      // View switches do not notify the store, so reapply the account theme here.
       applyTheme(Store.getWelcomeTheme());
       $('#welcome').innerHTML = Render.renderWelcome();
       Brand.refresh();
@@ -289,8 +289,7 @@ window.App = (() => {
   function render() {
     const data = Store.getState();
     if (!data) return;
-    // 首页与每趟旅行各用各的背景色，互不影响
-    applyTheme(current.view === 'welcome' ? Store.getWelcomeTheme() : (data.meta && data.meta.theme));
+    applyTheme(Store.getWelcomeTheme());
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');
     if (doodleImg) {
@@ -1054,9 +1053,7 @@ window.App = (() => {
       }
 
       case 'theme-open': {
-        const bg = (current.view === 'welcome'
-          ? Store.getWelcomeTheme()
-          : (Store.getState().meta && Store.getState().meta.theme)) || '#f2ece0';
+        const bg = Store.getWelcomeTheme() || '#f2ece0';
         openModal('页面背景', Render.themePicker(bg));
         break;
       }
@@ -1133,7 +1130,7 @@ window.App = (() => {
       } catch (error) { toast(error.message, 'error'); }
       return;
     }
-    if (!Store.canEditTrip() && !(AuthUI.user && (kind === 'memo' || kind.startsWith('tpl-') || (kind === 'theme' && current.view === 'welcome')))) {
+    if (!Store.canEditTrip() && !(AuthUI.user && (kind === 'memo' || kind.startsWith('tpl-') || kind === 'theme'))) {
       toast('这趟旅行是只读的', 'error');
       return;
     }
@@ -1153,11 +1150,7 @@ window.App = (() => {
     if (kind === 'theme') {
       const bg = (fd.get('bg') || '').trim();
       if (bg) {
-        if (current.view === 'welcome') {
-          doDocOp(() => Store.mutateDoc(d => { d.meta.welcomeTheme = bg; }), '首页背景已更新');
-        } else {
-          doMutate(d => { d.meta.theme = bg; }, '背景色已更新');
-        }
+        doDocOp(() => Store.mutateDoc(d => { d.meta.welcomeTheme = bg; }), '个人主题已更新');
       }
       closeModal();
       return;

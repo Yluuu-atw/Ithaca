@@ -7,7 +7,7 @@
 - 用户名密码和通行密钥登录；旅行按所有者、可编辑、只读分配权限
 - 邀请成员加入旅行，或生成可撤销的匿名只读链接
 - 数据存成 **JSON 文件**；浏览器可导出或导入旅行
-- 品牌标志随页面背景色调整，支持深色配色
+- 个人背景主题在首页和所有旅行页面生效，品牌标志随主题调整，支持深色配色
 - 服务端使用 Node.js 22 及 WebAuthn 验证依赖
 - 图标使用 [Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT）的 3D 样式，已内置在 `public/vendor/fluent-emoji/`
 
