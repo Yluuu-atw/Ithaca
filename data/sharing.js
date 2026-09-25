@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const { canManage, canRead } = require('./access');
 const { AccessDeniedError } = require('./document-policy');
+const { personForPrincipal, personalSettlement } = require('./settlement');
 const { usernameKey } = require('./auth');
 const { AVATAR_CHOICES, COLOR_CHOICES, avatarKey, unusedAppearance, formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences, rewritePersonReferences } = require('./people');
 
@@ -58,6 +59,29 @@ function createSharing(auth, getDb, commit) {
       return next;
     });
     return publicRoster({ people: [updated] }, auth.store.get().users)[0];
+  }
+
+  async function updateTransfer(tripId, principal, input) {
+    if (!input || typeof input.key !== 'string' || typeof input.confirmed !== 'boolean') throw new Error('转账状态格式无效');
+    await commit(current => {
+      if (!canRead(current, principal, tripId)) throw new AccessDeniedError();
+      const next = structuredClone(current);
+      const grant = next.access[tripId];
+      const person = personForPrincipal(grant, principal, tripId);
+      if (!person) throw new AccessDeniedError('只有旅行成员可以更新转账状态');
+      const trip = next.trips.find(entry => entry.id === tripId);
+      const plan = personalSettlement(trip, grant, principal);
+      if (!plan.transfers.some(transfer => transfer.key === input.key)) throw new Error('转账项目已发生变化，请刷新后重试');
+      const validKeys = new Set(plan.transfers.map(transfer => transfer.key));
+      person.transferStates = Object.fromEntries(Object.entries(person.transferStates || {})
+        .filter(([key, confirmed]) => validKeys.has(key) && confirmed === true));
+      if (input.confirmed) person.transferStates[input.key] = true;
+      else delete person.transferStates[input.key];
+      next.meta.version = current.meta.version + 1;
+      return next;
+    });
+    const current = getDb();
+    return personalSettlement(current.trips.find(trip => trip.id === tripId), current.access[tripId], principal, auth.store.get().users);
   }
 
   async function setMember(tripId, userId, username, role) {
@@ -301,7 +325,7 @@ function createSharing(auth, getDb, commit) {
     return grant ? { shareTripId: grant[0] } : null;
   }
 
-  return { details, updateProfile, setMember, removeMember, removePerson, replacePerson, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
+  return { details, updateProfile, updateTransfer, setMember, removeMember, removePerson, replacePerson, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
 }
 
 module.exports = { createSharing };

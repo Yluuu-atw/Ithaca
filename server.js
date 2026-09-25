@@ -428,12 +428,16 @@ async function handleSharing(req, res, pathname) {
       if (!session) return sendJSON(res, 403, { error: '只有正式成员可以接受邀请' });
       return sendJSON(res, 200, await sharing.redeem((await readJSON(req)).token, session.user.id));
     }
-    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share|temporary|profile)$/.exec(pathname);
+    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share|temporary|profile|transfers)$/.exec(pathname);
     if (!match) return sendJSON(res, 404, { error: 'Not Found' });
     const [, tripId, action] = match;
     if (action === 'profile' && req.method === 'PATCH') {
       const principal = session ? { userId: session.user.id, username: session.user.username } : temporary;
       return sendJSON(res, 200, await sharing.updateProfile(tripId, principal, await readJSON(req)));
+    }
+    if (action === 'transfers' && req.method === 'PATCH') {
+      const principal = session ? { userId: session.user.id, username: session.user.username } : temporary;
+      return sendJSON(res, 200, await sharing.updateTransfer(tripId, principal, await readJSON(req)));
     }
     if (!session) return sendJSON(res, 403, { error: '只有正式成员可以管理旅行' });
     const userId = session.user.id;

@@ -131,6 +131,28 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
       body: JSON.stringify({ tripNickname: 'Temp', avatar: temporary.person.avatar, color: temporary.person.color }),
     })).status, 200);
     assert.equal((await (await fetch(`${origin}/api/data`, { headers: { Cookie: tempCookie } })).json()).rosters[tripId].find(person => person.id === temporary.person.id).displayName, 'Temp');
+    const settlementDoc = await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json();
+    settlementDoc.trips[0].expenses.push({ id: 'expense_settlement', payer: settlementDoc.trips[0].meta.members[0],
+      participants: [settlementDoc.trips[0].meta.members[0], temporary.person.name], amount: 10 });
+    const settlementSave = await fetch(`${origin}/api/data`, {
+      method: 'PUT', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseVersion: settlementDoc.meta.version, data: settlementDoc }),
+    });
+    assert.equal(settlementSave.status, 200);
+    const tempSettlement = (await (await fetch(`${origin}/api/data`, { headers: { Cookie: tempCookie } })).json()).mySettlements[tripId];
+    assert.equal(tempSettlement.transfers[0].direction, 'out');
+    const transfersUrl = `${origin}/api/trips/${tripId}/transfers`;
+    const transferBody = JSON.stringify({ key: tempSettlement.transfers[0].key, confirmed: true });
+    assert.equal((await fetch(transfersUrl, {
+      method: 'PATCH', headers: { Cookie: tempCookie, Origin: origin, 'Content-Type': 'application/json' }, body: transferBody,
+    })).status, 403);
+    const transferUpdate = await fetch(transfersUrl, {
+      method: 'PATCH', headers: { Cookie: tempCookie, Origin: origin, 'X-CSRF-Token': tempCsrf, 'Content-Type': 'application/json' },
+      body: transferBody,
+    });
+    assert.equal(transferUpdate.status, 200);
+    assert.equal((await transferUpdate.json()).transfers[0].confirmed, true);
+    assert.equal((await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json()).mySettlements[tripId].transfers[0].confirmed, false);
     const shareCreated = await fetch(`${origin}/api/trips/${tripId}/share`, {
       method: 'POST', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' }, body: '{}',
     });
@@ -143,7 +165,9 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     const shareCookie = exchanged.headers.get('set-cookie').split(';')[0];
     const shared = await fetch(`${origin}/api/data`, { headers: { Cookie: shareCookie } });
     assert.equal(shared.status, 200);
-    assert.deepEqual((await shared.json()).permissions, { [tripId]: 'viewer' });
+    const sharedData = await shared.json();
+    assert.deepEqual(sharedData.permissions, { [tripId]: 'viewer' });
+    assert.deepEqual(sharedData.mySettlements, {});
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: shareCookie } })).status, 200);
     assert.equal((await fetch(`${origin}/api/data`, {
       method: 'PUT', headers: { Cookie: shareCookie, Origin: origin, 'Content-Type': 'application/json' }, body: '{}',
