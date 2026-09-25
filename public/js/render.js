@@ -169,6 +169,11 @@ window.Render = (() => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
+  function localNowValue() {
+    const d = new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   function fmtDate(d) {
     if (!d) return '';
     const parts = d.split('-').map(Number);
@@ -1267,7 +1272,7 @@ window.Render = (() => {
     const curCat = item ? (v.category || '其他') : '';
     return `<form data-form="expense">
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
-      <label>时间<input type="datetime-local" name="time" value="${esc(dtValue(v.date, v.time, today()))}"></label>
+      <label>时间<input type="datetime-local" name="time" value="${esc(item ? dtValue(v.date, v.time, today()) : localNowValue())}"></label>
       <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
         <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
