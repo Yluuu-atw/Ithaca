@@ -368,9 +368,13 @@ window.Render = (() => {
     const archivedCount = all.filter(t => t.meta && t.meta.archived).length;
     const list = showArchived ? all : all.filter(t => !(t.meta && t.meta.archived));
 
-    const head = `<div class="list-head">
+    const head = `<div class="list-head trip-list-head">
       <span>共 ${all.length} 趟旅行${archivedCount ? `（${archivedCount} 趟已归档）` : ''}</span>
-      <button class="btn btn-primary" data-action="trip-create">＋ 新建旅行</button>
+      <div class="trip-list-actions">
+        <button class="btn btn-ghost" data-action="export">导出</button>
+        <button class="btn btn-ghost" data-action="import">导入</button>
+        <button class="btn btn-primary" data-action="trip-create">新建旅行</button>
+      </div>
     </div>`;
 
     const bar = archivedCount
@@ -609,6 +613,10 @@ window.Render = (() => {
 
     return `
       <h1 class="trip-title"><span class="tape" aria-hidden="true"></span>${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
+      ${AuthUI.user ? `<div class="overview-tools">
+        <button class="btn btn-ghost btn-sm" data-action="theme-open" title="更换页面背景色"><span class="theme-dot"></span> 背景</button>
+        ${Store.canManageTrip() ? '<button class="btn btn-ghost btn-sm" data-action="share-open"><img class="emo" src="vendor/fluent-emoji/1f517.png" alt=""> 分享</button>' : ''}
+      </div>` : ''}
       <div class="dash-grid">
         <section class="card span-8">
           <div class="card-head">

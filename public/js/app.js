@@ -62,6 +62,7 @@ window.App = (() => {
       return Store.canManageTrip(el.dataset.id);
     }
     if (action === 'tripmgr-edit') return Store.listTrips().some(trip => Store.canManageTrip(trip.id));
+    if (action === 'export') return Store.listTrips().length > 0;
     if (action === 'trip-create' || action === 'import' || action.startsWith('memo-') || action.startsWith('template-') || action === 'welcome-memo') {
       return !!AuthUI.user;
     }
@@ -339,6 +340,7 @@ window.App = (() => {
     const data = Store.getState();
     if (!data) return;
     document.body.dataset.accessRole = Store.getRole() || 'viewer';
+    document.body.dataset.currentTab = current.tab;
     applyTheme(Store.getWelcomeTheme());
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');

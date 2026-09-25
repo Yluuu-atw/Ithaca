@@ -246,12 +246,12 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   z-index: 20;
 }
 .page-title { margin: 0; font-size: 29.5px; font-weight: 700; }
-.topbar-titles { display: flex; flex-direction: column; min-width: 0; }
+.topbar-titles { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 /* 手机上侧栏隐藏，靠这里看到并切换当前旅行；桌面端由侧栏看板承担，故默认隐藏 */
 .topbar-trip { display: none; align-items: center; gap: 5px; max-width: 100%; padding: 0; border: none; background: none; font: inherit; font-size: 15.5px; font-weight: 600; color: var(--primary-600); cursor: pointer; }
 .topbar-trip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-caret { font-size: 12.5px; color: var(--muted); }
-.topbar-actions { display: flex; gap: 8px; }
+.topbar-actions { display: flex; flex: none; gap: 8px; }
 
 .content {
   padding: 26px 32px 56px;
@@ -409,6 +409,8 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   color: var(--muted);
   font-size: 17.5px;
 }
+.trip-list-actions, .overview-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.overview-tools { margin: -4px 0 18px; }
 
 /* ---------------- 统计 ---------------- */
 .stat-grid {
@@ -1687,23 +1689,23 @@ textarea { resize: vertical; min-height: 60px; }
   .tabbar { display: flex; }
 
   /* backdrop-filter 会把顶栏变成 fixed 子元素的包含块，右下角浮动按钮会被困在里面 */
-  .topbar { padding: 13px 16px; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .topbar { padding: 10px 14px; backdrop-filter: none; -webkit-backdrop-filter: none; }
   .topbar-trip { display: inline-flex; }
   .topbar-titles { gap: 1px; }
-  .page-title { font-size: 24px; }
-  .topbar-actions .btn { padding: 7px 12px; font-size: 16.5px; }
-  /* 导出/导入挪到右下角：挤在顶栏会把页面标题压成竖排 */
-  .topbar-actions [data-action="export"],
-  .topbar-actions [data-action="import"] {
-    position: fixed;
-    right: 14px;
-    z-index: 31;
-    box-shadow: var(--shadow-sm);
-  }
-  .topbar-actions [data-action="export"] { bottom: 96px; }
-  .topbar-actions [data-action="import"] { bottom: 141px; }
+  .topbar-trip { max-width: 100%; font-size: 13px; line-height: 1.3; }
+  .page-title { font-size: 22px; line-height: 1.25; white-space: nowrap; }
+  .topbar-actions .btn { min-width: 42px; min-height: 42px; padding: 7px; }
+  body[data-current-tab="trips"] .topbar-trip { display: none; }
+  .trip-list-head { flex-wrap: wrap; }
+  .trip-list-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .trip-list-actions .btn { min-width: 0; padding: 8px 5px; font-size: 14px; }
+  .list-head { flex-wrap: wrap; gap: 8px; }
+  .list-head > span { flex: 1 1 100%; font-size: 15px; }
+  .list-head > .btn { flex: 1 1 auto; }
+  .list-head .head-actions { width: 100%; flex-wrap: wrap; }
+  .list-head .head-actions .btn { flex: 1 1 auto; min-width: 0; }
 
-  .content { padding: 16px 14px 196px; }
+  .content { padding: 16px 14px calc(116px + env(safe-area-inset-bottom)); }
   .dash-grid { grid-template-columns: 1fr; gap: 14px; }
   .dash-grid > .span-4,
   .dash-grid > .span-5,
