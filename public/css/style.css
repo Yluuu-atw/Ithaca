@@ -498,6 +498,27 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .settle-head .settle-adv { font-size: 21px; }
 .settle-head .settle-bar { height: 13px; background: color-mix(in srgb, var(--surface) 72%, transparent); }
 .settle-head .settle-bal { font-size: 14.5px; min-width: 82px; }
+.settle-personal-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-bottom: 18px; }
+.settle-personal-summary strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.settle-personal-summary strong.pos { color: var(--primary-600); }
+.settle-personal-summary strong.neg { color: var(--danger); }
+.settle-personal-summary > span, .settle-personal-hint, .settle-balanced { color: var(--muted); font-size: 13px; }
+.settle-transfer-group + .settle-transfer-group { margin-top: 18px; }
+.settle-transfer-group h2 { margin: 0 0 8px; font-size: 15px; }
+.settle-transfers { display: grid; gap: 8px; }
+.settle-transfer { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.settle-transfer-name { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.settle-transfer-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.settle-transfer-status { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.settle-transfer-status.is-done { color: var(--primary-600); }
+.settle-personal-hint { margin: 14px 0 0; line-height: 1.5; }
+.settle-balanced { margin: 0; }
+
+@media (max-width: 560px) {
+  .settle-transfer { grid-template-columns: minmax(0, 1fr) auto; }
+  .settle-transfer-status { grid-column: 1; }
+  .settle-transfer .btn { grid-column: 2; justify-self: end; }
+}
 
 /* 每日支出与明细共用的大方框 */
 .exp-frame {

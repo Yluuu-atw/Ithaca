@@ -28,6 +28,7 @@ test('daily expense matrix uses trip days and amount-only member columns', () =>
     Store: {
       getIdentity: () => null,
       getRoster: () => [],
+      getMySettlement: () => null,
       CONST: { currencySymbol: { CNY: '¥' } },
     },
     Theme: { DARK_BG: '#202020' },
@@ -45,4 +46,24 @@ test('daily expense matrix uses trip days and amount-only member columns', () =>
   assert.match(matrix, /总支出/);
   assert.match(matrix, /¥26/);
   assert.doesNotMatch(matrix, /2026-08-02|笔|exp-mx-toggle|exp-mx-detail/);
+});
+
+test('ledger shows only current identity transfer actions when a personal plan exists', () => {
+  const context = {
+    window: {},
+    Store: {
+      getMySettlement: () => ({ advancedMinor: 0, owedMinor: 500, balanceMinor: -500,
+        transfers: [{ key: 'out:person_a:500', direction: 'out', otherName: 'Alice', amountMinor: 500, confirmed: false }] }),
+      CONST: { currencySymbol: { CNY: '¥' } },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const html = context.window.Render.renderPage({ id: 'trip_1', meta: { members: [], currency: 'CNY' }, expenses: [], itinerary: [] }, 'bookings');
+  assert.match(html, /我的结算/);
+  assert.match(html, /我需要转给/);
+  assert.match(html, /Alice/);
+  assert.match(html, /data-action="settle-confirm"/);
+  assert.match(html, /标记已转/);
+  assert.match(html, /不会自动转账/);
 });

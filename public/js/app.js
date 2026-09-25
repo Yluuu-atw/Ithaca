@@ -55,6 +55,7 @@ window.App = (() => {
   }
 
   function actionAllowed(action, el) {
+    if (action === 'settle-confirm') return Store.getIdentity() != null;
     if (viewActions.has(action) || action === 'account-open' || action === 'account-logout') return true;
     if (action.startsWith('passkey-')) return !!AuthUI.user;
     if (action === 'share-open' || action.startsWith('share-')) return Store.canManageTrip(el.dataset.id || undefined);
@@ -464,6 +465,12 @@ window.App = (() => {
     if (!actionAllowed(action, el)) { e.preventDefault(); if (el.matches('li.exp-row')) return; toast('没有修改这条内容的权限', 'error'); return; }
 
     switch (action) {
+      case 'settle-confirm':
+        el.disabled = true;
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/transfers`, 'PATCH', {
+          key: el.dataset.key, confirmed: el.dataset.confirmed !== '1',
+        }).then(() => Store.load()).catch(error => { el.disabled = false; toast(error.message, 'error'); });
+        break;
       case 'account-open': accountModal(); break;
       case 'account-logout':
         AuthUI.logout().catch(error => toast(error.message, 'error'));

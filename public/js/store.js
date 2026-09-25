@@ -88,6 +88,7 @@ window.Store = (() => {
   function canManageTrip(id) { return getRole(id) === 'owner'; }
   function getRoster(id) { return (state && state.rosters && state.rosters[id || currentTripId()]) || []; }
   function getAppearanceChoices() { return (state && state.appearanceChoices) || { avatars: [], colors: [] }; }
+  function getMySettlement(id) { return (state && state.mySettlements && state.mySettlements[id || currentTripId()]) || null; }
   function getPersonId() {
     const roster = getRoster();
     const temporary = window.AuthUI && AuthUI.temporary;
@@ -314,7 +315,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getPersonId, canEditRecord, uploadPhoto, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getPersonId, canEditRecord, uploadPhoto, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,

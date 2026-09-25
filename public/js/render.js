@@ -934,10 +934,12 @@ window.Render = (() => {
       </div>`;
     }).join('');
 
-    const summary = `<section class="settle-head">
+    const aggregate = `<section class="settle-head">
       <h1 class="settle-title">${emo('🧾')} 结算</h1>
       <div class="settle-list">${settle}</div>
     </section>`;
+    const mine = Store.getMySettlement(s.id);
+    const summary = mine ? renderPersonalSettlement(s, mine) : aggregate;
 
     // 每日支出与明细装进同一个大方框，中间用手账风剪刀线隔开，明细做成小票
     const matrix = renderExpenseMatrix(s);
@@ -953,6 +955,35 @@ window.Render = (() => {
     const empty = `<div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div>`;
 
     return head + summary + (frame || empty);
+  }
+
+  function renderPersonalSettlement(s, mine) {
+    const currency = s.meta.currency;
+    const net = mine.balanceMinor || 0;
+    const netLabel = net > 0 ? `应收 ${money(net / 100, currency)}`
+      : net < 0 ? `应转 ${money(-net / 100, currency)}` : '已持平';
+    const groups = [
+      { direction: 'out', title: '我需要转给', pending: '待转', done: '已转' },
+      { direction: 'in', title: '我需要收取', pending: '待收', done: '已收到' },
+    ];
+    const rows = groups.map(group => {
+      const transfers = mine.transfers.filter(item => item.direction === group.direction);
+      if (!transfers.length) return '';
+      return `<div class="settle-transfer-group"><h2>${group.title}</h2><div class="settle-transfers">${transfers.map(item => `
+        <div class="settle-transfer">
+          <span class="settle-transfer-name">${esc(item.otherName)}</span>
+          <strong class="settle-transfer-amount">${money(item.amountMinor / 100, currency)}</strong>
+          <span class="settle-transfer-status ${item.confirmed ? 'is-done' : ''}">${item.confirmed ? group.done : group.pending}</span>
+          <button type="button" class="btn btn-sm ${item.confirmed ? 'btn-ghost' : 'btn-primary'}" data-action="settle-confirm" data-key="${esc(item.key)}" data-confirmed="${item.confirmed ? '1' : '0'}" aria-pressed="${item.confirmed}">${item.confirmed ? '撤销标记' : `标记${group.done}`}</button>
+        </div>`).join('')}</div></div>`;
+    }).join('');
+    return `<section class="settle-head settle-personal">
+      <h1 class="settle-title">${emo('🧾')} 我的结算</h1>
+      <div class="settle-personal-summary"><strong class="${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}">${netLabel}</strong>
+        <span>我垫付 ${money(mine.advancedMinor / 100, currency)} · 我应分摊 ${money(mine.owedMinor / 100, currency)}</span></div>
+      ${rows || '<p class="settle-balanced">这趟旅行目前无需与其他成员转账。</p>'}
+      ${rows ? '<p class="settle-personal-hint">转账标记只记录我的状态，不会自动转账，也不会改变对方的状态。</p>' : ''}
+    </section>`;
   }
 
   // Trip day × member amounts; bill details remain in the dated receipts below.
