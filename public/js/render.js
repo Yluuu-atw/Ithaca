@@ -251,6 +251,12 @@ window.Render = (() => {
 
     const balance = {};
     members.forEach(m => balance[m] = (advanced[m] || 0) - (shouldPay[m] || 0));
+    const group = Store.getGroupSettlement && Store.getGroupSettlement(s.id);
+    if (group) members.forEach(m => {
+      advanced[m] = (group.advanced[m] || 0) / 100;
+      shouldPay[m] = (group.shouldPay[m] || 0) / 100;
+      balance[m] = (group.balance[m] || 0) / 100;
+    });
     return { total, advanced, shouldPay, balance, byCategory };
   }
 
@@ -996,6 +1002,8 @@ window.Render = (() => {
     if (!dates.length) return '';
     const cur = s.meta.currency;
     const rows = dates.map((date, index) => {
+      const dayNo = s.meta.startDate && diffDays(s.meta.startDate, date) >= 0
+        ? diffDays(s.meta.startDate, date) + 1 : index + 1;
       const dayExp = s.expenses.filter(e => e.date === date);
       const daySum = dayExp.reduce((a, e) => a + (Number(e.amount) || 0), 0);
       const cells = members.map(name => {
@@ -1003,7 +1011,7 @@ window.Render = (() => {
         const sum = mine.reduce((a, e) => a + (Number(e.amount) || 0), 0);
         return `<td class="exp-mx-cell">${mine.length ? money(sum, cur) : '—'}</td>`;
       }).join('');
-      return `<tr><th scope="row" class="exp-mx-date" title="${esc(fmtDate(date))}">第 ${index + 1} 天</th>${cells}` +
+      return `<tr><th scope="row" class="exp-mx-date" title="${esc(fmtDate(date))}">第 ${dayNo} 天</th>${cells}` +
         `<td class="exp-mx-total">${money(daySum, cur)}</td></tr>`;
     }).join('');
     return `<section class="exp-sec"><h3 class="exp-sec-h">${emo('📊')} 每日支出</h3>

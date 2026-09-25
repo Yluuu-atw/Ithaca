@@ -3,7 +3,7 @@
 const { defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate } = require('./schema');
 const { roleFor, canReadAsset, uploadNames, publicTripRoles } = require('./access');
 const { COLLECTIONS, AVATAR_CHOICES, COLOR_CHOICES, formalPerson, personForUser, publicRoster } = require('./people');
-const { personalSettlement } = require('./settlement');
+const { calculateTransfers, personalSettlement } = require('./settlement');
 
 class AccessDeniedError extends Error {
   constructor(message = '没有访问权限') {
@@ -29,6 +29,12 @@ function project(db, principal, users = []) {
     rosters: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip => [trip.id, publicRoster(db.access[trip.id], users)])),
     mySettlements: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip =>
       [trip.id, personalSettlement(trip, db.access[trip.id], principal, users)]).filter(([, value]) => value)),
+    groupSettlements: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip => {
+      const people = db.access[trip.id].people || [];
+      const plan = calculateTransfers(trip, db.access[trip.id]);
+      const named = amounts => Object.fromEntries(people.map(person => [person.name, amounts[person.id]]));
+      return [trip.id, { advanced: named(plan.advanced), shouldPay: named(plan.owed), balance: named(plan.balance) }];
+    })),
     appearanceChoices: { avatars: AVATAR_CHOICES, colors: COLOR_CHOICES },
   };
 }

@@ -13,9 +13,10 @@ function personForPrincipal(grant, principal, tripId) {
 
 function allocate(cents, people, balance, sign) {
   if (!people.length) return;
-  const each = Math.floor(cents / people.length);
-  const remainder = cents % people.length;
-  people.forEach((person, index) => { balance[person.id] += sign * (each + (index < remainder ? 1 : 0)); });
+  const magnitude = Math.abs(cents);
+  const each = Math.floor(magnitude / people.length);
+  const remainder = magnitude % people.length;
+  people.forEach((person, index) => { balance[person.id] += sign * Math.sign(cents) * (each + (index < remainder ? 1 : 0)); });
 }
 
 function calculateTransfers(trip, grant) {
@@ -26,7 +27,7 @@ function calculateTransfers(trip, grant) {
   const byName = new Map(people.map(person => [person.name, person]));
   for (const expense of trip.expenses || []) {
     const amount = Number(expense.amount);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
+    if (!Number.isFinite(amount) || amount === 0) continue;
     const cents = Math.round(amount * 100);
     if (!cents) continue;
     const payer = byName.get(expense.payer || people[0] && people[0].name);

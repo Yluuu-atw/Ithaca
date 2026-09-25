@@ -31,6 +31,9 @@ test('settlement allocates cents deterministically and keeps confirmations priva
   const guest = { tempTripId: trip.id, tempPersonId: 'person_temp_guest' };
   const ownerView = project(db, owner, auth.store.get().users);
   const viewerView = project(db, viewer, auth.store.get().users);
+  assert.equal(ownerView.groupSettlements[trip.id].balance.Alice, 667);
+  assert.equal(ownerView.groupSettlements[trip.id].shouldPay.Alice, 334);
+  assert.equal(project(db, { shareTripId: trip.id }).groupSettlements[trip.id].balance.Bob, -334);
   const ownerTransfer = ownerView.mySettlements[trip.id].transfers[0];
   const viewerTransfer = viewerView.mySettlements[trip.id].transfers[0];
   assert.equal(ownerTransfer.direction, 'in');
@@ -49,4 +52,17 @@ test('settlement allocates cents deterministically and keeps confirmations priva
   db.trips[0].expenses[0].amount = 12.01;
   assert.equal(project(db, viewer).mySettlements[trip.id].transfers[0].confirmed, false);
   await assert.rejects(sharing.updateTransfer(trip.id, viewer, { key: viewerTransfer.key, confirmed: true }), /转账项目已发生变化/);
+});
+
+test('a refund reverses the same per-member allocation', () => {
+  const db = claimLegacy(defaultDoc(), 'owner');
+  const trip = db.trips[0];
+  const grant = db.access[trip.id];
+  trip.expenses = [
+    { payer: trip.meta.members[0], participants: trip.meta.members.slice(), amount: 10.01 },
+    { payer: trip.meta.members[0], participants: trip.meta.members.slice(), amount: -10.01 },
+  ];
+  const plan = calculateTransfers(trip, grant);
+  assert.deepEqual(plan.transfers, []);
+  assert.ok(Object.values(plan.balance).every(value => value === 0));
 });

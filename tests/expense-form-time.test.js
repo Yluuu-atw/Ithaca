@@ -35,17 +35,17 @@ test('daily expense matrix uses trip days and amount-only member columns', () =>
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
   const state = {
-    meta: { members: ['Alice', 'Bob'], avatars: ['😎', '🐱'], colors: ['#c4714b', '#7d94a8'], currency: 'CNY' },
-    itinerary: [{ date: '2026-08-01' }, { date: '2026-08-02' }],
-    expenses: [{ id: 'e1', date: '2026-08-02', time: '12:00', payer: 'Alice', amount: 26, title: 'Lunch' }],
+    meta: { members: ['Alice', 'Bob'], avatars: ['😎', '🐱'], colors: ['#c4714b', '#7d94a8'], currency: 'CNY', startDate: '2026-08-01' },
+    itinerary: [{ date: '2026-08-01' }, { date: '2026-08-03' }],
+    expenses: [{ id: 'e1', date: '2026-08-03', time: '12:00', payer: 'Alice', amount: 26, title: 'Lunch' }],
   };
   const html = context.window.Render.renderPage(state, 'bookings');
   const matrix = html.match(/<div class="exp-mx-scroll"[\s\S]*?<\/table>/)[0];
   assert.match(matrix, /第 1 天/);
-  assert.match(matrix, /第 2 天/);
+  assert.match(matrix, /第 3 天/);
   assert.match(matrix, /总支出/);
   assert.match(matrix, /¥26/);
-  assert.doesNotMatch(matrix, /2026-08-02|笔|exp-mx-toggle|exp-mx-detail/);
+  assert.doesNotMatch(matrix, /2026-08-03|笔|exp-mx-toggle|exp-mx-detail/);
 });
 
 test('ledger shows only current identity transfer actions when a personal plan exists', () => {
@@ -66,4 +66,22 @@ test('ledger shows only current identity transfer actions when a personal plan e
   assert.match(html, /data-action="settle-confirm"/);
   assert.match(html, /标记已转/);
   assert.match(html, /不会自动转账/);
+});
+
+test('aggregate settlement uses server cents so it agrees with personal transfers', () => {
+  const context = {
+    window: {},
+    Store: {
+      getMySettlement: () => null,
+      getGroupSettlement: () => ({ advanced: { Alice: 1000, Bob: 0 }, shouldPay: { Alice: 501, Bob: 499 }, balance: { Alice: 499, Bob: -499 } }),
+      getIdentity: () => null,
+      getRoster: () => [],
+      CONST: { currencySymbol: { CNY: '¥' } },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const html = context.window.Render.renderPage({ id: 'trip_1', meta: { members: ['Alice', 'Bob'], currency: 'CNY' }, expenses: [], itinerary: [] }, 'bookings');
+  assert.match(html, /应收 ¥4\.99/);
+  assert.match(html, /应补 ¥4\.99/);
 });
