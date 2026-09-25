@@ -31,4 +31,8 @@ test('trip profile choices hide another member’s appearance and retain the cur
   assert.match(html, /vendor\/fluent-emoji\/1f60e.png/);
   const identity = context.window.Render.identityPicker({ meta: { members: ['owner', 'other'], avatars: ['😎', '🐱'], colors: ['#c4714b', '#7d94a8'] } });
   assert.match(identity, /data-action="trip-profile-open"/);
+  store.getAppearanceChoices = () => ({ avatars: ['😎', '🐱'], colors: ['#c4714b', '#7d94a8'] });
+  const exhausted = context.window.Render.tripProfileEditor(roster[0], 'Account Name');
+  assert.match(exhausted, /当前旅行没有其他可用头像/);
+  assert.match(exhausted, /当前旅行没有其他可用颜色/);
 });

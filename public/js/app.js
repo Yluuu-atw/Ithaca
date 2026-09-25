@@ -204,9 +204,12 @@ window.App = (() => {
       <button class="btn btn-ghost" data-action="account-logout">退出登录</button></div>`);
   }
 
-  function openTripProfile() {
+  async function openTripProfile() {
+    await Store.load();
+    const choices = Store.getAppearanceChoices();
+    if (!choices.avatars.length || !choices.colors.length) throw new Error('头像和颜色选项加载失败，请重试');
     const person = Store.getRoster()[Store.getIdentity()];
-    if (!person) return;
+    if (!person) throw new Error('当前身份已失效，请刷新');
     const account = AuthUI.user;
     const inheritedName = person.kind === 'formal' && account ? account.displayName || account.username : person.name;
     openModal('我的旅行资料', Render.tripProfileEditor(person, inheritedName));
@@ -1082,7 +1085,7 @@ window.App = (() => {
         break;
 
       case 'trip-profile-open':
-        openTripProfile();
+        openTripProfile().catch(error => toast(error.message, 'error'));
         break;
 
       case 'trip-profile-avatar':

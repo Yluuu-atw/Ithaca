@@ -2208,8 +2208,8 @@ window.Render = (() => {
       <input type="hidden" name="inheritNickname" value="${inherited ? '1' : '0'}">
       <p class="field-hint">默认使用${defaultLabel}「${esc(inheritedName)}」；修改后只影响这趟旅行。</p>
       <button type="button" class="btn btn-ghost btn-sm profile-reset" data-action="trip-profile-reset">恢复跟随${defaultLabel}</button>
-      <fieldset class="profile-choice-group"><legend>头像</legend><input type="hidden" name="avatar" value="${esc(person.avatar)}"><div class="profile-avatar-choices">${avatarOptions}</div></fieldset>
-      <fieldset class="profile-choice-group"><legend>颜色</legend><input type="hidden" name="color" value="${esc(person.color)}"><div class="profile-color-choices">${colorOptions}</div></fieldset>
+      <fieldset class="profile-choice-group"><legend>头像</legend><input type="hidden" name="avatar" value="${esc(person.avatar)}"><div class="profile-avatar-choices">${avatarOptions}</div>${avatars.length === 1 ? '<p class="field-hint">当前旅行没有其他可用头像。</p>' : ''}</fieldset>
+      <fieldset class="profile-choice-group"><legend>颜色</legend><input type="hidden" name="color" value="${esc(person.color)}"><div class="profile-color-choices">${colorOptions}</div>${colors.length === 1 ? '<p class="field-hint">当前旅行没有其他可用颜色。</p>' : ''}</fieldset>
       <p class="field-hint">其他成员使用过的头像和颜色不会出现在这里。</p>
       <div class="form-actions"><button class="btn btn-primary" type="submit">保存旅行资料</button><button class="btn btn-ghost" type="button" data-action="switch-identity">返回成员</button></div>
     </form>`;
