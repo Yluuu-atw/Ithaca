@@ -22,10 +22,11 @@
       <p id="authHint">登录后查看和管理你的旅行。</p>
       <form id="authForm">
         <label>用户名<input name="username" autocomplete="username" required minlength="3" maxlength="40"></label>
-        <label>密码<input name="password" type="password" autocomplete="current-password" minlength="12" required></label>
-        <button class="btn btn-primary" type="submit" id="authSubmit">登录</button>
+        <label id="authPasswordRow" hidden>密码<input name="password" type="password" autocomplete="current-password" minlength="12"></label>
+        <button class="btn btn-primary" type="submit" id="authSubmit">继续</button>
       </form>
-      <button class="btn btn-ghost" type="button" id="passkeyLogin">使用通行密钥登录</button>
+      <button class="btn btn-ghost" type="button" id="passkeyLogin" hidden>重试通行密钥</button>
+      <button class="auth-switch" type="button" id="authBack" hidden>使用其他账号</button>
       <button class="auth-switch" type="button" id="authSwitch">没有账号？注册</button>
       <p class="auth-error" id="authError" role="alert"></p>
     </div>

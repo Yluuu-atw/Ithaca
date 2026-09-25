@@ -5,7 +5,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createAuthStore } = require('./auth-store');
 
-const SESSION_MS = 14 * 24 * 60 * 60 * 1000;
+const configuredDays = Number(process.env.ITHACA_SESSION_DAYS || 30);
+const SESSION_DAYS = Number.isInteger(configuredDays) && configuredDays >= 1 && configuredDays <= 90 ? configuredDays : 30;
+const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
 const SETUP_MS = 24 * 60 * 60 * 1000;
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 
@@ -151,4 +153,4 @@ function createAuth(file, setupFile) {
   return { store, register, setup, finishSetup, login, createSession, resolve, logout, prepareSetup };
 }
 
-module.exports = { createAuth, digest, publicUser, usernameKey, passwordRecord, verifyPassword };
+module.exports = { createAuth, digest, publicUser, usernameKey, passwordRecord, verifyPassword, SESSION_DAYS };

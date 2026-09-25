@@ -97,6 +97,15 @@
   box-shadow: var(--shadow);
   display: grid;
   gap: 14px;
+  animation: auth-arrive .32s ease-out both;
+}
+@keyframes auth-arrive {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+#authPasswordRow:not([hidden]) { animation: auth-arrive .24s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-card, #authPasswordRow:not([hidden]) { animation: none; }
 }
 .auth-logo { display: block; width: min(100%, 255px); margin: 0 auto 6px; }
 .auth-card h1 { margin: 0; font-size: 25px; text-align: center; }

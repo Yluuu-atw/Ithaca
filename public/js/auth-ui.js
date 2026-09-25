@@ -6,6 +6,8 @@ window.AuthUI = (() => {
   let setupToken = '';
   let inviteToken = '';
   let linkError = '';
+  let loginStep = 'account';
+  let hasPasskey = false;
 
   function errorText(message) {
     document.getElementById('authError').textContent = message || '';
@@ -29,6 +31,9 @@ window.AuthUI = (() => {
     currentUser = session.user || null;
     csrf = session.csrf || '';
     Store.setCsrf(csrf);
+    if (currentUser && currentUser.username) {
+      try { localStorage.setItem('ithaca.lastUsername', currentUser.username); } catch (_) {}
+    }
   }
 
   async function finishInvitation() {
@@ -45,18 +50,73 @@ window.AuthUI = (() => {
     document.getElementById('authHint').textContent = setup
       ? '此链接用于认领现有旅行。请设置至少 12 位密码。'
       : inviteToken ? '先登录或注册，再加入受邀旅行。' : '登录后查看和管理你的旅行。';
-    document.getElementById('authSubmit').textContent = register ? '创建账号' : '登录';
-    document.getElementById('passkeyLogin').hidden = register;
+    loginStep = register ? 'password' : 'account';
+    hasPasskey = false;
+    document.getElementById('authSubmit').textContent = register ? '创建账号' : '继续';
+    document.getElementById('authPasswordRow').hidden = !register;
+    document.getElementById('passkeyLogin').hidden = true;
+    document.getElementById('authBack').hidden = true;
     document.getElementById('authSwitch').hidden = setup;
     document.getElementById('authSwitch').textContent = register ? '已有账号？登录' : '没有账号？注册';
     document.getElementById('authForm').dataset.mode = register ? 'register' : 'login';
-    document.querySelector('#authForm [name=password]').autocomplete = register ? 'new-password' : 'current-password';
+    const password = document.querySelector('#authForm [name=password]');
+    password.autocomplete = register ? 'new-password' : 'current-password';
+    password.required = register;
+    document.querySelector('#authForm [name=username]').readOnly = false;
     errorText(linkError);
+  }
+
+  function showPassword(message) {
+    loginStep = 'password';
+    const field = document.getElementById('authPasswordRow');
+    field.hidden = false;
+    field.querySelector('input').required = true;
+    document.querySelector('#authForm [name=username]').readOnly = true;
+    document.getElementById('authSubmit').textContent = '登录';
+    document.getElementById('passkeyLogin').hidden = !hasPasskey;
+    document.getElementById('authBack').hidden = false;
+    document.getElementById('authHint').textContent = message || '请输入密码登录。';
+    field.querySelector('input').focus();
+  }
+
+  function finishLogin(session, complete) {
+    setSession(session);
+    setupToken = '';
+    return finishInvitation().then(() => {
+      document.getElementById('authGate').hidden = true;
+      complete(session);
+    });
+  }
+
+  async function beginLogin(complete) {
+    const username = document.querySelector('#authForm [name=username]').value.trim();
+    if (!username) return;
+    const button = document.getElementById('authSubmit');
+    button.disabled = true;
+    errorText('');
+    try {
+      if (!SimpleWebAuthnBrowser.browserSupportsWebAuthn()) {
+        showPassword();
+        return;
+      }
+      const ceremony = await request('/api/passkeys/login/options', 'POST', { username });
+      hasPasskey = true;
+      document.getElementById('authHint').textContent = '请在设备上验证通行密钥。';
+      const response = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: ceremony.options });
+      const session = await request('/api/passkeys/login/verify', 'POST', { username, flowId: ceremony.flowId, response });
+      await finishLogin(session, complete);
+    } catch (error) {
+      showPassword(hasPasskey ? '通行密钥未完成验证，也可以输入密码登录。' : '请输入密码登录。');
+      if (hasPasskey) errorText(error.message);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function submit(event, complete) {
     event.preventDefault();
     const form = event.currentTarget;
+    if (form.dataset.mode === 'login' && loginStep === 'account') return beginLogin(complete);
     const button = document.getElementById('authSubmit');
     const values = new FormData(form);
     const username = String(values.get('username') || '').trim();
@@ -66,11 +126,7 @@ window.AuthUI = (() => {
     errorText('');
     try {
       const session = await request(endpoint, 'POST', { username, password, ...(setupToken ? { token: setupToken } : {}) });
-      setSession(session);
-      setupToken = '';
-      await finishInvitation();
-      document.getElementById('authGate').hidden = true;
-      complete(session);
+      await finishLogin(session, complete);
     } catch (error) {
       errorText(error.message);
     } finally {
@@ -79,19 +135,7 @@ window.AuthUI = (() => {
   }
 
   async function passkeyLogin(complete) {
-    errorText('');
-    try {
-      if (!SimpleWebAuthnBrowser.browserSupportsWebAuthn()) throw new Error('此浏览器不支持通行密钥');
-      const username = document.querySelector('#authForm [name=username]').value.trim();
-      if (!username) throw new Error('请先填写用户名');
-      const ceremony = await request('/api/passkeys/login/options', 'POST', { username });
-      const response = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: ceremony.options });
-      const session = await request('/api/passkeys/login/verify', 'POST', { username, flowId: ceremony.flowId, response });
-      setSession(session);
-      await finishInvitation();
-      document.getElementById('authGate').hidden = true;
-      complete(session);
-    } catch (error) { errorText(error.message); }
+    await beginLogin(complete);
   }
 
   async function start() {
@@ -120,8 +164,13 @@ window.AuthUI = (() => {
     }
     return new Promise(resolve => {
       show(setupToken ? 'register' : 'login');
+      try { document.querySelector('#authForm [name=username]').value = localStorage.getItem('ithaca.lastUsername') || ''; } catch (_) {}
       document.getElementById('authForm').addEventListener('submit', event => submit(event, resolve));
       document.getElementById('passkeyLogin').addEventListener('click', () => passkeyLogin(resolve));
+      document.getElementById('authBack').addEventListener('click', () => {
+        show('login');
+        document.querySelector('#authForm [name=username]').focus();
+      });
       document.getElementById('authSwitch').addEventListener('click', () => {
         const current = document.getElementById('authForm').dataset.mode;
         show(current === 'register' ? 'login' : 'register');

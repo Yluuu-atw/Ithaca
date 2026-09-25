@@ -21,7 +21,7 @@ const os = require('os');
 const crypto = require('crypto');
 const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
 const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
-const { createAuth } = require('./data/auth');
+const { createAuth, SESSION_DAYS } = require('./data/auth');
 const { createPasskeys } = require('./data/passkeys');
 const { createSharing } = require('./data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
@@ -300,7 +300,7 @@ async function handleAuth(req, res, pathname) {
       await auth.finishSetup(user.id);
     }
     const session = await auth.createSession(user.id);
-    return sendJSON(res, 200, { user, csrf: session.csrf }, { 'Set-Cookie': sessionCookie(session.token) });
+    return sendJSON(res, 200, { user, csrf: session.csrf }, { 'Set-Cookie': sessionCookie(session.token, SESSION_DAYS * 24 * 60 * 60) });
   } catch (error) {
     return sendJSON(res, 400, { error: error.message });
   }
@@ -335,7 +335,7 @@ async function handlePasskeys(req, res, pathname) {
     if (pathname === '/api/passkeys/login/verify') {
       const user = await passkeys.authenticate(body.username, body.flowId, body.response);
       const next = await auth.createSession(user.id);
-      return sendJSON(res, 200, { user, csrf: next.csrf }, { 'Set-Cookie': sessionCookie(next.token) });
+      return sendJSON(res, 200, { user, csrf: next.csrf }, { 'Set-Cookie': sessionCookie(next.token, SESSION_DAYS * 24 * 60 * 60) });
     }
     return sendJSON(res, 404, { error: 'Not Found' });
   } catch (error) {

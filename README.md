@@ -41,7 +41,7 @@ npm start
 
 首次启动会在 `.local/setup-token` 生成一次性设置令牌。已有旅行数据时，使用 `http://localhost:3000/#setup=<令牌>` 创建所有者账号并认领旅行；令牌不要发给其他人。没有旧旅行也可以从页面直接注册。
 
-通行密钥在「账号」中添加，登录时可选择「使用通行密钥登录」。设备可提供 Apple 密码、Face ID、Touch ID、指纹或跨设备扫码；验证方式取决于浏览器和设备。公网使用时需配置 HTTPS 与准确的 `ITHACA_ORIGIN`，例如 `https://ithaca.example.com`。
+通行密钥在「账号」中添加。登录时先输入用户名；已有通行密钥的账号会直接请求设备验证，失败后可改用密码。密码输入后按回车即可登录。设备可提供 Apple 密码、Face ID、Touch ID、指纹或跨设备扫码；验证方式取决于浏览器和设备。公网使用时需配置 HTTPS 与准确的 `ITHACA_ORIGIN`，例如 `https://ithaca.example.com`。登录默认保持 30 天，可用 `ITHACA_SESSION_DAYS=1` 至 `90` 调整；会记住上次登录的用户名，不保存密码。
 
 > 换端口：`PORT=8080 ITHACA_ORIGIN=http://localhost:8080 npm start`
 
