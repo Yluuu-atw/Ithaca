@@ -25,6 +25,15 @@ function usernameKey(value) {
   return { name, key: name.toLocaleLowerCase('en-US') };
 }
 
+function normalizeDisplayName(value) {
+  if (typeof value !== 'string') throw new Error('昵称格式无效');
+  const name = value.trim().normalize('NFC');
+  if (Array.from(name).length > 40 || /[\p{Cc}\p{Cf}]/u.test(name)) {
+    throw new Error('昵称最多 40 个字符，不能包含控制字符');
+  }
+  return name;
+}
+
 function validatePassword(password) {
   if (typeof password !== 'string' || password.length < 12 || password.length > 256) {
     throw new Error('密码长度需为 12–256 个字符');
@@ -52,7 +61,8 @@ async function verifyPassword(password, record) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, passkeys: (user.passkeys || []).map(({ id, label, createdAt }) => ({ id, label, createdAt })) };
+  return { id: user.id, username: user.username, displayName: user.displayName || user.username,
+    passkeys: (user.passkeys || []).map(({ id, label, createdAt }) => ({ id, label, createdAt })) };
 }
 
 function createAuth(file, setupFile) {
@@ -112,6 +122,19 @@ function createAuth(file, setupFile) {
     return publicUser(user);
   }
 
+  async function updateDisplayName(userId, value) {
+    const name = normalizeDisplayName(value);
+    let updated;
+    await store.mutate(state => {
+      const user = state.users.find(candidate => candidate.id === userId);
+      if (!user) throw new Error('用户不存在');
+      if (name && name !== user.username) user.displayName = name;
+      else delete user.displayName;
+      updated = publicUser(user);
+    });
+    return updated;
+  }
+
   async function createSession(userId) {
     const token = randomToken();
     const csrf = randomToken();
@@ -150,7 +173,7 @@ function createAuth(file, setupFile) {
     return token;
   }
 
-  return { store, register, setup, finishSetup, login, createSession, resolve, logout, prepareSetup };
+  return { store, register, setup, finishSetup, login, updateDisplayName, createSession, resolve, logout, prepareSetup };
 }
 
 module.exports = { createAuth, digest, publicUser, usernameKey, passwordRecord, verifyPassword, SESSION_DAYS };

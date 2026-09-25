@@ -44,3 +44,22 @@ test('an unrelated registrant cannot claim legacy trips without the operator tok
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('display name changes keep the account identifier and session stable', async () => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '../.local/display-name-'));
+  try {
+    const auth = createAuth(path.join(dir, 'auth.json'));
+    const user = await auth.register('饼饼饼', 'a long private password');
+    const { token } = await auth.createSession(user.id);
+    assert.equal(user.displayName, '饼饼饼');
+    assert.equal((await auth.updateDisplayName(user.id, ' 饼饼 ')).displayName, '饼饼');
+    assert.equal(auth.resolve(token).user.displayName, '饼饼');
+    assert.equal((await auth.login('饼饼饼', 'a long private password')).id, user.id);
+    await assert.rejects(auth.login('饼饼', 'a long private password'), /用户名或密码错误/);
+    await assert.rejects(auth.updateDisplayName(user.id, 'bad\nname'), /控制字符/);
+    assert.equal(auth.resolve(token).user.displayName, '饼饼');
+    assert.equal((await auth.updateDisplayName(user.id, ' ')).displayName, '饼饼饼');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

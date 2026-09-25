@@ -44,6 +44,17 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     assert.equal(setup.status, 200);
     const cookie = setup.headers.get('set-cookie').split(';')[0];
     const { csrf } = await setup.json();
+    const profilePath = `${origin}/api/auth/profile`;
+    const profileBody = JSON.stringify({ displayName: 'Owner Name' });
+    assert.equal((await fetch(profilePath, {
+      method: 'PATCH', headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' }, body: profileBody,
+    })).status, 403);
+    const profile = await fetch(profilePath, {
+      method: 'PATCH', headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: profileBody,
+    });
+    assert.equal(profile.status, 200);
+    assert.equal((await profile.json()).user.displayName, 'Owner Name');
+    assert.equal((await (await fetch(`${origin}/api/auth/me`, { headers: { Cookie: cookie } })).json()).user.displayName, 'Owner Name');
     const data = await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } });
     assert.equal(data.status, 200);
     const ownerData = await data.json();

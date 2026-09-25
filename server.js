@@ -287,6 +287,21 @@ async function handleAuth(req, res, pathname) {
     const session = auth.resolve(cookieValue(req, COOKIE_NAME));
     return session ? sendJSON(res, 200, session) : sendJSON(res, 401, { error: '请先登录' });
   }
+  if (pathname === '/api/auth/profile') {
+    if (req.method !== 'PATCH') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+    if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+    const session = auth.resolve(cookieValue(req, COOKIE_NAME));
+    if (!session) return sendJSON(res, 401, { error: '请先登录' });
+    if (req.headers['x-csrf-token'] !== session.csrf) return sendJSON(res, 403, { error: '安全令牌无效' });
+    try {
+      const body = await readJSON(req);
+      const user = await auth.updateDisplayName(session.user.id, body.displayName);
+      broadcast();
+      return sendJSON(res, 200, { user });
+    } catch (error) {
+      return sendJSON(res, 400, { error: error.message });
+    }
+  }
   if (!['/api/auth/register', '/api/auth/login', '/api/auth/logout', '/api/auth/setup'].includes(pathname)) return false;
   if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
   if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
