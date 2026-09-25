@@ -57,8 +57,6 @@ window.Store = (() => {
   let statusHandler = null;
   let es = null;
   let csrf = '';
-  let whoami = null; // 本设备的成员索引（0=男方, 1=女方），存 localStorage
-  try { const w = localStorage.getItem('journey.whoami'); if (w != null) whoami = Number(w); } catch (_) {}
 
   // 本设备当前看的是哪趟旅行。存在 localStorage 而不是文档里，
   // 两人可以同时看不同的旅行而互不干扰。
@@ -263,7 +261,6 @@ window.Store = (() => {
   function deleteTrip(id) {
     return mutateDoc((doc) => {
       doc.trips = doc.trips.filter(t => t.id !== id);
-      if (!doc.trips.length) doc.trips.push({ id: uid('trip'), meta: { tripName: '我们的旅行', members: ['我', '她'], archived: false }, itinerary: [], expenses: [], checklist: [], wishlist: [], tracks: [], photos: [], places: [], bookings: [], guides: [] });
     }).then((r) => {
       if (activeTrip === id) { activeTrip = null; try { localStorage.removeItem('journey.activeTrip'); } catch (_) {} }
       return r;
@@ -279,7 +276,8 @@ window.Store = (() => {
 
   function getIdentity() {
     const personId = getPersonId();
-    return personId ? getRoster().findIndex(person => person.id === personId) : null;
+    const index = personId ? getRoster().findIndex(person => person.id === personId) : -1;
+    return index < 0 ? null : index;
   }
 
   // 记在本设备而非文档里，两人可以各收各的
@@ -290,11 +288,6 @@ window.Store = (() => {
     boardOpen = !!v;
     try { localStorage.setItem('journey.boardOpen', boardOpen ? '1' : '0'); } catch (_) {}
     notify();
-  }
-
-  function setIdentity(i) {
-    // The authenticated principal determines identity; browser-selected indices are ignored.
-    void i;
   }
 
   // 上传照片，返回服务端生成的 URL
@@ -323,7 +316,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, setIdentity, getRoster, getPersonId, canEditRecord, uploadPhoto, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getPersonId, canEditRecord, uploadPhoto, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,

@@ -99,7 +99,7 @@ window.Render = (() => {
     return i < 0 ? '' : colorOf(meta, i);
   }
 
-  // 成员显示名：本设备自己显示「我」，对方显示实际昵称
+  // The authenticated account or temporary link determines the current member.
   function dispName(members, name) {
     const idx = Store.getIdentity();
     if (idx != null && name === members[idx]) return '我';
@@ -564,7 +564,7 @@ window.Render = (() => {
     return `<section class="card span-4">
       <div class="card-head">
         <h2>${emo('👥')} 成员</h2>
-        <button class="btn btn-ghost btn-sm" data-action="switch-identity">${Store.canEditTrip() ? '管理' : '查看'}</button>
+        <button class="btn btn-ghost btn-sm" data-action="switch-identity">${Store.canManageTrip() ? '管理' : '查看'}</button>
       </div>
       <div class="member-tiles">${chips || '<p class="empty small">还没有成员</p>'}</div>
     </section>`;
@@ -1338,7 +1338,7 @@ window.Render = (() => {
         <label>分类<select name="category">${cats.map(c => `<option ${item && c === (v.category || '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
         <label>谁带${memberPicker(members, item ? v.owner : undefined, Store.getState().meta, 'owner')}</label>
       </div>
-      ${item ? '' : `<label class="chk"><input type="checkbox" name="saveToTpl" checked><span class="chk-box"></span><span class="chk-name">同时存入当前模板</span></label>`}
+      ${item || Store.getRole() === 'temporary' ? '' : `<label class="chk"><input type="checkbox" name="saveToTpl" checked><span class="chk-box"></span><span class="chk-name">同时存入当前模板</span></label>`}
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '添加'}</button></div>
     </form>`;
   }
@@ -1901,7 +1901,7 @@ window.Render = (() => {
 
         <div class="welcome-actions">
           <button type="button" class="welcome-main" data-action="welcome-enter">
-            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> ${Store.canEditTrip() ? '创建我的旅行' : '查看旅行'}
+            <img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""> ${Store.listTrips().length === 0 && AuthUI.user ? '创建我的旅行' : '查看旅行'}
           </button>
           <div class="welcome-sub">
             <button type="button" class="welcome-mini" data-action="welcome-trips">
@@ -1987,7 +1987,7 @@ window.Render = (() => {
   // ---------------- 管理旅行 ----------------
   function renderTripsManager(trips, editing) {
     const list = (trips || []);
-    if (!list.length) return '<div class="memo-empty">还没有旅行，先去创建一趟吧</div>';
+    if (!list.length) return '<div class="memo-empty">还没有旅行</div><div class="form-actions"><button type="button" class="btn btn-primary" data-action="trip-create">创建我的旅行</button></div>';
     const rows = list.map((t, i) => {
       const m = t.meta || {};
       const days = (t.itinerary || []).length;
@@ -2088,49 +2088,23 @@ window.Render = (() => {
   // ---------------- 身份选择器 ----------------
   function identityPicker(trip) {
     const meta = (trip && trip.meta) || {};
-    const members = meta.members || [];
+    const people = Store.getRoster();
     const idx = Store.getIdentity();
-    // 有账目/负责记录的成员不允许删，否则历史会指向不存在的人
-    const usedBy = (name) => (trip.expenses || []).some(e => e.payer === name)
-      || (trip.bookings || []).some(b => b.payer === name)
-      || (trip.checklist || []).some(c => c.owner === name);
-    const rows = members.map((m, i) => {
+    const rows = people.map((person, i) => {
       const active = idx === i;
-      const used = usedBy(m);
+      const kind = person.kind === 'temporary' ? '临时成员' : person.kind === 'legacy' ? '待关联' : '正式成员';
       return `<div class="identity-row ${active ? 'is-active' : ''}"${colorOf(meta, i) ? ` style="--mc:${esc(colorOf(meta, i))}"` : ''}>
-        <button class="identity-main" data-action="identity-pick" data-idx="${i}">
+        <span class="identity-main">
           <span class="identity-ava">${avatarImg(meta, i)}</span>
-          <span class="identity-name">${esc(m)}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
-        </button>
-        <button class="icon-btn" data-action="member-edit" data-idx="${i}" title="改昵称/头像/颜色">✎</button>
-        <button class="icon-btn danger" data-action="member-del" data-idx="${i}" title="${used ? '名下还有记录，不能删除' : '删除'}" ${used ? 'disabled' : ''}>✕</button>
+          <span class="identity-name">${esc(person.name)} · ${kind}${active ? '<span class="identity-now">这是我</span>' : ''}</span>
+        </span>
       </div>`;
     }).join('');
     return `<div class="identity-picker">
-      <p class="identity-hint">你是谁？记账、清单、票据会默认记在你名下</p>
+      <p class="identity-hint">身份由登录账号或当前旅行的临时链接确定。</p>
       <div class="identity-options">${rows}</div>
-      <button class="btn btn-ghost identity-add" data-action="member-add">＋ 添加成员</button>
+      ${Store.canManageTrip() ? '<button class="btn btn-ghost identity-add" data-action="share-open">管理旅行成员</button>' : ''}
     </div>`;
-  }
-
-  function formMember(trip, idx) {
-    const meta = (trip && trip.meta) || {};
-    const members = meta.members || [];
-    const cur = avatarOf(meta, idx);
-    const curColor = colorOf(meta, idx);
-    const opts = Store.CONST.avatarChoices.map(a =>
-      `<button type="button" class="chip avatar-opt ${a === cur ? 'active' : ''}" data-action="avatar-pick" data-avatar="${a}">${emo(a)}</button>`).join('');
-    const colorOpts = Store.CONST.colorChoices.map(c =>
-      `<button type="button" class="chip color-opt ${c === curColor ? 'active' : ''}" data-action="color-pick" data-color="${esc(c)}" style="--swatch:${esc(c)}" title="${esc(c)}"></button>`).join('');
-    return `<form data-form="member">
-      <input type="hidden" name="idx" value="${idx}">
-      <input type="hidden" name="avatar" value="${esc(cur)}">
-      <input type="hidden" name="color" value="${esc(curColor)}">
-      <label>昵称<input name="name" required value="${esc(members[idx] || '')}" placeholder="如：小树"></label>
-      <label>头像<div class="avatar-grid">${opts}</div></label>
-      <label>标识色<div class="color-grid">${colorOpts}</div></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
-    </form>`;
   }
 
   return {
@@ -2143,7 +2117,6 @@ window.Render = (() => {
     formGuide,
     extractUrl, extractTitle,
     tripPicker,
-    formMember,
     renderTripBoard,
     emojiSrc,
     themePicker,

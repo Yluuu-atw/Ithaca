@@ -69,6 +69,7 @@ window.AuthUI = (() => {
     document.getElementById('authSwitch').textContent = register ? '已有账号？登录' : '没有账号？注册';
     document.getElementById('authForm').dataset.mode = register ? 'register' : 'login';
     const password = document.querySelector('#authForm [name=password]');
+    password.value = '';
     password.autocomplete = register ? 'new-password' : 'current-password';
     password.required = register;
     document.querySelector('#authForm [name=username]').readOnly = false;

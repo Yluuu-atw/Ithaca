@@ -10,15 +10,49 @@ window.App = (() => {
   const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
   let shareNotice = '';
+  let sharePeople = [];
   const viewActions = new Set([
     'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle', 'exp-mx-toggle',
-    'export', 'guide-filter', 'identity-pick', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
+    'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
     'welcome-home', 'welcome-trips',
   ]);
+
+  function temporaryActionAllowed(action, el) {
+    const trip = Store.getState();
+    const lists = {
+      'expense-edit': 'expenses', 'expense-del': 'expenses',
+      'checklist-toggle': 'checklist', 'checklist-edit': 'checklist', 'checklist-del': 'checklist',
+      'wish-status': 'wishlist', 'wish-edit': 'wishlist', 'wish-del': 'wishlist',
+      'photo-del': 'photos', 'place-edit': 'places', 'place-del': 'places',
+      'guide-edit': 'guides', 'guide-del': 'guides',
+      'booking-edit': 'bookings', 'booking-del': 'bookings',
+    };
+    if (lists[action]) {
+      const record = (trip[lists[action]] || []).find(item => item.id === el.dataset.id);
+      return !!record && Store.canEditRecord(record);
+    }
+    if (action === 'itinerary-edit-item' || action === 'itinerary-del-item') {
+      const day = (trip.itinerary || []).find(item => item.id === el.dataset.day);
+      const item = day && (day.items || []).find(entry => entry.id === el.dataset.item);
+      if (!item || !Store.canEditRecord(item)) return false;
+      return action !== 'itinerary-del-item' || !(trip.expenses || []).some(expense =>
+        expense.itemId === item.id && !Store.canEditRecord(expense));
+    }
+    if (action === 'itinerary-del-day') {
+      const day = (trip.itinerary || []).find(item => item.id === el.dataset.day);
+      if (!day || !Store.canEditRecord(day) || (day.items || []).some(item => !Store.canEditRecord(item))) return false;
+      const ids = new Set((day.items || []).map(item => item.id));
+      return !(trip.expenses || []).some(expense => ids.has(expense.itemId) && !Store.canEditRecord(expense));
+    }
+    if (['meta-edit', 'meta-cancel', 'currency-change', 'packing-type', 'pool-toggle',
+      'template-manage', 'template-save', 'template-edit', 'template-new', 'template-del',
+      'template-item-add', 'template-item-del', 'trip-archive'].includes(action)) return false;
+    return true;
+  }
 
   function actionAllowed(action, el) {
     if (viewActions.has(action) || action === 'account-open' || action === 'account-logout') return true;
@@ -34,13 +68,16 @@ window.App = (() => {
     if (action === 'theme-open' || action === 'theme-pick') {
       return !!AuthUI.user;
     }
+    if (Store.getRole() === 'temporary') return temporaryActionAllowed(action, el);
     return Store.canEditTrip(el.dataset.id && Store.getRole(el.dataset.id) ? el.dataset.id : undefined);
   }
 
   function applyPermissions(root = document) {
     root.querySelectorAll('[data-action]').forEach(el => {
       const allowed = actionAllowed(el.dataset.action, el);
-      el.classList.toggle('permission-hidden', !allowed);
+      const recordRow = el.matches('li.exp-row[data-action="expense-edit"]');
+      el.classList.toggle('permission-hidden', !allowed && !recordRow);
+      el.classList.toggle('record-readonly', !allowed && recordRow);
       if ('disabled' in el) el.disabled = !allowed;
     });
   }
@@ -108,7 +145,6 @@ window.App = (() => {
       return;
     }
     render();
-    maybeAskIdentity();
   }
 
   // 把背景 SVG 内联进 DOM，才能对它的子元素逐个做描边式淡入。
@@ -143,7 +179,10 @@ window.App = (() => {
   function accountModal() {
     const user = AuthUI.user;
     if (!user) {
-      openModal('只读分享', '<p>正在查看公开分享的旅行。</p><button class="btn btn-ghost" data-action="account-logout">退出分享</button>');
+      const temporary = AuthUI.temporary;
+      openModal(temporary ? '临时成员' : '只读分享', temporary
+        ? `<p>当前身份：<b>${Render.esc(temporary.name)}</b></p><p class="access-hint">这名成员仅可访问当前旅行，编辑自己添加的内容。</p><button class="btn btn-ghost" data-action="account-logout">退出临时成员</button>`
+        : '<p>正在查看公开分享的旅行。</p><button class="btn btn-ghost" data-action="account-logout">退出分享</button>');
       return;
     }
     const keys = (user.passkeys || []).map(key => `
@@ -167,16 +206,26 @@ window.App = (() => {
     const tripId = Store.getActiveTripId();
     if (!Store.canManageTrip(tripId)) throw new Error('只有旅行所有者可以管理分享');
     const data = await AuthUI.request(`/api/trips/${encodeURIComponent(tripId)}/access`);
-    const members = data.members.map(member => `<div class="access-row"><span>${Render.esc(member.username)} · ${member.role === 'editor' ? '可编辑' : '只读'}</span><button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-user-id="${Render.esc(member.id)}">移除</button></div>`).join('');
+    sharePeople = data.people || [];
+    const roles = new Map(data.members.map(member => [member.id, member.role]));
+    const members = (data.people || []).map(person => {
+      const owner = person.userId === AuthUI.user.id;
+      const label = owner ? '所有者' : person.kind === 'temporary' ? '临时成员 · 仅本旅行' : person.kind === 'legacy' ? '待关联' : roles.get(person.userId) === 'viewer' ? '正式成员 · 只读' : '正式成员 · 可编辑';
+      return `<div class="access-row"><span>${Render.esc(person.name)} · ${label}</span>${owner ? '' : `<span class="access-row-actions"><button class="btn btn-ghost btn-sm" data-action="share-member-replace" data-person-id="${Render.esc(person.id)}">替换</button>${person.kind === 'legacy' ? '' : `<button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-person-id="${Render.esc(person.id)}">移除</button>`}</span>`}</div>`;
+    }).join('');
     const invites = data.invites.map(invite => `<div class="access-row"><span>${invite.role === 'editor' ? '可编辑' : '只读'}邀请 · ${new Date(invite.expiresAt).toLocaleDateString()} 到期</span><button class="btn btn-ghost btn-sm" data-action="share-invite-remove" data-id="${Render.esc(invite.id)}">撤销</button></div>`).join('');
     openModal('分享与权限', `
       <p class="access-hint">仅这趟旅行的所有者可以管理成员和链接。</p>
-      ${shareNotice ? `<label>新链接<input readonly value="${Render.esc(shareNotice)}" onclick="this.select()"></label>` : ''}
-      <h3>成员</h3>${members || '<p class="access-hint">尚无协作成员。</p>'}
+      ${shareNotice ? `<label>新链接<input id="shareNotice" readonly value="${Render.esc(shareNotice)}" onclick="this.select()"></label><button type="button" class="btn btn-ghost btn-sm" data-action="copy-share-link">复制链接</button>` : ''}
+      <h3>旅行成员</h3>${members || '<p class="access-hint">尚无协作成员。</p>'}
       <form data-form="share-member" class="access-form">
-        <input name="username" placeholder="已注册的用户名" required>
+        <input id="registeredMemberName" name="username" list="registeredMembers" autocomplete="off" placeholder="搜索已注册的用户名" required><datalist id="registeredMembers"></datalist>
         <select name="role"><option value="editor">可编辑</option><option value="viewer">只读</option></select>
-        <button class="btn btn-primary" type="submit">添加成员</button>
+        <button class="btn btn-primary" type="submit">添加正式成员</button>
+      </form>
+      <form data-form="share-temporary" class="access-form">
+        <input name="name" maxlength="40" placeholder="临时成员名称" required>
+        <button class="btn btn-ghost" type="submit">添加临时成员并生成链接</button>
       </form>
       <h3>邀请链接</h3>${invites || '<p class="access-hint">尚无邀请链接。</p>'}
       <div class="form-actions"><button class="btn btn-ghost" data-action="share-invite-editor">创建编辑邀请</button><button class="btn btn-ghost" data-action="share-invite-viewer">创建只读邀请</button></div>
@@ -289,6 +338,7 @@ window.App = (() => {
   function render() {
     const data = Store.getState();
     if (!data) return;
+    document.body.dataset.accessRole = Store.getRole() || 'viewer';
     applyTheme(Store.getWelcomeTheme());
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');
@@ -391,7 +441,7 @@ window.App = (() => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
-    if (!actionAllowed(action, el)) { e.preventDefault(); toast('这趟旅行是只读的', 'error'); return; }
+    if (!actionAllowed(action, el)) { e.preventDefault(); if (el.matches('li.exp-row')) return; toast('没有修改这条内容的权限', 'error'); return; }
 
     switch (action) {
       case 'account-open': accountModal(); break;
@@ -409,6 +459,11 @@ window.App = (() => {
         shareNotice = '';
         shareModal().catch(error => toast(error.message, 'error'));
         break;
+      case 'copy-share-link': {
+        const field = document.getElementById('shareNotice');
+        if (field) navigator.clipboard.writeText(field.value).then(() => toast('链接已复制', 'success')).catch(() => { field.select(); toast('请复制已选中的链接'); });
+        break;
+      }
       case 'share-create':
         AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/share`, 'POST', {})
           .then(result => { shareNotice = shareUrl('share', result.token); return shareModal(); })
@@ -432,11 +487,29 @@ window.App = (() => {
           .catch(error => toast(error.message, 'error'));
         break;
       case 'share-member-remove':
-        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/members`, 'DELETE', { userId: el.dataset.userId })
-          .then(() => shareModal()).catch(error => toast(error.message, 'error'));
+        AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/members`, 'DELETE', { personId: el.dataset.personId })
+          .then(() => Store.load()).then(() => shareModal()).catch(error => toast(error.message, 'error'));
         break;
+      case 'share-member-replace': {
+        const person = sharePeople.find(entry => entry.id === el.dataset.personId);
+        if (!person) break;
+        openModal(`替换成员：${person.name}`, `
+          <p class="access-hint">替换后，原成员的记录和账目归属转到新身份；原临时链接或账号权限立即失效。</p>
+          <form data-form="replace-formal" class="access-form">
+            <input type="hidden" name="personId" value="${Render.esc(person.id)}">
+            <input id="replacementMemberName" name="username" list="registeredMembers" autocomplete="off" placeholder="搜索已注册的用户名" required><datalist id="registeredMembers"></datalist>
+            <button class="btn btn-primary" type="submit">替换为正式成员</button>
+          </form>
+          <form data-form="replace-temporary" class="access-form">
+            <input type="hidden" name="personId" value="${Render.esc(person.id)}">
+            <input name="name" maxlength="40" value="${Render.esc(person.name)}" placeholder="临时成员名称" required>
+            <button class="btn btn-ghost" type="submit">替换为临时成员</button>
+          </form>`);
+        break;
+      }
       case 'welcome-enter':
-        setView('app');
+        if (!Store.listTrips().length && AuthUI.user) showTripsManager();
+        else setView('app');
         break;
 
       case 'welcome-home':
@@ -622,12 +695,17 @@ window.App = (() => {
           const day = d.itinerary.find(x => x.id === el.dataset.day);
           if (day) {
             day.items = (day.items || []).filter(i => i.id !== el.dataset.item);
-            if (Array.isArray(day.order)) day.order = day.order.filter(id => id !== el.dataset.item);
+            if (Array.isArray(day.order) && (Store.getRole() !== 'temporary' || Store.canEditRecord(day))) {
+              day.order = day.order.filter(id => id !== el.dataset.item);
+            }
           }
           d.expenses = (d.expenses || []).filter(e => e.itemId !== el.dataset.item);
         }, '已删除').then(() => {
           // 弹窗里的删除必须自己刷新弹窗，render() 只重绘主内容区
-          if (!modal().hidden) modalBody().innerHTML = Render.dayDetail(Store.getState(), el.dataset.day);
+          if (!modal().hidden) {
+            modalBody().innerHTML = Render.dayDetail(Store.getState(), el.dataset.day);
+            applyPermissions(modal());
+          }
         });
         break;
 
@@ -659,11 +737,12 @@ window.App = (() => {
         break;
 
       case 'trip-create':
-        doDocOp(() => Store.createTrip()).then(() => {
+        Store.createTrip().then(() => {
+          closeModal();
           current.tab = 'overview';
-          render();
+          setView('app');
           toast('已新建旅行，去概览改个名字吧', 'success');
-        });
+        }).catch(error => toast(error.message, 'error'));
         break;
 
       case 'trip-open':
@@ -961,11 +1040,6 @@ window.App = (() => {
         render();
         break;
 
-      case 'identity-pick':
-        Store.setIdentity(Number(el.dataset.idx));
-        closeModal();
-        break;
-
       case 'switch-trip':
         openModal('切换旅行', Render.tripPicker());
         break;
@@ -983,63 +1057,8 @@ window.App = (() => {
         break;
 
       case 'switch-identity':
-        openModal('选择身份', Render.identityPicker(Store.getState()));
+        openModal('旅行成员', Render.identityPicker(Store.getState()));
         break;
-
-      case 'member-edit':
-        openModal('编辑成员', Render.formMember(Store.getState(), Number(el.dataset.idx)));
-        break;
-
-      case 'member-add': {
-        const prev = Store.getState();
-        const n = (prev.meta.members || []).length;
-        const defaults = Store.CONST.avatarChoices[n % Store.CONST.avatarChoices.length];
-        const color = Store.CONST.colorChoices[n % Store.CONST.colorChoices.length];
-        doMutate(d => {
-          d.meta.members.push(`成员${n + 1}`);
-          d.meta.avatars = d.meta.avatars || [];
-          d.meta.avatars.push(defaults);
-          d.meta.colors = d.meta.colors || [];
-          d.meta.colors.push(color);
-        }, '已添加');
-        // 加完直接进编辑，省得再点一次
-        openModal('编辑成员', Render.formMember(Store.getState(), n));
-        break;
-      }
-
-      case 'member-del': {
-        const i = Number(el.dataset.idx);
-        const t = Store.getState();
-        const name = (t.meta.members || [])[i];
-        if (!name) return;
-        const used = (t.expenses || []).some(e => e.payer === name)
-          || (t.bookings || []).some(b => b.payer === name)
-          || (t.checklist || []).some(c => c.owner === name);
-        if (used) { toast('这名成员名下还有记录，先处理掉再删', 'error'); return; }
-        if (!confirm(`删除成员「${name}」？`)) return;
-        doMutate(d => {
-          d.meta.members.splice(i, 1);
-          if (d.meta.avatars) d.meta.avatars.splice(i, 1);
-          if (d.meta.colors) d.meta.colors.splice(i, 1);
-        }, '已删除');
-        openModal('选择身份', Render.identityPicker(Store.getState()));
-        break;
-      }
-
-      case 'avatar-pick': {
-        // 单选结果塞进隐藏域，表单提交时才有 avatar 字段可取
-        el.closest('.avatar-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
-        el.closest('form').querySelector('[name=avatar]').value = el.dataset.avatar;
-        break;
-      }
-
-      case 'color-pick': {
-        el.closest('.color-grid').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        el.classList.add('active');
-        el.closest('form').querySelector('[name=color]').value = el.dataset.color;
-        break;
-      }
 
       case 'theme-pick': {
         const form = el.closest('form');
@@ -1126,6 +1145,25 @@ window.App = (() => {
         await AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/members`, 'POST', {
           username: String(fd.get('username') || '').trim(), role: fd.get('role'),
         });
+        shareNotice = '';
+        await Store.load();
+        await shareModal();
+      } catch (error) { toast(error.message, 'error'); }
+      return;
+    }
+    if (kind === 'share-temporary' || kind === 'replace-formal' || kind === 'replace-temporary') {
+      try {
+        const tripId = encodeURIComponent(Store.getActiveTripId());
+        const result = kind === 'share-temporary'
+          ? await AuthUI.request(`/api/trips/${tripId}/temporary`, 'POST', { name: String(fd.get('name') || '').trim() })
+          : await AuthUI.request(`/api/trips/${tripId}/members`, 'PATCH', {
+            personId: String(fd.get('personId') || ''),
+            replacement: kind === 'replace-formal'
+              ? { kind: 'formal', username: String(fd.get('username') || '').trim() }
+              : { kind: 'temporary', name: String(fd.get('name') || '').trim() },
+          });
+        shareNotice = result.token ? shareUrl('temporary', result.token) : '';
+        await Store.load();
         await shareModal();
       } catch (error) { toast(error.message, 'error'); }
       return;
@@ -1233,7 +1271,7 @@ window.App = (() => {
             const it = { id: Store.uid('itm'), ...fields };
             day.items.push(it);
             // 手动排过序的日子，新条目接在末尾；没排过的继续按时间排
-            if (Array.isArray(day.order)) day.order.push(it.id);
+            if (Array.isArray(day.order) && Store.getRole() !== 'temporary') day.order.push(it.id);
             syncExpenseFromItem(d, it, day.date);
           }
         }, '已添加');
@@ -1241,6 +1279,7 @@ window.App = (() => {
       // 内嵌表单：重渲染行程详情，保持这条展开并回到只读态
       if (inline) {
         document.getElementById('modalBody').innerHTML = Render.dayDetail(Store.getState(), dayId);
+        applyPermissions(modal());
         const li = document.querySelector(`.dt-item[data-item="${itemId}"]`);
         if (li) {
           li.querySelector('.dt-detail').hidden = false;
@@ -1288,7 +1327,7 @@ window.App = (() => {
           if (!day) {
             day = { id: Store.uid('day'), date: ex.date, items: [] };
             d.itinerary.push(day);
-            d.itinerary.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            if (Store.getRole() !== 'temporary') d.itinerary.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
           }
           const it = {
             id: Store.uid('itm'),
@@ -1303,7 +1342,7 @@ window.App = (() => {
             expenseId: ex.id,
           };
           day.items.push(it);
-          if (Array.isArray(day.order)) day.order.push(it.id);
+          if (Array.isArray(day.order) && Store.getRole() !== 'temporary') day.order.push(it.id);
           ex.itemId = it.id;
           d.expenses.push(ex);
         }, '已记下');
@@ -1328,7 +1367,7 @@ window.App = (() => {
       } else {
         doMutate(d => { d.checklist.push({ id: Store.uid('chk'), ...fields, checked: false }); }, '已添加');
         // 勾了「同时存入模板」就沉淀进去，下次同类旅行直接从候选池点
-        if (fd.get('saveToTpl') === 'on') {
+        if (AuthUI.user && fd.get('saveToTpl') === 'on') {
           const tpls = Store.getTemplates();
           const active = new Set((Store.getState().meta || {}).packingTypes || []);
           // 界面上没选类型时显示的是「通用」，沉淀要落到它，
@@ -1466,32 +1505,6 @@ window.App = (() => {
       return;
     }
 
-    if (kind === 'member') {
-      const idx = Number(fd.get('idx'));
-      const newName = (fd.get('name') || '').trim();
-      const avatar = fd.get('avatar') || '';
-      const color = fd.get('color') || '';
-      if (!newName) return;
-      doMutate(d => {
-        const m = d.meta.members;
-        if (!m || idx < 0 || idx >= m.length) return;
-        const old = m[idx];
-        m[idx] = newName;
-        d.meta.avatars = d.meta.avatars || [];
-        d.meta.avatars[idx] = avatar;
-        d.meta.colors = d.meta.colors || [];
-        d.meta.colors[idx] = color;
-        // 这三处按名字引用成员，不同步就会指向一个已不存在的人
-        if (old && old !== newName) {
-          (d.expenses || []).forEach(e => { if (e.payer === old) e.payer = newName; });
-          (d.checklist || []).forEach(c => { if (c.owner === old) c.owner = newName; });
-          (d.bookings || []).forEach(b => { if (b.payer === old) b.payer = newName; });
-        }
-      }, '已保存');
-      openModal('选择身份', Render.identityPicker(Store.getState()));
-      return;
-    }
-
     if (kind === 'guide') {
       const guideId = fd.get('guideId');
       const fields = {
@@ -1566,7 +1579,7 @@ window.App = (() => {
   // attempted 记住已试过的 id，避免死链被反复重试。
   const coverAttempted = new Set();
   async function backfillCovers() {
-    if (!Store.canEditTrip()) return;
+    if (!Store.canEditTrip() || Store.getRole() === 'temporary') return;
     const data = Store.getState();
     if (!data) return;
     const todo = (data.guides || []).filter(g => g.link && !g.cover && !coverAttempted.has(g.id));
@@ -1865,7 +1878,10 @@ window.App = (() => {
       // 只留还存在的条目，删掉的要从 order 里摘出去，否则会留下悬空 id
       day.order = orderIds.filter(id => have.has(id));
     }, '顺序已调整').then(() => {
-      if (!modal().hidden) modalBody().innerHTML = Render.dayDetail(Store.getState(), dayId);
+      if (!modal().hidden) {
+        modalBody().innerHTML = Render.dayDetail(Store.getState(), dayId);
+        applyPermissions(modal());
+      }
     });
   }
 
@@ -1873,6 +1889,7 @@ window.App = (() => {
     let drag = null;
 
     document.addEventListener('pointerdown', (e) => {
+      if (Store.getRole() === 'temporary') return;
       const grip = e.target.closest && e.target.closest('.dt-grip');
       if (!grip) return;
       const li = grip.closest('.dt-item');
@@ -1951,6 +1968,28 @@ window.App = (() => {
         current[which === 'place' ? 'placeFilter' : 'guideFilter'].keyword = e.target.value;
         render();
       }, 250);
+    });
+    let accountSearchTimer = null;
+    document.addEventListener('input', (e) => {
+      if (!e.target || !['registeredMemberName', 'replacementMemberName'].includes(e.target.id)) return;
+      const field = e.target;
+      const choices = field.parentElement.querySelector('datalist');
+      if (!choices) return;
+      clearTimeout(accountSearchTimer);
+      choices.replaceChildren();
+      const query = field.value.trim();
+      if (query.length < 2) return;
+      accountSearchTimer = setTimeout(async () => {
+        try {
+          const result = await AuthUI.request(`/api/users?q=${encodeURIComponent(query)}`);
+          if (field.value.trim() !== query || !field.isConnected) return;
+          choices.replaceChildren(...result.users.map(user => {
+            const option = document.createElement('option');
+            option.value = user.username;
+            return option;
+          }));
+        } catch (_) { choices.replaceChildren(); }
+      }, 180);
     });
     // 背景色自定义取色器：拖动时实时预览，松手前不落库
     document.addEventListener('input', (e) => {
@@ -2134,19 +2173,7 @@ window.App = (() => {
       setView('welcome');
       setStatus(true, '已连接');
       Store.connect();
-      maybeAskIdentity();
     }).catch(error => { setStatus(false, '连接失败'); toast(error.message, 'error'); });
-  }
-
-  // 首次访问（未选择身份）时，弹出「你是谁」选择器。
-  // 开启页视图下不弹，等用户点进旅行页再问，否则弹窗会盖住开启页。
-  function maybeAskIdentity() {
-    if (!AuthUI.user) return;
-    if (current.view === 'welcome') return;
-    if (Store.getIdentity() != null) return;
-    const ms = members();
-    if (!ms || ms.length < 2) return;
-    openModal('选择身份', Render.identityPicker(Store.getState()));
   }
 
   return { init };
