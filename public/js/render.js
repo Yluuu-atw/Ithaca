@@ -2132,8 +2132,44 @@ window.Render = (() => {
     return `<div class="identity-picker">
       <p class="identity-hint">身份由登录账号或当前旅行的临时链接确定。</p>
       <div class="identity-options">${rows}</div>
+      ${idx != null ? '<button class="btn btn-primary identity-add" data-action="trip-profile-open">编辑我的旅行资料</button>' : ''}
       ${Store.canManageTrip() ? '<button class="btn btn-ghost identity-add" data-action="share-open">管理旅行成员</button>' : ''}
     </div>`;
+  }
+
+  function tripProfileEditor(person, inheritedName) {
+    const choices = Store.getAppearanceChoices();
+    const people = Store.getRoster();
+    const others = people.filter(entry => entry.id !== person.id);
+    const avatarKey = value => String(value || '').replace(/\ufe0f/g, '');
+    const seenAvatars = new Set();
+    const avatars = [person.avatar, ...(choices.avatars || [])].filter(value => {
+      const key = avatarKey(value);
+      if (!key || seenAvatars.has(key) || value !== person.avatar && others.some(entry => avatarKey(entry.avatar) === key)) return false;
+      seenAvatars.add(key);
+      return true;
+    });
+    const seenColors = new Set();
+    const colors = [person.color, ...(choices.colors || [])].filter(value => {
+      const key = String(value || '').toLowerCase();
+      if (!key || seenColors.has(key) || value !== person.color && others.some(entry => String(entry.color || '').toLowerCase() === key)) return false;
+      seenColors.add(key);
+      return true;
+    });
+    const avatarOptions = avatars.map(value => `<button type="button" class="profile-avatar-choice ${value === person.avatar ? 'is-on' : ''}" data-action="trip-profile-avatar" data-value="${esc(value)}" aria-label="选择头像 ${esc(value)}" aria-pressed="${value === person.avatar}">${emo(value)}</button>`).join('');
+    const colorOptions = colors.map((value, index) => `<button type="button" class="profile-color-choice ${value.toLowerCase() === String(person.color).toLowerCase() ? 'is-on' : ''}" data-action="trip-profile-color" data-value="${esc(value)}" aria-label="选择颜色 ${index + 1}" aria-pressed="${value.toLowerCase() === String(person.color).toLowerCase()}" style="--choice:${esc(value)}"></button>`).join('');
+    const inherited = !person.tripNickname;
+    const defaultLabel = person.kind === 'formal' ? '账号昵称' : '临时身份名称';
+    return `<form data-form="trip-profile" class="trip-profile-form">
+      <label>这趟旅行的昵称<input name="tripNickname" value="${esc(person.tripNickname || inheritedName)}" data-inherited="${esc(inheritedName)}" maxlength="40" autocomplete="nickname"></label>
+      <input type="hidden" name="inheritNickname" value="${inherited ? '1' : '0'}">
+      <p class="field-hint">默认使用${defaultLabel}「${esc(inheritedName)}」；修改后只影响这趟旅行。</p>
+      <button type="button" class="btn btn-ghost btn-sm profile-reset" data-action="trip-profile-reset">恢复跟随${defaultLabel}</button>
+      <fieldset class="profile-choice-group"><legend>头像</legend><input type="hidden" name="avatar" value="${esc(person.avatar)}"><div class="profile-avatar-choices">${avatarOptions}</div></fieldset>
+      <fieldset class="profile-choice-group"><legend>颜色</legend><input type="hidden" name="color" value="${esc(person.color)}"><div class="profile-color-choices">${colorOptions}</div></fieldset>
+      <p class="field-hint">其他成员使用过的头像和颜色不会出现在这里。</p>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存旅行资料</button><button class="btn btn-ghost" type="button" data-action="switch-identity">返回成员</button></div>
+    </form>`;
   }
 
   return {
@@ -2142,7 +2178,7 @@ window.Render = (() => {
     renderNav, renderTabbar, tabTitle, renderPage,
     formDay, formItem, itemFields: itemFieldsHtml, formExpense, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace, formBooking,
     formTemplateManage, formTemplateEdit, formSaveTemplate,
-    renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker,
+    renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker, tripProfileEditor,
     formGuide,
     extractUrl, extractTitle,
     tripPicker,

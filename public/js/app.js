@@ -68,6 +68,7 @@ window.App = (() => {
     if (action === 'theme-open' || action === 'theme-pick') {
       return !!AuthUI.user;
     }
+    if (action.startsWith('trip-profile-')) return Store.getIdentity() != null;
     if (Store.getRole() === 'temporary') return temporaryActionAllowed(action, el);
     return Store.canEditTrip(el.dataset.id && Store.getRole(el.dataset.id) ? el.dataset.id : undefined);
   }
@@ -180,8 +181,9 @@ window.App = (() => {
     const user = AuthUI.user;
     if (!user) {
       const temporary = AuthUI.temporary;
+      const currentPerson = temporary && Store.getRoster().find(person => person.id === temporary.id);
       openModal(temporary ? '临时成员' : '只读分享', temporary
-        ? `<p>当前身份：<b>${Render.esc(temporary.name)}</b></p><p class="access-hint">这名成员仅可访问当前旅行，编辑自己添加的内容。</p><button class="btn btn-ghost" data-action="account-logout">退出临时成员</button>`
+        ? `<p>当前身份：<b>${Render.esc(currentPerson && currentPerson.displayName || temporary.name)}</b></p><p class="access-hint">这名成员仅可访问当前旅行，编辑自己添加的内容。</p><button class="btn btn-ghost" data-action="account-logout">退出临时成员</button>`
         : '<p>正在查看公开分享的旅行。</p><button class="btn btn-ghost" data-action="account-logout">退出分享</button>');
       return;
     }
@@ -192,13 +194,21 @@ window.App = (() => {
       <p>用户名：<b>${Render.esc(user.username)}</b></p>
       <form data-form="account-profile">
         <label>昵称<input name="displayName" value="${Render.esc(user.displayName || user.username)}" maxlength="40" autocomplete="nickname" placeholder="输入昵称"></label>
-        <p class="access-hint">昵称用于成员展示；登录仍使用用户名。留空可恢复用户名。</p>
+        <p class="access-hint">昵称用于成员展示；未单独设置昵称的旅行会跟随更新。登录仍使用用户名，留空可恢复用户名。</p>
         <div class="form-actions"><button class="btn btn-primary" type="submit">保存昵称</button></div>
       </form>
       <p class="access-hint">通行密钥可通过 Apple 密码、Face ID、Touch ID、指纹或跨设备扫码使用，具体方式由设备决定。</p>
       ${keys || '<p class="access-hint">尚未添加通行密钥。</p>'}
       <div class="form-actions"><button class="btn btn-primary" data-action="passkey-add">添加通行密钥</button>
       <button class="btn btn-ghost" data-action="account-logout">退出登录</button></div>`);
+  }
+
+  function openTripProfile() {
+    const person = Store.getRoster()[Store.getIdentity()];
+    if (!person) return;
+    const account = AuthUI.user;
+    const inheritedName = person.kind === 'formal' && account ? account.displayName || account.username : person.name;
+    openModal('我的旅行资料', Render.tripProfileEditor(person, inheritedName));
   }
 
   function shareUrl(type, token) {
@@ -1070,6 +1080,30 @@ window.App = (() => {
         openModal('旅行成员', Render.identityPicker(Store.getState()));
         break;
 
+      case 'trip-profile-open':
+        openTripProfile();
+        break;
+
+      case 'trip-profile-avatar':
+      case 'trip-profile-color': {
+        const group = el.closest('.profile-choice-group');
+        group.querySelector('input[type=hidden]').value = el.dataset.value;
+        group.querySelectorAll('[data-action]').forEach(choice => {
+          const selected = choice === el;
+          choice.classList.toggle('is-on', selected);
+          choice.setAttribute('aria-pressed', String(selected));
+        });
+        break;
+      }
+
+      case 'trip-profile-reset': {
+        const form = el.closest('form');
+        const field = form.querySelector('[name=tripNickname]');
+        field.value = field.dataset.inherited;
+        form.querySelector('[name=inheritNickname]').value = '1';
+        break;
+      }
+
       case 'theme-pick': {
         const form = el.closest('form');
         const input = form && form.querySelector('[name=bg]');
@@ -1156,6 +1190,19 @@ window.App = (() => {
         await Store.load();
         accountModal();
         toast('昵称已保存', 'success');
+      } catch (error) { toast(error.message, 'error'); }
+      return;
+    }
+    if (kind === 'trip-profile') {
+      try {
+        if (Store.getIdentity() == null) throw new Error('当前身份已失效，请刷新');
+        await AuthUI.request(`/api/trips/${encodeURIComponent(Store.getActiveTripId())}/profile`, 'PATCH', {
+          tripNickname: fd.get('inheritNickname') === '1' ? '' : String(fd.get('tripNickname') || ''),
+          avatar: String(fd.get('avatar') || ''), color: String(fd.get('color') || ''),
+        });
+        await Store.load();
+        openModal('旅行成员', Render.identityPicker(Store.getState()));
+        toast('旅行资料已保存', 'success');
       } catch (error) { toast(error.message, 'error'); }
       return;
     }
@@ -2010,6 +2057,11 @@ window.App = (() => {
           }));
         } catch (_) { choices.replaceChildren(); }
       }, 180);
+    });
+    document.addEventListener('input', (e) => {
+      if (e.target && e.target.name === 'tripNickname' && e.target.closest('form[data-form="trip-profile"]')) {
+        e.target.form.querySelector('[name=inheritNickname]').value = '0';
+      }
     });
     // 背景色自定义取色器：拖动时实时预览，松手前不落库
     document.addEventListener('input', (e) => {

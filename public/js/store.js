@@ -41,9 +41,6 @@ window.Store = (() => {
     ],
     bookingStatus: ['待订', '已订', '已完成', '已取消'],
     guideTags: ['美食', '景点', '住宿', '交通', '购物', '避坑', '行程', '其他'],
-    avatarChoices: ['😎', '🥰', '🐻', '🐱', '🐶', '🦊', '🐰', '🐼', '🦁', '🐸', '🦄', '🌸', '🍀', '⭐', '🍉', '🎈'],
-    // 前两个是新成员的默认标识色，取自日法融合调色板
-    colorChoices: ['#c4714b', '#8b9a7e', '#7d94a8', '#c08e8e', '#d4a44c', '#a89478', '#b07d5a', '#8a7fa0'],
     currencySymbol: {
       CNY: '¥', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
       KRW: '₩', TWD: 'NT$', HKD: 'HK$', THB: '฿', SGD: 'S$',
@@ -90,6 +87,7 @@ window.Store = (() => {
   function canEditTrip(id) { return ['owner', 'editor', 'temporary'].includes(getRole(id)); }
   function canManageTrip(id) { return getRole(id) === 'owner'; }
   function getRoster(id) { return (state && state.rosters && state.rosters[id || currentTripId()]) || []; }
+  function getAppearanceChoices() { return (state && state.appearanceChoices) || { avatars: [], colors: [] }; }
   function getPersonId() {
     const roster = getRoster();
     const temporary = window.AuthUI && AuthUI.temporary;
@@ -316,7 +314,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getPersonId, canEditRecord, uploadPhoto, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getPersonId, canEditRecord, uploadPhoto, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,
