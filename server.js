@@ -234,10 +234,10 @@ function cookieValue(raw, name) {
 
 function resolvePrincipal(cookies) {
   const session = auth.resolve(cookieValue(cookies, COOKIE_NAME));
-  if (session) return { userId: session.user.id, username: session.user.username };
+  const shared = sharing.resolve(cookieValue(cookies, SHARE_COOKIE_NAME));
+  if (session) return { userId: session.user.id, username: session.user.username, ...(shared || {}) };
   const temporary = sharing.resolveTemporary(cookieValue(cookies, TEMP_COOKIE_NAME));
   if (temporary) return temporary;
-  const shared = sharing.resolve(cookieValue(cookies, SHARE_COOKIE_NAME));
   return shared || null;
 }
 
@@ -414,7 +414,14 @@ async function handleSharing(req, res, pathname) {
       return sendJSON(res, 200, await sharing.setMember(tripId, userId, body.username, body.role));
     }
     if (action === 'members' && req.method === 'DELETE') {
-      return sendJSON(res, 200, await sharing.removeMember(tripId, userId, (await readJSON(req)).userId));
+      const body = await readJSON(req);
+      return sendJSON(res, 200, body.personId
+        ? await sharing.removePerson(tripId, userId, body.personId)
+        : await sharing.removeMember(tripId, userId, body.userId));
+    }
+    if (action === 'members' && req.method === 'PATCH') {
+      const body = await readJSON(req);
+      return sendJSON(res, 200, await sharing.replacePerson(tripId, userId, body.personId, body.replacement));
     }
     if (action === 'temporary' && req.method === 'POST') {
       return sendJSON(res, 200, await sharing.createTemporary(tripId, userId, (await readJSON(req)).name));
@@ -609,6 +616,7 @@ async function handlePhotoUpload(req, res, pathname, principal) {
     const params = new URL(req.url, 'http://localhost').searchParams;
     const tripId = params.get('tripId');
     const privateMemo = params.get('scope') === 'memo' && !tripId;
+    if (privateMemo && !principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以上传私人备忘录照片' });
     if (!privateMemo && (!tripId || !canEdit(db, principal, tripId))) {
       return sendJSON(res, 403, { error: '没有上传权限' });
     }
@@ -643,10 +651,19 @@ async function handlePhotoUpload(req, res, pathname, principal) {
 }
 
 async function handleApi(req, res, pathname, principal) {
+  if (pathname === '/api/users' && req.method === 'GET') {
+    if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以搜索账号' });
+    const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().toLocaleLowerCase('en-US');
+    if (query.length < 2) return sendJSON(res, 200, { users: [] });
+    const users = auth.store.get().users.filter(user => user.usernameKey.includes(query)).slice(0, 20)
+      .map(user => ({ id: user.id, username: user.username }));
+    return sendJSON(res, 200, { users });
+  }
   const photoResult = await handlePhotoUpload(req, res, pathname, principal);
   if (photoResult !== null) return photoResult;
 
   if (pathname === '/api/link-preview' && req.method === 'POST') {
+    if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以抓取外部链接' });
     const { tripId, url: target } = await readJSON(req);
     if (!tripId || !canEdit(db, principal, tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
     if (!target) return sendJSON(res, 400, { error: '缺少 url' });

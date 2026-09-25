@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { canManage } = require('./access');
 const { AccessDeniedError } = require('./document-policy');
 const { usernameKey } = require('./auth');
-const { formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences } = require('./people');
+const { formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences, rewritePersonReferences } = require('./people');
 
 function token() { return crypto.randomBytes(32).toString('base64url'); }
 function hash(value) { return crypto.createHash('sha256').update(String(value || '')).digest('hex'); }
@@ -77,6 +77,69 @@ function createSharing(auth, getDb, commit) {
       return next;
     });
     return details(tripId, userId);
+  }
+
+  async function removePerson(tripId, userId, personId) {
+    owner(tripId, userId);
+    await commit(current => {
+      if (!canManage(current, { userId }, tripId)) throw new AccessDeniedError();
+      const next = structuredClone(current);
+      const grant = next.access[tripId];
+      const trip = next.trips.find(entry => entry.id === tripId);
+      const person = (grant.people || []).find(entry => entry.id === personId);
+      if (!person) throw new Error('成员不存在');
+      if (person.userId === grant.ownerId) throw new Error('不能移除旅行所有者');
+      if (person.userId) delete grant.members[person.userId];
+      if (hasPersonReferences(trip, person)) {
+        person.kind = 'legacy';
+        delete person.userId;
+        delete person.tokenHash;
+      } else grant.people = grant.people.filter(entry => entry.id !== personId);
+      syncTripRoster(trip, grant);
+      next.meta.version = current.meta.version + 1;
+      return next;
+    });
+    return details(tripId, userId);
+  }
+
+  async function replacePerson(tripId, userId, personId, replacement) {
+    owner(tripId, userId);
+    const kind = replacement && replacement.kind;
+    if (!['formal', 'temporary'].includes(kind)) throw new Error('替换身份类型无效');
+    const raw = kind === 'temporary' ? token() : null;
+    let nextPerson;
+    if (kind === 'formal') {
+      const key = usernameKey(replacement.username).key;
+      const user = auth.store.get().users.find(entry => entry.usernameKey === key);
+      if (!user) throw new Error('账号不存在');
+      nextPerson = formalPerson(user.id, user.username);
+    } else {
+      const name = String(replacement.name || '').trim();
+      if (!name || name.length > 40) throw new Error('临时成员名称需为 1–40 个字符');
+      nextPerson = { id: `person_temp_${crypto.randomUUID()}`, kind: 'temporary', name, tokenHash: hash(raw) };
+    }
+    await commit(current => {
+      if (!canManage(current, { userId }, tripId)) throw new AccessDeniedError();
+      const next = structuredClone(current);
+      const grant = next.access[tripId];
+      const trip = next.trips.find(entry => entry.id === tripId);
+      const index = (grant.people || []).findIndex(person => person.id === personId);
+      if (index < 0) throw new Error('成员不存在');
+      const previous = grant.people[index];
+      if (previous.userId === grant.ownerId) throw new Error('不能替换旅行所有者');
+      if (previous.id === nextPerson.id) throw new Error('替换成员必须选择其他身份');
+      uniquePerson(grant, nextPerson, personId);
+      const replacementPerson = { ...nextPerson, avatar: previous.avatar || '🙂', color: previous.color || '#8b9a7e' };
+      const oldRole = previous.userId && grant.members[previous.userId];
+      if (previous.userId) delete grant.members[previous.userId];
+      if (replacementPerson.userId) grant.members[replacementPerson.userId] = oldRole || 'editor';
+      rewritePersonReferences(trip, previous, replacementPerson);
+      grant.people[index] = replacementPerson;
+      syncTripRoster(trip, grant);
+      next.meta.version = current.meta.version + 1;
+      return next;
+    });
+    return { person: publicRoster({ people: [nextPerson] })[0], token: raw, tripId };
   }
 
   async function createInvite(tripId, userId, role) {
@@ -204,7 +267,7 @@ function createSharing(auth, getDb, commit) {
     return grant ? { shareTripId: grant[0] } : null;
   }
 
-  return { details, setMember, removeMember, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
+  return { details, setMember, removeMember, removePerson, replacePerson, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
 }
 
 module.exports = { createSharing };
