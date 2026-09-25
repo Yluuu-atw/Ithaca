@@ -189,7 +189,7 @@ window.Store = (() => {
     notify();
   }
 
-  // 新建一趟旅行，自动带上一趟的成员名单，省得每次重填
+  // New trips start with the signed-in owner; the server assigns the canonical roster.
   async function createTrip() {
     const prev = getState();
     let newId = null;
@@ -202,7 +202,7 @@ window.Store = (() => {
           startDate: '',
           endDate: '',
           currency: (prev && prev.meta && prev.meta.currency) || 'CNY',
-          members: (prev && prev.meta && prev.meta.members) ? prev.meta.members.slice() : ['我', '她'],
+          members: [],
           archived: false,
         },
         itinerary: [], expenses: [], checklist: [], wishlist: [],

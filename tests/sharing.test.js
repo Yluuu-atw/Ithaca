@@ -23,6 +23,10 @@ test('owner grants roles, redeems one-use invites and revokes anonymous access',
 
     await sharing.setMember(tripId, owner.id, 'editor', 'editor');
     assert.equal(roleFor(db, { userId: editor.id }, tripId), 'editor');
+    assert.equal(db.access[tripId].people.find(person => person.userId === editor.id).name, 'editor');
+    assert.equal(db.trips[0].meta.members.includes('editor'), true);
+    await sharing.setMember(tripId, owner.id, 'editor', 'viewer');
+    assert.equal(db.access[tripId].people.filter(person => person.userId === editor.id).length, 1);
     await sharing.removeMember(tripId, owner.id, editor.id);
     assert.equal(roleFor(db, { userId: editor.id }, tripId), null);
     await assert.rejects(sharing.setMember(tripId, viewer.id, 'editor', 'editor'), /只有旅行所有者/);

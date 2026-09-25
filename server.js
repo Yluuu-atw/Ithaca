@@ -25,6 +25,7 @@ const { createAuth, SESSION_DAYS } = require('./data/auth');
 const { createPasskeys } = require('./data/passkeys');
 const { createSharing } = require('./data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
+const { formalPerson, assignAuthors, syncTripRoster } = require('./data/people');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -234,7 +235,7 @@ function resolvePrincipal(cookies) {
   const session = auth.resolve(cookieValue(cookies, COOKIE_NAME));
   const shared = sharing.resolve(cookieValue(cookies, SHARE_COOKIE_NAME));
   if (!session && !shared) return null;
-  return { ...(session ? { userId: session.user.id } : {}), ...(shared || {}) };
+  return { ...(session ? { userId: session.user.id, username: session.user.username } : {}), ...(shared || {}) };
 }
 
 function sessionCookie(token, maxAge) {
@@ -699,8 +700,12 @@ async function handleApi(req, res, pathname, principal) {
         }
         const next = structuredClone(current);
         for (const trip of trips) {
+          const person = formalPerson(principal.userId, principal.username || principal.userId);
+          const grant = { ownerId: principal.userId, members: {}, invites: [], share: null, people: [person] };
+          assignAuthors(trip, person.id);
+          syncTripRoster(trip, grant);
           next.trips.push(trip);
-          next.access[trip.id] = { ownerId: principal.userId, members: {}, invites: [], share: null };
+          next.access[trip.id] = grant;
         }
         for (const copy of copied) {
           next.assets[copy.newName] = {

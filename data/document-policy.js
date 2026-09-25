@@ -2,6 +2,7 @@
 
 const { defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate } = require('./schema');
 const { roleFor, canReadAsset, uploadNames, publicTripRoles } = require('./access');
+const { COLLECTIONS, formalPerson, personForUser, publicRoster } = require('./people');
 
 class AccessDeniedError extends Error {
   constructor(message = '没有访问权限') {
@@ -24,6 +25,7 @@ function project(db, principal) {
     memos: principal && principal.userId ? structuredClone(profile.memos) : [],
     packingTemplates: principal && principal.userId ? structuredClone(profile.packingTemplates) : [],
     permissions,
+    rosters: Object.fromEntries(db.trips.filter(trip => permissions[trip.id]).map(trip => [trip.id, publicRoster(db.access[trip.id])])),
   };
 }
 
@@ -39,6 +41,35 @@ function checkTripAssets(db, trip) {
   for (const name of uploadNames(trip)) {
     if (!db.assets[name] || db.assets[name].tripId !== trip.id) {
       throw new AccessDeniedError('旅行包含无权使用的附件');
+    }
+  }
+}
+
+function preserveAuthors(before, after, authorId) {
+  for (const collection of COLLECTIONS) {
+    const oldItems = new Map((before && before[collection] || []).map(item => [item.id, item]));
+    const seen = new Set();
+    for (const item of after[collection] || []) {
+      if (!item || typeof item.id !== 'string' || !item.id || seen.has(item.id)) throw new Error('记录 ID 无效或重复');
+      seen.add(item.id);
+      const old = oldItems.get(item.id);
+      if (old) {
+        if (item.authorId !== old.authorId) throw new AccessDeniedError('不能修改记录作者');
+      } else if (item.authorId && item.authorId !== authorId) {
+        throw new AccessDeniedError('不能指定其他记录作者');
+      }
+      item.authorId = old ? old.authorId : authorId;
+      if (collection !== 'itinerary') continue;
+      const oldNested = new Map((old && old.items || []).map(nested => [nested.id, nested]));
+      const nestedSeen = new Set();
+      for (const nested of item.items || []) {
+        if (!nested || typeof nested.id !== 'string' || !nested.id || nestedSeen.has(nested.id)) throw new Error('行程记录 ID 无效或重复');
+        nestedSeen.add(nested.id);
+        const original = oldNested.get(nested.id);
+        if (original && nested.authorId !== original.authorId) throw new AccessDeniedError('不能修改记录作者');
+        if (!original && nested.authorId && nested.authorId !== authorId) throw new AccessDeniedError('不能指定其他记录作者');
+        nested.authorId = original ? original.authorId : authorId;
+      }
     }
   }
 }
@@ -73,16 +104,28 @@ function updateDocument(db, principal, submitted) {
       continue;
     }
     const cleaned = cleanTrip(changed);
+    if (JSON.stringify([cleaned.meta.members, cleaned.meta.avatars, cleaned.meta.colors]) !==
+      JSON.stringify([trip.meta.members, trip.meta.avatars, trip.meta.colors])) {
+      throw new AccessDeniedError('成员只能通过成员管理修改');
+    }
+    const author = personForUser(db.access[trip.id], userId);
+    if (!author) throw new AccessDeniedError('当前账号没有旅行身份');
     checkTripAssets(db, cleaned);
+    preserveAuthors(trip, cleaned, author.id);
     merged.push(cleaned);
   }
 
   for (const [id, trip] of incoming) {
     if (existing.has(id)) throw new AccessDeniedError('不能访问这趟旅行');
     const cleaned = cleanTrip(trip);
+    const person = formalPerson(userId, principal.username || userId);
+    cleaned.meta.members = [person.name];
+    cleaned.meta.avatars = [person.avatar];
+    cleaned.meta.colors = [person.color];
+    preserveAuthors(null, cleaned, person.id);
     checkTripAssets(db, cleaned);
     merged.push(cleaned);
-    next.access[id] = { ownerId: userId, members: {}, invites: [], share: null };
+    next.access[id] = { ownerId: userId, members: {}, invites: [], share: null, people: [person] };
   }
   next.trips = merged;
 

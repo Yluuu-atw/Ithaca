@@ -11,6 +11,7 @@ const { createAuthStore } = require('../data/auth-store');
 test('legacy trips and upload references are claimed by the initial owner', () => {
   const doc = defaultDoc();
   doc.trips[0].photos.push({ url: '/uploads/photo_1.jpg' });
+  doc.trips[0].expenses.push({ id: 'old_expense', title: '旧账目', payer: '她' });
   doc.memos.push({ id: 'memo_1', photos: ['/uploads/memo_1.jpg'] });
   const claimed = claimLegacy(doc, 'owner_1');
   const tripId = claimed.trips[0].id;
@@ -18,6 +19,10 @@ test('legacy trips and upload references are claimed by the initial owner', () =
   assert.equal(roleFor(claimed, { userId: 'stranger' }, tripId), null);
   assert.equal(claimed.assets['photo_1.jpg'].tripId, tripId);
   assert.equal(claimed.assets['memo_1.jpg'].ownerId, 'owner_1');
+  assert.equal(claimed.access[tripId].people[0].userId, 'owner_1');
+  assert.equal(claimed.access[tripId].people[1].kind, 'legacy');
+  assert.equal(claimed.trips[0].expenses[0].payer, '她');
+  assert.equal(claimed.trips[0].expenses[0].authorId, claimed.access[tripId].people[0].id);
   assert.deepEqual([...uploadNames(['/uploads/good.jpg', '/uploads/../bad.jpg'])], ['good.jpg']);
 });
 

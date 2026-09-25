@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { canManage } = require('./access');
 const { AccessDeniedError } = require('./document-policy');
 const { usernameKey } = require('./auth');
+const { formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences } = require('./people');
 
 function token() { return crypto.randomBytes(32).toString('base64url'); }
 function hash(value) { return crypto.createHash('sha256').update(String(value || '')).digest('hex'); }
@@ -18,6 +19,7 @@ function createSharing(auth, getDb, commit) {
     const grant = getDb().access[tripId];
     const users = auth.store.get().users;
     return {
+      people: publicRoster(grant),
       members: Object.entries(grant.members).map(([id, role]) => ({
         id, role, username: (users.find(user => user.id === id) || {}).username || '已删除账号',
       })),
@@ -37,7 +39,17 @@ function createSharing(auth, getDb, commit) {
     await commit(current => {
       if (!canManage(current, { userId }, tripId)) throw new AccessDeniedError();
       const next = structuredClone(current);
-      next.access[tripId].members[user.id] = role;
+      const grant = next.access[tripId];
+      const trip = next.trips.find(entry => entry.id === tripId);
+      ensureRoster(trip, grant);
+      let person = personForUser(grant, user.id);
+      if (!person) {
+        person = formalPerson(user.id, user.username);
+        uniquePerson(grant, person);
+        grant.people.push(person);
+      }
+      grant.members[user.id] = role;
+      syncTripRoster(trip, grant);
       next.meta.version = current.meta.version + 1;
       return next;
     });
@@ -50,7 +62,17 @@ function createSharing(auth, getDb, commit) {
       if (!canManage(current, { userId }, tripId)) throw new AccessDeniedError();
       const next = structuredClone(current);
       if (!next.access[tripId].members[memberId]) throw new Error('成员不存在');
-      delete next.access[tripId].members[memberId];
+      const grant = next.access[tripId];
+      const trip = next.trips.find(entry => entry.id === tripId);
+      const person = personForUser(grant, memberId);
+      if (person) {
+        if (hasPersonReferences(trip, person)) {
+          person.kind = 'legacy';
+          delete person.userId;
+        } else grant.people = grant.people.filter(entry => entry.id !== person.id);
+      }
+      delete grant.members[memberId];
+      syncTripRoster(trip, grant);
       next.meta.version = current.meta.version + 1;
       return next;
     });
@@ -93,7 +115,19 @@ function createSharing(auth, getDb, commit) {
       for (const [id, grant] of Object.entries(next.access)) {
         const index = grant.invites.findIndex(invite => invite.hash === wanted && invite.expiresAt > Date.now());
         if (index < 0) continue;
-        if (grant.ownerId !== userId) grant.members[userId] = grant.invites[index].role;
+        if (grant.ownerId !== userId) {
+          const trip = next.trips.find(entry => entry.id === id);
+          ensureRoster(trip, grant);
+          const user = auth.store.get().users.find(entry => entry.id === userId);
+          if (!user) throw new Error('账号不存在');
+          if (!personForUser(grant, userId)) {
+            const person = formalPerson(userId, user.username);
+            uniquePerson(grant, person);
+            grant.people.push(person);
+            syncTripRoster(trip, grant);
+          }
+          grant.members[userId] = grant.invites[index].role;
+        }
         grant.invites.splice(index, 1);
         tripId = id;
         break;

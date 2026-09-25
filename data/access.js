@@ -1,6 +1,7 @@
 'use strict';
 
 const { normalize } = require('./schema');
+const { ensureRoster } = require('./people');
 
 const UPLOAD_NAME = /^\/uploads\/([a-zA-Z0-9_.-]+)$/;
 
@@ -58,7 +59,8 @@ function claimLegacy(raw, ownerId) {
   }
   for (const trip of db.trips) {
     if (db.access[trip.id]) continue;
-    db.access[trip.id] = { ownerId, members: {}, invites: [], share: null };
+    db.access[trip.id] = { ownerId, members: {}, invites: [], share: null, people: [] };
+    ensureRoster(trip, db.access[trip.id]);
     for (const name of uploadNames(trip)) {
       if (!db.assets[name]) db.assets[name] = { tripId: trip.id, ownerId: null, createdAt: '' };
     }

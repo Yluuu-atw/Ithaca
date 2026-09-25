@@ -62,7 +62,24 @@ test('new trips are assigned to the author, without accepting client ACL fields'
   view.access = { [fresh.id]: { ownerId: 'bob' } };
   const next = updateDocument(db, principal, view);
   assert.equal(next.access[fresh.id].ownerId, 'alice');
+  assert.equal(next.access[fresh.id].people.length, 1);
+  assert.deepEqual(next.trips.find(trip => trip.id === fresh.id).meta.members, ['alice']);
   assert.equal('access' in next.trips.find(trip => trip.id === fresh.id), false);
+});
+
+test('server owns trip roster and authorship', () => {
+  const db = fixture();
+  const principal = { userId: 'alice', username: 'alice' };
+  const view = project(db, principal);
+  view.trips[0].meta.members.push('imposter');
+  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+  view.trips[0].meta.members.pop();
+  view.trips[0].expenses.push({ id: 'expense_new', title: 'Coffee', amount: 10, authorId: 'someone_else' });
+  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+  delete view.trips[0].expenses[0].authorId;
+  const next = updateDocument(db, principal, view);
+  assert.equal(next.trips[0].expenses[0].authorId, db.access[db.trips[0].id].people[0].id);
+  assert.equal('tokenHash' in project(next, principal).rosters[db.trips[0].id][0], false);
 });
 
 test('an editor cannot attach a photo owned by another trip', () => {

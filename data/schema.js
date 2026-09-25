@@ -26,6 +26,7 @@ const CATEGORIES = {
   expense: ['餐饮', '交通', '住宿', '门票', '购物', '娱乐', '其他'],
   checklist: ['证件', '衣物', '洗漱', '电子', '药品', '其他'],
 };
+const { ensureRoster } = require('./people');
 
 // 行程条目的二级分类：选完一级才显示对应的子类。空数组表示该大类不拆分。
 const SUB_CATEGORIES = {
@@ -365,8 +366,10 @@ function normalize(doc) {
       members,
       invites: Array.isArray(entry.invites) ? entry.invites : [],
       share: entry.share && typeof entry.share === 'object' ? entry.share : null,
+      people: Array.isArray(entry.people) ? entry.people : [],
     };
   }
+  for (const trip of d.trips) ensureRoster(trip, d.access[trip.id]);
   d.assets = {};
   for (const [name, entry] of Object.entries(source.assets || {})) {
     if (!/^[a-zA-Z0-9_.-]+$/.test(name) || !entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
