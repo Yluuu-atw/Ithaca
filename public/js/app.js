@@ -62,7 +62,6 @@ window.App = (() => {
       return Store.canManageTrip(el.dataset.id);
     }
     if (action === 'tripmgr-edit') return Store.listTrips().some(trip => Store.canManageTrip(trip.id));
-    if (action === 'export') return Store.listTrips().length > 0;
     if (action === 'trip-create' || action === 'import' || action.startsWith('memo-') || action.startsWith('template-') || action === 'welcome-memo') {
       return !!AuthUI.user;
     }

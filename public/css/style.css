@@ -1697,7 +1697,7 @@ textarea { resize: vertical; min-height: 60px; }
   .topbar-actions .btn { min-width: 42px; min-height: 42px; padding: 7px; }
   body[data-current-tab="trips"] .topbar-trip { display: none; }
   .trip-list-head { flex-wrap: wrap; }
-  .trip-list-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .trip-list-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); width: 100%; }
   .trip-list-actions .btn { min-width: 0; padding: 8px 5px; font-size: 14px; }
   .list-head { flex-wrap: wrap; gap: 8px; }
   .list-head > span { flex: 1 1 100%; font-size: 15px; }
