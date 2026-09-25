@@ -89,8 +89,21 @@ window.Store = (() => {
   }
 
   function getRole(id) { return (state && state.permissions && state.permissions[id || currentTripId()]) || null; }
-  function canEditTrip(id) { return ['owner', 'editor'].includes(getRole(id)); }
+  function canEditTrip(id) { return ['owner', 'editor', 'temporary'].includes(getRole(id)); }
   function canManageTrip(id) { return getRole(id) === 'owner'; }
+  function getRoster(id) { return (state && state.rosters && state.rosters[id || currentTripId()]) || []; }
+  function getPersonId() {
+    const roster = getRoster();
+    const temporary = window.AuthUI && AuthUI.temporary;
+    if (temporary) return temporary.id;
+    const user = window.AuthUI && AuthUI.user;
+    const person = user && roster.find(entry => entry.kind === 'formal' && entry.userId === user.id);
+    return person ? person.id : null;
+  }
+  function canEditRecord(record) {
+    const role = getRole();
+    return role === 'owner' || role === 'editor' || role === 'temporary' && record && record.authorId === getPersonId();
+  }
 
   async function load() {
     const res = await fetch('/api/data');
@@ -264,7 +277,10 @@ window.Store = (() => {
     });
   }
 
-  function getIdentity() { return whoami; }
+  function getIdentity() {
+    const personId = getPersonId();
+    return personId ? getRoster().findIndex(person => person.id === personId) : null;
+  }
 
   // 记在本设备而非文档里，两人可以各收各的
   let boardOpen = true;
@@ -277,9 +293,8 @@ window.Store = (() => {
   }
 
   function setIdentity(i) {
-    whoami = i;
-    try { localStorage.setItem('journey.whoami', String(i)); } catch (_) {}
-    notify();
+    // The authenticated principal determines identity; browser-selected indices are ignored.
+    void i;
   }
 
   // 上传照片，返回服务端生成的 URL
@@ -308,7 +323,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, setIdentity, uploadPhoto, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, setIdentity, getRoster, getPersonId, canEditRecord, uploadPhoto, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,

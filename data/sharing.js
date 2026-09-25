@@ -95,6 +95,40 @@ function createSharing(auth, getDb, commit) {
     return { token: raw, id, role, expiresAt };
   }
 
+  async function createTemporary(tripId, userId, name) {
+    owner(tripId, userId);
+    const label = String(name || '').trim();
+    if (!label || label.length > 40) throw new Error('临时成员名称需为 1–40 个字符');
+    const raw = token();
+    const person = {
+      id: `person_temp_${crypto.randomUUID()}`, kind: 'temporary', name: label,
+      avatar: '🙂', color: '#8b9a7e', tokenHash: hash(raw),
+    };
+    await commit(current => {
+      if (!canManage(current, { userId }, tripId)) throw new AccessDeniedError();
+      const next = structuredClone(current);
+      const grant = next.access[tripId];
+      const trip = next.trips.find(entry => entry.id === tripId);
+      ensureRoster(trip, grant);
+      uniquePerson(grant, person);
+      grant.people.push(person);
+      syncTripRoster(trip, grant);
+      next.meta.version = current.meta.version + 1;
+      return next;
+    });
+    return { person: publicRoster({ people: [person] })[0], token: raw, tripId };
+  }
+
+  function resolveTemporary(raw) {
+    if (!raw) return null;
+    const wanted = hash(raw);
+    for (const [tripId, grant] of Object.entries(getDb().access)) {
+      const person = (grant.people || []).find(entry => entry.kind === 'temporary' && entry.tokenHash === wanted);
+      if (person) return { tempTripId: tripId, tempPersonId: person.id, tempName: person.name };
+    }
+    return null;
+  }
+
   async function revokeInvite(tripId, userId, inviteId) {
     owner(tripId, userId);
     await commit(current => {
@@ -170,7 +204,7 @@ function createSharing(auth, getDb, commit) {
     return grant ? { shareTripId: grant[0] } : null;
   }
 
-  return { details, setMember, removeMember, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
+  return { details, setMember, removeMember, createTemporary, resolveTemporary, createInvite, revokeInvite, redeem, createShare, revokeShare, resolve };
 }
 
 module.exports = { createSharing };

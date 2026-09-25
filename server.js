@@ -38,6 +38,7 @@ const SETUP_TOKEN_PATH = process.env.ITHACA_SETUP_TOKEN_PATH || path.join(__dirn
 const ORIGIN = process.env.ITHACA_ORIGIN || `http://localhost:${PORT}`;
 const COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_sid' : 'ithaca_sid';
 const SHARE_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_share' : 'ithaca_share';
+const TEMP_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_temporary' : 'ithaca_temporary';
 
 // ---------------- 数据加载 & 原子持久化 ----------------
 
@@ -233,9 +234,11 @@ function cookieValue(raw, name) {
 
 function resolvePrincipal(cookies) {
   const session = auth.resolve(cookieValue(cookies, COOKIE_NAME));
+  if (session) return { userId: session.user.id, username: session.user.username };
+  const temporary = sharing.resolveTemporary(cookieValue(cookies, TEMP_COOKIE_NAME));
+  if (temporary) return temporary;
   const shared = sharing.resolve(cookieValue(cookies, SHARE_COOKIE_NAME));
-  if (!session && !shared) return null;
-  return { ...(session ? { userId: session.user.id, username: session.user.username } : {}), ...(shared || {}) };
+  return shared || null;
 }
 
 function sessionCookie(token, maxAge) {
@@ -250,6 +253,17 @@ function shareCookie(token, maxAge) {
   if (SHARE_COOKIE_NAME.startsWith('__Host-')) parts.push('Secure');
   if (maxAge !== undefined) parts.push(`Max-Age=${maxAge}`);
   return parts.join('; ');
+}
+
+function temporaryCookie(token, maxAge) {
+  const parts = [`${TEMP_COOKIE_NAME}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+  if (TEMP_COOKIE_NAME.startsWith('__Host-')) parts.push('Secure');
+  if (maxAge !== undefined) parts.push(`Max-Age=${maxAge}`);
+  return parts.join('; ');
+}
+
+function temporaryCsrf(token) {
+  return crypto.createHash('sha256').update(`temporary-csrf:${token}`).digest('base64url');
 }
 
 function sameOrigin(req) {
@@ -345,6 +359,28 @@ async function handlePasskeys(req, res, pathname) {
 }
 
 async function handleSharing(req, res, pathname) {
+  if (pathname === '/api/temporary/me' && req.method === 'GET') {
+    const raw = cookieValue(req, TEMP_COOKIE_NAME);
+    const principal = sharing.resolveTemporary(raw);
+    return principal ? sendJSON(res, 200, { person: { id: principal.tempPersonId, name: principal.tempName, tripId: principal.tempTripId }, csrf: temporaryCsrf(raw) })
+      : sendJSON(res, 401, { error: '临时成员链接已失效' });
+  }
+  if (pathname === '/api/temporary/exchange') {
+    if (req.method !== 'POST' || !sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+    if (limited(req, pathname, 30, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '尝试次数过多' });
+    try {
+      const { token } = await readJSON(req);
+      const principal = sharing.resolveTemporary(token);
+      if (!principal) return sendJSON(res, 404, { error: '临时成员链接无效或已撤销' });
+      return sendJSON(res, 200, { person: { id: principal.tempPersonId, name: principal.tempName, tripId: principal.tempTripId }, csrf: temporaryCsrf(token) }, {
+        'Set-Cookie': [temporaryCookie(token, 30 * 24 * 60 * 60), sessionCookie('', 0), shareCookie('', 0)],
+      });
+    } catch (error) { return sendJSON(res, 400, { error: error.message }); }
+  }
+  if (pathname === '/api/temporary/leave') {
+    if (req.method !== 'POST' || !sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+    return sendJSON(res, 200, { ok: true }, { 'Set-Cookie': temporaryCookie('', 0) });
+  }
   if (pathname === '/api/share/exchange') {
     if (req.method !== 'POST' || !sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
     if (limited(req, pathname, 30, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '尝试次数过多' });
@@ -368,7 +404,7 @@ async function handleSharing(req, res, pathname) {
     if (pathname === '/api/invites/redeem' && req.method === 'POST') {
       return sendJSON(res, 200, await sharing.redeem((await readJSON(req)).token, session.user.id));
     }
-    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share)$/.exec(pathname);
+    const match = /^\/api\/trips\/(trip_[a-zA-Z0-9_-]{1,96})\/(access|members|invites|share|temporary)$/.exec(pathname);
     if (!match) return sendJSON(res, 404, { error: 'Not Found' });
     const [, tripId, action] = match;
     const userId = session.user.id;
@@ -379,6 +415,9 @@ async function handleSharing(req, res, pathname) {
     }
     if (action === 'members' && req.method === 'DELETE') {
       return sendJSON(res, 200, await sharing.removeMember(tripId, userId, (await readJSON(req)).userId));
+    }
+    if (action === 'temporary' && req.method === 'POST') {
+      return sendJSON(res, 200, await sharing.createTemporary(tripId, userId, (await readJSON(req)).name));
     }
     if (action === 'invites' && req.method === 'POST') {
       return sendJSON(res, 200, await sharing.createInvite(tripId, userId, (await readJSON(req)).role));
@@ -668,6 +707,7 @@ async function handleApi(req, res, pathname, principal) {
   }
 
   if (pathname === '/api/import' && req.method === 'POST') {
+    if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以导入旅行' });
     const copied = [];
     try {
       const incoming = await readJSON(req);
@@ -745,15 +785,17 @@ const server = http.createServer((req, res) => {
 
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname);
   if (pathname.startsWith('/api/passkeys/')) return handlePasskeys(req, res, pathname);
-  if (pathname.startsWith('/api/share/') || pathname.startsWith('/api/invites/') || /^\/api\/trips\//.test(pathname)) {
+  if (pathname.startsWith('/api/share/') || pathname.startsWith('/api/temporary/') || pathname.startsWith('/api/invites/') || /^\/api\/trips\//.test(pathname)) {
     return handleSharing(req, res, pathname);
   }
   if (pathname.startsWith('/api/')) {
     const session = auth.resolve(cookieValue(req, COOKIE_NAME));
     const principal = resolvePrincipal(req.headers.cookie || '');
     if (!principal) return sendJSON(res, 401, { error: '请先登录' });
-    if (!session && !['GET', 'HEAD'].includes(req.method)) return sendJSON(res, 403, { error: '只读分享不能修改数据' });
-    if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== session.csrf)) {
+    const temporaryToken = cookieValue(req, TEMP_COOKIE_NAME);
+    const writeCsrf = session ? session.csrf : principal.tempPersonId ? temporaryCsrf(temporaryToken) : '';
+    if (!writeCsrf && !['GET', 'HEAD'].includes(req.method)) return sendJSON(res, 403, { error: '只读分享不能修改数据' });
+    if (!['GET', 'HEAD'].includes(req.method) && (!sameOrigin(req) || req.headers['x-csrf-token'] !== writeCsrf)) {
       return sendJSON(res, 403, { error: '安全令牌无效' });
     }
     if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res, principal);

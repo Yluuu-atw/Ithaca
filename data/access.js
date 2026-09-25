@@ -12,6 +12,8 @@ function roleFor(db, principal, tripId) {
   if (principal.userId && (grant.members[principal.userId] === 'editor' || grant.members[principal.userId] === 'viewer')) {
     return grant.members[principal.userId];
   }
+  if (principal.tempTripId === tripId && (grant.people || []).some(person =>
+    person.kind === 'temporary' && person.id === principal.tempPersonId)) return 'temporary';
   if (principal.shareTripId === tripId) return 'viewer';
   return null;
 }
@@ -21,7 +23,7 @@ function canRead(db, principal, tripId) {
 }
 
 function canEdit(db, principal, tripId) {
-  return ['owner', 'editor'].includes(roleFor(db, principal, tripId));
+  return ['owner', 'editor', 'temporary'].includes(roleFor(db, principal, tripId));
 }
 
 function canManage(db, principal, tripId) {

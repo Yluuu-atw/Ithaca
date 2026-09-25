@@ -74,7 +74,69 @@ function preserveAuthors(before, after, authorId) {
   }
 }
 
+function same(value, other) { return JSON.stringify(value) === JSON.stringify(other); }
+
+function checkOwnCollection(before, after, personId, nested = false) {
+  const originals = new Map(before.map(item => [item.id, item]));
+  const seen = new Set();
+  for (const item of after) {
+    if (!item || typeof item.id !== 'string' || !item.id || seen.has(item.id)) throw new Error('记录 ID 无效或重复');
+    seen.add(item.id);
+    const old = originals.get(item.id);
+    if (old) {
+      if (item.authorId !== old.authorId) throw new AccessDeniedError('不能修改记录作者');
+      if (old.authorId !== personId) {
+        if (nested) {
+          const { items: oldItems, ...oldFields } = old;
+          const { items: nextItems, ...nextFields } = item;
+          if (!same(oldFields, nextFields)) throw new AccessDeniedError('不能修改其他成员的内容');
+          checkOwnCollection(oldItems || [], nextItems || [], personId);
+        } else if (!same(old, item)) throw new AccessDeniedError('不能修改其他成员的内容');
+      } else if (nested) checkOwnCollection(old.items || [], item.items || [], personId);
+    } else {
+      if (item.authorId && item.authorId !== personId) throw new AccessDeniedError('不能指定其他记录作者');
+      item.authorId = personId;
+      if (nested) checkOwnCollection([], item.items || [], personId);
+    }
+  }
+  for (const old of before) {
+    if (!seen.has(old.id) && (old.authorId !== personId || nested && (old.items || []).some(item => item.authorId !== personId))) {
+      throw new AccessDeniedError('不能删除其他成员的内容');
+    }
+  }
+  const oldOthers = before.filter(item => item.authorId !== personId).map(item => item.id);
+  const newOthers = after.filter(item => item.authorId !== personId).map(item => item.id);
+  if (!same(oldOthers, newOthers)) throw new AccessDeniedError('不能调整其他成员的内容');
+}
+
+function updateTemporary(db, principal, submitted) {
+  const tripId = principal.tempTripId;
+  if (roleFor(db, principal, tripId) !== 'temporary') throw new AccessDeniedError();
+  if (!submitted || !Array.isArray(submitted.trips) || submitted.trips.length !== 1 || submitted.trips[0].id !== tripId) {
+    throw new AccessDeniedError('临时成员只能修改当前旅行');
+  }
+  const original = db.trips.find(trip => trip.id === tripId);
+  const changed = cleanTrip(submitted.trips[0]);
+  if (!same(original.meta, changed.meta)) throw new AccessDeniedError('临时成员不能修改旅行信息');
+  const protectedFields = new Set(['meta', ...COLLECTIONS]);
+  for (const key of new Set([...Object.keys(original), ...Object.keys(changed)])) {
+    if (!protectedFields.has(key) && !same(original[key], changed[key])) {
+      throw new AccessDeniedError('临时成员不能修改旅行信息');
+    }
+  }
+  checkTripAssets(db, changed);
+  for (const collection of COLLECTIONS) {
+    checkOwnCollection(original[collection] || [], changed[collection] || [], principal.tempPersonId, collection === 'itinerary');
+  }
+  const allItems = (changed.itinerary || []).flatMap(day => day.items || []);
+  if (new Set(allItems.map(item => item.id)).size !== allItems.length) throw new Error('行程记录 ID 重复');
+  const next = structuredClone(db);
+  next.trips = next.trips.map(trip => trip.id === tripId ? changed : trip);
+  return next;
+}
+
 function updateDocument(db, principal, submitted) {
+  if (principal && principal.tempPersonId && !principal.userId) return updateTemporary(db, principal, submitted);
   if (!principal || !principal.userId) throw new AccessDeniedError();
   if (!submitted || !Array.isArray(submitted.trips) || !submitted.meta) throw new Error('文档格式无效');
   const userId = principal.userId;
@@ -143,4 +205,4 @@ function updateDocument(db, principal, submitted) {
   return next;
 }
 
-module.exports = { AccessDeniedError, profileFor, project, updateDocument };
+module.exports = { AccessDeniedError, profileFor, project, updateDocument, updateTemporary };

@@ -2,6 +2,7 @@
 
 window.AuthUI = (() => {
   let currentUser = null;
+  let currentTemporary = null;
   let csrf = '';
   let setupToken = '';
   let inviteToken = '';
@@ -29,11 +30,19 @@ window.AuthUI = (() => {
 
   function setSession(session) {
     currentUser = session.user || null;
+    currentTemporary = null;
     csrf = session.csrf || '';
     Store.setCsrf(csrf);
     if (currentUser && currentUser.username) {
       try { localStorage.setItem('ithaca.lastUsername', currentUser.username); } catch (_) {}
     }
+  }
+
+  function setTemporary(session) {
+    currentUser = null;
+    currentTemporary = session.person || null;
+    csrf = session.csrf || '';
+    Store.setCsrf(csrf);
   }
 
   async function finishInvitation() {
@@ -82,7 +91,7 @@ window.AuthUI = (() => {
   function finishLogin(session, complete) {
     setSession(session);
     setupToken = '';
-    return finishInvitation().then(() => {
+    return request('/api/temporary/leave', 'POST', {}).catch(() => {}).then(() => finishInvitation()).then(() => {
       document.getElementById('authGate').hidden = true;
       complete(session);
     });
@@ -143,7 +152,18 @@ window.AuthUI = (() => {
     setupToken = fragment.get('setup') || '';
     inviteToken = fragment.get('invite') || '';
     const shareToken = fragment.get('share') || '';
+    const temporaryToken = fragment.get('temporary') || '';
     if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    if (temporaryToken) {
+      try {
+        const session = await request('/api/temporary/exchange', 'POST', { token: temporaryToken });
+        setTemporary(session);
+        return session;
+      } catch (error) {
+        linkError = error.message;
+        await request('/api/temporary/leave', 'POST', {}).catch(() => {});
+      }
+    }
     if (shareToken) {
       try { await request('/api/share/exchange', 'POST', { token: shareToken }); }
       catch (error) {
@@ -157,6 +177,11 @@ window.AuthUI = (() => {
       await finishInvitation();
       return session;
     } catch (_) {
+      try {
+        const temporary = await request('/api/temporary/me');
+        setTemporary(temporary);
+        return temporary;
+      } catch (_) { /* Continue with read-only sharing or account login. */ }
       if (shareToken || !setupToken) {
         const shared = await fetch('/api/data');
         if (shared.ok) return { user: null, csrf: '' };
@@ -198,9 +223,10 @@ window.AuthUI = (() => {
 
   async function logout() {
     if (currentUser) await request('/api/auth/logout', 'POST', {});
+    await request('/api/temporary/leave', 'POST', {});
     await request('/api/share/leave', 'POST', {});
     location.reload();
   }
 
-  return { start, request, registerPasskey, removePasskey, logout, get user() { return currentUser; } };
+  return { start, request, registerPasskey, removePasskey, logout, get user() { return currentUser; }, get temporary() { return currentTemporary; } };
 })();

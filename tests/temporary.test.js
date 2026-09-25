@@ -1,0 +1,76 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { createAuth } = require('../data/auth');
+const { defaultDoc, defaultTrip } = require('../data/schema');
+const { claimLegacy, roleFor } = require('../data/access');
+const { createSharing } = require('../data/sharing');
+const { AccessDeniedError, project, updateDocument } = require('../data/document-policy');
+
+test('temporary identity sees one trip and can only change own records', async () => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '../.local/temporary-'));
+  try {
+    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const owner = await auth.register('owner', 'owner private password');
+    let db = claimLegacy(defaultDoc(), owner.id);
+    const tripId = db.trips[0].id;
+    db.trips[0].expenses.push({ id: 'owner_expense', title: 'Owner', authorId: db.access[tripId].people[0].id });
+    db.trips[0].itinerary.push({ id: 'owner_day', date: '2026-09-25', authorId: db.access[tripId].people[0].id, items: [
+      { id: 'owner_item', title: 'Owner item', authorId: db.access[tripId].people[0].id },
+    ] });
+    const hidden = defaultTrip();
+    db.trips.push(hidden);
+    db.access[hidden.id] = { ownerId: 'other', members: {}, invites: [], share: null, people: [] };
+    const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
+    const created = await sharing.createTemporary(tripId, owner.id, '访客');
+    assert.equal(JSON.stringify(db).includes(created.token), false);
+    const principal = sharing.resolveTemporary(created.token);
+    assert.equal(roleFor(db, principal, tripId), 'temporary');
+    assert.equal(roleFor(db, principal, hidden.id), null);
+    const view = project(db, principal);
+    assert.deepEqual(view.trips.map(trip => trip.id), [tripId]);
+    assert.equal(JSON.stringify(view).includes('tokenHash'), false);
+    view.trips[0].expenses.push({ id: 'temporary_expense', title: 'Mine' });
+    view.trips[0].itinerary[0].items.push({ id: 'temporary_item', title: 'Mine' });
+    db = updateDocument(db, principal, view);
+    assert.equal(db.trips[0].expenses[1].authorId, principal.tempPersonId);
+    assert.equal(db.trips[0].itinerary[0].items[1].authorId, principal.tempPersonId);
+
+    const changed = project(db, principal);
+    changed.trips[0].expenses[1].title = 'Edited by me';
+    changed.trips[0].itinerary[0].items[1].title = 'Edited by me';
+    db = updateDocument(db, principal, changed);
+    assert.equal(db.trips[0].expenses[1].title, 'Edited by me');
+
+    changed.trips[0].expenses[0].title = 'Hijacked';
+    assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
+    changed.trips[0].expenses[0].title = 'Owner';
+    changed.trips[0].itinerary[0].items[0].title = 'Hijacked';
+    assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
+    changed.trips[0].itinerary[0].items[0].title = 'Owner item';
+    changed.trips[0].meta.tripName = 'Hijacked';
+    assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
+    changed.trips[0].meta.tripName = db.trips[0].meta.tripName;
+    changed.trips[0].unexpected = 'Hijacked';
+    assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
+    delete changed.trips[0].unexpected;
+    changed.trips[0].expenses.shift();
+    assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
+    changed.trips[0].expenses.unshift(db.trips[0].expenses[0]);
+    changed.trips.push(hidden);
+    assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
+    changed.trips.pop();
+    changed.trips[0].expenses = changed.trips[0].expenses.filter(item => item.id !== 'temporary_expense');
+    db = updateDocument(db, principal, changed);
+    assert.equal(db.trips[0].expenses.length, 1);
+
+    db.access[tripId].people = db.access[tripId].people.filter(person => person.id !== principal.tempPersonId);
+    assert.equal(sharing.resolveTemporary(created.token), null);
+    assert.equal(roleFor(db, principal, tripId), null);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
