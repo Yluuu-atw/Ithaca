@@ -23,6 +23,7 @@ test('recognition sends a reduced image and accepts only existing booking fields
     assert.ok(options.signal);
     const payload = JSON.parse(options.body);
     assert.equal(payload.model, 'fake-model');
+    assert.deepEqual(payload.thinking, { type: 'disabled' });
     assert.equal(payload.response_format.json_schema.strict, true);
     assert.deepEqual(payload.response_format.json_schema.schema.properties.type, { type: 'string' });
     assert.match(payload.messages[0].content[0].text, /flight, train, bus, hotel, other/);

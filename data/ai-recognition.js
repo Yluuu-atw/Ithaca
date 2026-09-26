@@ -140,6 +140,7 @@ async function extractImageDraft({ kind, bytes, contentType, apiKey, model = DEF
   const prepared = await prepareImage(bytes, contentType);
   const payload = {
     model,
+    thinking: { type: 'disabled' },
     max_tokens: 800,
     response_format: { type: 'json_schema', json_schema: { name: `${kind}_draft`, strict: true, schema: outputSchema(kind) } },
     messages: [{ role: 'user', content: [
