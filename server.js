@@ -259,8 +259,8 @@ async function ensureThumbnail(name) {
 }
 
 async function handleThumbnail(req, res, pathname, principal) {
-  if (!pathname.startsWith('/api/photo-thumbs/')) return false;
-  const match = /^\/api\/photo-thumbs\/([a-zA-Z0-9_.-]+\.(?:png|jpe?g|gif|webp|heic|heif))\.webp$/i.exec(pathname);
+  if (!pathname.startsWith('/api/photo-thumbs/') && !pathname.startsWith('/api/image-previews/')) return false;
+  const match = /^\/api\/(?:photo-thumbs|image-previews)\/([a-zA-Z0-9_.-]+\.(?:png|jpe?g|gif|webp|heic|heif))\.webp$/i.exec(pathname);
   if (req.method !== 'GET' || !match || !canReadAsset(db, principal, match[1])) {
     sendJSON(res, 404, { error: '照片不存在' });
     return true;
@@ -567,16 +567,32 @@ async function readJSON(req) {
   return JSON.parse((await readBody(req)).toString('utf8'));
 }
 
-function extFromType(contentType) {
-  const map = {
-    'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif',
-    'image/webp': '.webp', 'image/heic': '.heic', 'image/heif': '.heif',
-  };
-  return map[contentType] || '.jpg';
-}
-
 function photoUid() {
   return crypto.randomBytes(16).toString('hex');
+}
+
+async function removeImagePair(name) {
+  await Promise.all([
+    fs.promises.rm(path.join(UPLOAD_DIR, name), { force: true }),
+    fs.promises.rm(path.join(THUMB_DIR, `${name}.webp`), { force: true }),
+  ]);
+}
+
+async function writeImagePair(buf, contentType) {
+  const info = await sharp(buf, { limitInputPixels: 80_000_000 }).metadata();
+  const formats = { png: '.png', jpeg: '.jpg', gif: '.gif', webp: '.webp', heif: contentType === 'image/heic' ? '.heic' : '.heif' };
+  const ext = formats[info.format];
+  if (!ext) throw new Error('不支持的图片类型');
+  const name = photoUid() + ext;
+  await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
+  try {
+    await fs.promises.writeFile(path.join(UPLOAD_DIR, name), buf);
+    await ensureThumbnail(name);
+    return name;
+  } catch (error) {
+    await removeImagePair(name);
+    throw error;
+  }
 }
 
 function remapUploads(value, replacements) {
@@ -674,12 +690,15 @@ function downloadImage(url, redirects) {
         if (size > 15 * 1024 * 1024) { rq.destroy(); return resolve(''); }
         chunks.push(c);
       });
-      rs.on('end', () => {
+      rs.on('end', async () => {
         const buf = Buffer.concat(chunks);
         if (!buf.length) return resolve('');
-        const name = photoUid() + extFromType((rs.headers['content-type'] || '').split(';')[0].trim());
-        if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-        fs.writeFile(path.join(UPLOAD_DIR, name), buf, (err) => resolve(err ? '' : '/uploads/' + name));
+        try {
+          const name = await writeImagePair(buf, (rs.headers['content-type'] || '').split(';')[0].trim());
+          resolve('/uploads/' + name);
+        } catch (_) {
+          resolve('');
+        }
       });
       rs.on('error', () => resolve(''));
     });
@@ -699,8 +718,8 @@ function pickCover(html) {
   return url.startsWith('//') ? 'https:' + url : url;
 }
 
-async function handlePhotoUpload(req, res, pathname, principal) {
-  if (pathname === '/api/photos' && req.method === 'POST') {
+async function handleImageUpload(req, res, pathname, principal) {
+  if ((pathname === '/api/photos' || pathname === '/api/images') && req.method === 'POST') {
     const params = new URL(req.url, 'http://localhost').searchParams;
     const tripId = params.get('tripId');
     const privateMemo = params.get('scope') === 'memo' && !tripId;
@@ -708,30 +727,21 @@ async function handlePhotoUpload(req, res, pathname, principal) {
     if (!privateMemo && (!tripId || !canEdit(db, principal, tripId))) {
       return sendJSON(res, 403, { error: '没有上传权限' });
     }
+    let name = '';
     try {
       const buf = await readBody(req, 20 * 1024 * 1024);
       const ct = (req.headers['content-type'] || '').split(';')[0].trim();
-      if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/heic', 'image/heif'].includes(ct)) {
-        return sendJSON(res, 400, { error: '不支持的图片类型' });
-      }
-      const ext = extFromType(ct);
-      const name = photoUid() + ext;
-      if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-      await fs.promises.writeFile(path.join(UPLOAD_DIR, name), buf);
-      try {
-        await commit(current => {
-          if (tripId && !canEdit(current, principal, tripId)) throw new AccessDeniedError();
-          const next = structuredClone(current);
-          next.assets[name] = { tripId: tripId || null, ownerId: privateMemo ? principal.userId : null, createdAt: new Date().toISOString() };
-          next.meta.version = current.meta.version + 1;
-          return next;
-        });
-      } catch (error) {
-        await fs.promises.rm(path.join(UPLOAD_DIR, name), { force: true });
-        throw error;
-      }
-      return sendJSON(res, 200, { url: '/uploads/' + name });
+      name = await writeImagePair(buf, ct);
+      await commit(current => {
+        if (tripId && !canEdit(current, principal, tripId)) throw new AccessDeniedError();
+        const next = structuredClone(current);
+        next.assets[name] = { tripId: tripId || null, ownerId: privateMemo ? principal.userId : null, createdAt: new Date().toISOString() };
+        next.meta.version = current.meta.version + 1;
+        return next;
+      });
+      return sendJSON(res, 200, { url: '/uploads/' + name, previewUrl: `/api/image-previews/${name}.webp` });
     } catch (err) {
+      if (name) await removeImagePair(name);
       return sendJSON(res, err instanceof AccessDeniedError ? 403 : 400, { error: err.message });
     }
   }
@@ -749,8 +759,8 @@ async function handleApi(req, res, pathname, principal) {
       .map(user => ({ id: user.id, username: user.username, displayName: user.displayName || user.username }));
     return sendJSON(res, 200, { users });
   }
-  const photoResult = await handlePhotoUpload(req, res, pathname, principal);
-  if (photoResult !== null) return photoResult;
+  const imageResult = await handleImageUpload(req, res, pathname, principal);
+  if (imageResult !== null) return imageResult;
 
   if (pathname === '/api/link-preview' && req.method === 'POST') {
     if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以抓取外部链接' });
@@ -773,7 +783,7 @@ async function handleApi(req, res, pathname, principal) {
           return next;
         });
       } catch (_) {
-        await fs.promises.rm(path.join(UPLOAD_DIR, name), { force: true });
+        await removeImagePair(name);
         local = '';
       }
     }

@@ -88,7 +88,11 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
       body: image,
     });
     assert.equal(upload.status, 200);
-    const photoUrl = (await upload.json()).url;
+    const uploadedPhoto = await upload.json();
+    const photoUrl = uploadedPhoto.url;
+    const name = photoUrl.slice('/uploads/'.length);
+    assert.equal(uploadedPhoto.previewUrl, `/api/image-previews/${name}.webp`);
+    assert.ok(fs.existsSync(path.join(dir, 'thumbs', `${name}.webp`)));
     const thumbUrl = `/api/photo-thumbs/${photoUrl.slice('/uploads/'.length)}.webp`;
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: cookie } })).status, 200);
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: visitorCookie } })).status, 404);
@@ -104,6 +108,21 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     assert.equal(thumbInfo.width, 480);
     assert.equal(thumbInfo.height, 480);
     assert.equal((await fetch(`${origin}${thumbUrl}`, { headers: { Cookie: cookie } })).status, 200);
+    assert.equal((await fetch(`${origin}${uploadedPhoto.previewUrl}`, { headers: { Cookie: cookie } })).status, 200);
+    assert.equal((await fetch(`${origin}${uploadedPhoto.previewUrl}`, { headers: { Cookie: visitorCookie } })).status, 404);
+    const otherImage = await fetch(`${origin}/api/images?tripId=${ownerData.trips[0].id}`, {
+      method: 'POST', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'image/png' }, body: image,
+    });
+    assert.equal(otherImage.status, 200);
+    const otherAsset = await otherImage.json();
+    assert.ok(otherAsset.url.startsWith('/uploads/'));
+    assert.ok(fs.existsSync(path.join(dir, 'thumbs', `${otherAsset.url.slice('/uploads/'.length)}.webp`)));
+    const beforeInvalid = fs.readdirSync(path.join(dir, 'uploads')).length;
+    const invalidImage = await fetch(`${origin}/api/images?tripId=${ownerData.trips[0].id}`, {
+      method: 'POST', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'image/png' }, body: Buffer.from('not an image'),
+    });
+    assert.equal(invalidImage.status, 400);
+    assert.equal(fs.readdirSync(path.join(dir, 'uploads')).length, beforeInvalid);
     const latest = await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json();
     latest.trips[0].photos.push({ id: 'photo_1', url: photoUrl });
     const savedPhoto = await fetch(`${origin}/api/data`, {
