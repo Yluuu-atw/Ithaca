@@ -22,6 +22,37 @@ test('new expense uses local current minute and edits preserve stored time', () 
   assert.match(context.window.Render.formExpense([], { id: 'e1', date: '2026-08-05', time: '08:15' }), /name="time" value="2026-08-05T08:15"/);
 });
 
+test('booking and expense entries remain reachable from the ledger with one image flow', () => {
+  const context = {
+    window: {},
+    Store: {
+      getState: () => ({ meta: { members: [] } }),
+      getIdentity: () => null,
+      getRoster: () => [],
+      getMySettlement: () => null,
+      getGroupSettlement: () => null,
+      CONST: {
+        expenseCategories: ['餐饮', '交通', '住宿', '门票', '购物', '娱乐', '其他'],
+        bookingTypes: [{ id: 'train', label: '火车票', icon: '🚄' }],
+        bookingStatus: ['待订', '已订'],
+        currencySymbol: { CNY: '¥' },
+      },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const state = { id: 'trip_1', meta: { members: [], currency: 'CNY' }, expenses: [], bookings: [], itinerary: [] };
+  const page = context.window.Render.renderPage(state, 'bookings');
+  assert.match(page, /data-action="expense-add"/);
+  assert.match(page, /data-action="booking-add"/);
+  for (const form of [context.window.Render.formExpense([], null), context.window.Render.formBooking([], null)]) {
+    assert.match(form, /让我看看/);
+    assert.match(form, /vendor\/fluent-emoji\/1f4f7\.png/);
+    assert.match(form, /name="imageFiles"/);
+  }
+  assert.doesNotMatch(context.window.Render.formBooking([], null), /<option[^>]*>🚄/);
+});
+
 test('daily expense matrix uses trip days and amount-only member columns', () => {
   const context = {
     window: {},

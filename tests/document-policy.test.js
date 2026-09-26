@@ -101,3 +101,22 @@ test('an editor cannot attach a photo owned by another trip', () => {
   view.trips[0].photos.push({ url: '/uploads/private.jpg' });
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
 });
+
+test('booking and expense images retain trip ownership on save', () => {
+  const db = fixture();
+  const principal = { userId: 'alice' };
+  const tripId = db.trips[0].id;
+  db.assets['own.jpg'] = { tripId, ownerId: null, createdAt: '' };
+  db.assets['other.jpg'] = { tripId: db.trips[1].id, ownerId: null, createdAt: '' };
+  const view = project(db, principal);
+  view.trips[0].bookings.push({ id: 'booking_1', images: ['/uploads/own.jpg'] });
+  view.trips[0].expenses.push({ id: 'expense_1', images: ['/uploads/own.jpg'] });
+  const saved = updateDocument(db, principal, view);
+  assert.deepEqual(saved.trips[0].bookings[0].images, ['/uploads/own.jpg']);
+  assert.deepEqual(saved.trips[0].expenses[0].images, ['/uploads/own.jpg']);
+  view.trips[0].bookings[0].images = ['/uploads/other.jpg'];
+  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+  view.trips[0].bookings[0].images = ['/uploads/own.jpg'];
+  view.trips[0].expenses[0].images = ['/uploads/other.jpg'];
+  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+});

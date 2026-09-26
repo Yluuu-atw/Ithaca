@@ -290,20 +290,48 @@ window.Store = (() => {
     notify();
   }
 
-  // 上传照片，返回服务端生成的 URL
-  async function uploadPhoto(blob, scope) {
+  // Upload any private image; existing photo callers keep the URL-only wrapper.
+  async function uploadImage(blob, scope) {
     const target = scope === 'memo' ? '?scope=memo' : `?tripId=${encodeURIComponent(currentTripId() || '')}`;
-    const res = await fetch('/api/photos' + target, {
+    const res = await fetch('/api/images' + target, {
       method: 'POST',
-      headers: { 'Content-Type': blob.type || 'image/jpeg', 'X-CSRF-Token': csrf },
+      headers: { 'Content-Type': imageContentType(blob), 'X-CSRF-Token': csrf },
       body: blob,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || '照片上传失败');
     }
-    const data = await res.json();
-    return data.url;
+    return res.json();
+  }
+
+  function imageContentType(blob) {
+    if (blob.type) return blob.type;
+    const ext = String(blob.name || '').split('.').pop().toLowerCase();
+    return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif' })[ext] || 'application/octet-stream';
+  }
+
+  async function uploadPhoto(blob, scope) {
+    return (await uploadImage(blob, scope)).url;
+  }
+
+  async function imageRecognitionAvailable() {
+    const res = await fetch('/api/ai/status');
+    if (!res.ok) return false;
+    return !!(await res.json()).available;
+  }
+
+  async function recognizeImage(blob, kind) {
+    const res = await fetch(`/api/ai/extract?kind=${encodeURIComponent(kind)}&tripId=${encodeURIComponent(currentTripId() || '')}`, {
+      method: 'POST',
+      headers: { 'Content-Type': imageContentType(blob), 'X-CSRF-Token': csrf },
+      body: blob,
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || '没看清图片内容');
+    }
+    return (await res.json()).fields || {};
   }
 
   function previewLink(url) {
@@ -316,7 +344,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getGroupSettlement, getPersonId, canEditRecord, uploadPhoto, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getGroupSettlement, getPersonId, canEditRecord, uploadPhoto, uploadImage, imageRecognitionAvailable, recognizeImage, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,

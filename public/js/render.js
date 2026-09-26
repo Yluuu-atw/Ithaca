@@ -60,7 +60,26 @@ window.Render = (() => {
     const original = String(url || '');
     const match = /^\/uploads\/([a-zA-Z0-9_.-]+\.(?:png|jpe?g|gif|webp|heic|heif))$/i.exec(original);
     if (!match) return `src="${esc(original)}"`;
-    return `src="/api/photo-thumbs/${esc(match[1])}.webp" data-original="${esc(original)}"`;
+    return `src="/api/image-previews/${esc(match[1])}.webp" data-original="${esc(original)}"`;
+  }
+
+  function imageThumbs(images, removable = false) {
+    return (Array.isArray(images) ? images : []).filter(url => /^\/uploads\/[a-zA-Z0-9_.-]+$/.test(url)).map(url => `
+      <span class="entry-image" data-existing-url="${esc(url)}">
+        <button type="button" class="entry-image-open" data-action="photo-open-url" data-url="${esc(url)}" aria-label="查看原图"><img ${photoSourceAttrs(url)} alt="图片预览" loading="lazy"></button>
+        ${removable ? '<button type="button" class="entry-image-remove" data-action="entry-image-remove" aria-label="移除图片">×</button>' : ''}
+      </span>`).join('');
+  }
+
+  function imageEntry(images) {
+    return `<div class="image-entry">
+      <label class="image-entry-pick"><img src="vendor/fluent-emoji/1f4f7.png" alt=""><span class="image-entry-title">让我看看</span><span class="image-entry-subtitle">选一张截图，自动填写能看清的信息</span>
+        <input type="file" name="imageFiles" accept="image/*,.heic,.heif" multiple hidden>
+      </label>
+      <p class="field-hint image-entry-hint">所选图片会用于填写表单；保存后保留原图和预览图。</p>
+      <p class="image-entry-status" role="status" aria-live="polite"></p>
+      <div class="entry-images">${imageThumbs(images, true)}</div>
+    </div>`;
   }
 
   /**
@@ -315,7 +334,7 @@ window.Render = (() => {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'trips': return renderTrips(opts.showArchived);
       case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
-      case 'bookings': return renderExpenses(state);
+      case 'bookings': return renderExpenses(state) + `<section class="booking-section"><h2>票据</h2>${renderBookings(state, opts.bookingFilter)}</section>`;
       case 'map': return renderMap(state, opts.tileSource);
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
@@ -1042,9 +1061,11 @@ window.Render = (() => {
           <span class="badge" data-cat="${esc(e.category || '其他')}">${esc(e.category || '其他')}</span>
           ${e.subCategory ? `<span class="exp-subcat">${esc(e.subCategory)}</span>` : ''}
           ${e.refNo ? `<span class="exp-ref">${emo('🎫')} ${esc(e.refNo)}</span>` : ''}
+          ${e.images && e.images.length ? `<span class="exp-ref">${emo('📷')} ${e.images.length}</span>` : ''}
           ${memberChip(s.meta, e.payer || '')}
           ${participantAvatars(s.meta, e)}
         </span>
+        ${e.images && e.images.length ? `<span class="entry-images entry-images-inline">${imageThumbs(e.images)}</span>` : ''}
       </span>
       <span class="exp-amt">${money(e.amount, cur)}</span>
       <button class="icon-btn danger exp-del" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
@@ -1317,6 +1338,7 @@ window.Render = (() => {
     const curCat = item ? (v.category || '其他') : '';
     return `<form data-form="expense">
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
+      ${imageEntry(v.images)}
       <label>时间<input type="datetime-local" name="time" value="${esc(item ? dtValue(v.date, v.time, today()) : localNowValue())}"></label>
       <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
@@ -1718,11 +1740,11 @@ window.Render = (() => {
       <button class="btn btn-primary" data-action="booking-add">＋ 添加票据</button>
     </div>`;
 
-    const typeChips = ['全部', ...Store.CONST.bookingTypes.map(t => t.id)].map(c => {
+    const typeChips = ['全部', ...(Store.CONST.bookingTypes || []).map(t => t.id)].map(c => {
       const label = c === '全部' ? '全部' : bkType(c).label;
       return `<button class="chip ${c === activeType ? 'active' : ''}" data-action="booking-filter-type" data-type="${esc(c)}">${label}</button>`;
     }).join('');
-    const statusChips = ['全部', ...Store.CONST.bookingStatus].map(c =>
+    const statusChips = ['全部', ...(Store.CONST.bookingStatus || [])].map(c =>
       `<button class="chip chip-sm ${c === activeStatus ? 'active' : ''}" data-action="booking-filter-status" data-status="${esc(c)}">${c}</button>`).join('');
 
     const tools = `<div class="card place-tools">
@@ -1800,6 +1822,7 @@ window.Render = (() => {
       ${b.price ? `<div class="detail-amount">${money(b.price, s.meta.currency)}</div>` : ''}
       ${safeUrl(b.link) ? `<div class="detail-row">${emo('🔗')} <a href="${esc(safeUrl(b.link))}" target="_blank" rel="noopener noreferrer">${esc(b.link)}</a></div>` : ''}
       ${b.note ? `<div class="detail-note">${esc(b.note)}</div>` : ''}
+      ${b.images && b.images.length ? `<div class="entry-images entry-images-detail">${imageThumbs(b.images)}</div>` : ''}
     </div>`;
   }
 
@@ -1810,8 +1833,9 @@ window.Render = (() => {
     const memberPick = memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer');
     return `<form data-form="booking">
       ${item ? `<input type="hidden" name="bookingId" value="${esc(item.id)}">` : ''}
+      ${imageEntry(v.images)}
       <div class="form-row">
-        <label>票种<select name="type">${types.map(t => `<option value="${t.id}" ${item && t.id === (v.type || 'other') ? 'selected' : ''}>${t.icon} ${t.label}</option>`).join('')}</select></label>
+        <label>票种<select name="type">${types.map(t => `<option value="${t.id}" ${item && t.id === (v.type || 'other') ? 'selected' : ''}>${t.label}</option>`).join('')}</select></label>
         <label>状态<select name="status">${sts.map(st => `<option ${item && st === (v.status || '待订') ? 'selected' : ''}>${st}</option>`).join('')}</select></label>
       </div>
       <label>标题<input name="title" required placeholder="如：CZ3xxx 航班 / G6xx 车次 / 酒店名" value="${esc(v.title || '')}"></label>

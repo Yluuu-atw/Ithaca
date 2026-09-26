@@ -1091,6 +1091,37 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .modal-head h2 { margin: 0; font-size: 21.5px; font-weight: 700; }
 .modal-body form { display: flex; flex-direction: column; gap: 13px; }
 
+.image-entry { display: grid; gap: 8px; }
+.modal-body form .image-entry-pick {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+}
+.image-entry-pick:hover, .image-entry-pick:focus-within { background: var(--surface); transform: translateY(-1px); }
+.image-entry-pick img { grid-row: 1 / 3; width: 52px; height: 52px; object-fit: contain; }
+.image-entry-title { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.image-entry-subtitle { font-size: 13px; font-weight: 400; color: var(--muted); line-height: 1.4; }
+.image-entry-status { min-height: 1.3em; margin: 0; color: var(--primary-600); font-size: 14px; }
+.image-entry-status:empty { min-height: 0; }
+.entry-images { display: flex; flex-wrap: wrap; gap: 8px; }
+.entry-images-inline { margin-top: 7px; }
+.entry-images-detail { margin-top: 14px; }
+.entry-image { position: relative; display: inline-block; width: 76px; height: 76px; flex: 0 0 76px; }
+.entry-image-open { display: block; width: 100%; height: 100%; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); overflow: hidden; cursor: zoom-in; }
+.entry-image-open img { width: 100%; height: 100%; object-fit: cover; }
+.entry-image > img.entry-image-open { object-fit: cover; cursor: default; }
+.entry-image-remove { position: absolute; top: -7px; right: -7px; width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); cursor: pointer; }
+.entry-images-inline .entry-image { width: 42px; height: 42px; flex-basis: 42px; }
+
 @keyframes slideUp {
   from { transform: translateY(30px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
@@ -1488,6 +1519,8 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 textarea { resize: vertical; min-height: 60px; }
 
 /* ---------------- 票据 / 预订凭证 ---------------- */
+.booking-section { margin-top: 32px; }
+.booking-section > h2 { margin: 0 0 14px; font-size: 21px; }
 .booking-list { display: flex; flex-direction: column; gap: 12px; }
 .booking-card {
   display: flex;

@@ -414,17 +414,125 @@ window.App = (() => {
 
   // ---------------- 弹窗 ----------------
   function openModal(title, formHTML) {
+    releaseEntryFiles(modalBody().querySelector('form'));
     modalTitle().textContent = title;
     modalBody().innerHTML = formHTML;
     modal().hidden = false;
+    configureImageEntry(modalBody().querySelector('form'));
     applyPermissions(modal());
-    const first = modalBody().querySelector('input, select');
+    const first = modalBody().querySelector('input:not([type="hidden"]):not([hidden]), select, textarea');
     if (first) first.focus();
   }
 
   function closeModal() {
+    releaseEntryFiles(modalBody().querySelector('form'));
     modal().hidden = true;
     modalBody().innerHTML = '';
+  }
+
+  function releaseEntryFiles(form) {
+    for (const entry of (form && form._entryFiles) || []) URL.revokeObjectURL(entry.preview);
+  }
+
+  function configureImageEntry(form) {
+    if (!form || !['booking', 'expense'].includes(form.dataset.form)) return;
+    form._entryFiles = [];
+    form._entryTouched = new Set();
+    form._entryEditing = !!form.querySelector('[name="bookingId"], [name="expenseId"]');
+    form._aiAvailability = Store.imageRecognitionAvailable().catch(() => false).then(available => {
+      if (!form.isConnected) return false;
+      if (!available) {
+        form.querySelector('.image-entry-title').textContent = '添加图片';
+        form.querySelector('.image-entry-subtitle').textContent = '保存订单或支出的截图';
+        form.querySelector('.image-entry-hint').textContent = '保存后保留原图和预览图。';
+      }
+      return available;
+    });
+  }
+
+  function imageEntryStatus(form, message) {
+    const status = form.querySelector('.image-entry-status');
+    if (status) status.textContent = message;
+  }
+
+  function appendSelectedImage(form, file) {
+    const preview = URL.createObjectURL(file);
+    const entry = { file, preview, url: '' };
+    form._entryFiles.push(entry);
+    const wrap = document.createElement('span');
+    wrap.className = 'entry-image';
+    wrap.dataset.pendingIndex = String(form._entryFiles.length - 1);
+    const image = document.createElement('img');
+    image.src = preview;
+    image.alt = '待保存的图片预览';
+    image.className = 'entry-image-open';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'entry-image-remove';
+    remove.dataset.action = 'entry-image-remove';
+    remove.setAttribute('aria-label', '移除图片');
+    remove.textContent = '×';
+    wrap.append(image, remove);
+    form.querySelector('.entry-images').append(wrap);
+    return entry;
+  }
+
+  function applyImageDraft(form, fields) {
+    if (form.dataset.form === 'expense') {
+      const input = form.elements.namedItem('time');
+      if (input && !form._entryTouched.has('time') && (!form._entryEditing || !input.value)) {
+        const [date, time] = String(input.value || '').split('T');
+        input.value = `${fields.date || date || ''}T${fields.time || time || ''}`;
+      }
+    }
+    for (const [name, value] of Object.entries(fields)) {
+      if (form.dataset.form === 'expense' && (name === 'date' || name === 'time')) continue;
+      const input = form.elements.namedItem(name);
+      if (!input || form._entryTouched.has(name) || (form._entryEditing && input.value)) continue;
+      if (input.tagName === 'SELECT' && ![...input.options].some(option => option.value === String(value))) continue;
+      input.value = String(value);
+      if (name === 'category' && form.dataset.form === 'expense') {
+        const box = form.querySelector('#expFields');
+        if (box) box.innerHTML = Render.expFields(input.value, {});
+      }
+    }
+  }
+
+  async function onEntryImagesSelected(input) {
+    const form = input.closest('form');
+    if (!form || !form._entryFiles) return;
+    const files = [...input.files];
+    input.value = '';
+    if (!files.length) return;
+    const entries = files.map(file => appendSelectedImage(form, file));
+    const available = await form._aiAvailability;
+    if (!form.isConnected || !available || !entries.length) {
+      if (form.isConnected) imageEntryStatus(form, `已添加 ${files.length} 张图片`);
+      return;
+    }
+    const submit = form.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    imageEntryStatus(form, '正在看图片…');
+    try {
+      const result = await Store.recognizeImage(entries[0].file, form.dataset.form);
+      if (form.isConnected && form._entryFiles.includes(entries[0])) {
+        applyImageDraft(form, result);
+        imageEntryStatus(form, '看好了，核对一下填写的内容');
+      }
+    } catch (_) {
+      if (form.isConnected) imageEntryStatus(form, '没看清，可以自己填；图片仍会保留');
+    } finally {
+      if (form.isConnected && submit) submit.disabled = false;
+    }
+  }
+
+  async function entryImageUrls(form) {
+    const saved = [...form.querySelectorAll('.entry-image[data-existing-url]')].map(el => el.dataset.existingUrl);
+    for (const entry of form._entryFiles || []) {
+      if (!entry.url) entry.url = (await Store.uploadImage(entry.file)).url;
+      saved.push(entry.url);
+    }
+    return [...new Set(saved)];
   }
 
   // ---------------- 数据操作 ----------------
@@ -976,6 +1084,20 @@ window.App = (() => {
         PhotoViewer.open([{ id: 'memo', url: el.dataset.url }], 'memo');
         break;
 
+      case 'entry-image-remove': {
+        const thumb = el.closest('.entry-image');
+        const form = el.closest('form');
+        if (!thumb || !form) break;
+        if (thumb.dataset.pendingIndex != null) {
+          const index = Number(thumb.dataset.pendingIndex);
+          const entry = form._entryFiles.splice(index, 1)[0];
+          if (entry) URL.revokeObjectURL(entry.preview);
+          thumb.remove();
+          form.querySelectorAll('.entry-image[data-pending-index]').forEach((node, i) => { node.dataset.pendingIndex = String(i); });
+        } else thumb.remove();
+        break;
+      }
+
       case 'photo-del':
         if (!confirm('删除这张照片？')) return;
         doMutate(d => { d.photos = (d.photos || []).filter(x => x.id !== el.dataset.id); }, '已删除');
@@ -1391,41 +1513,52 @@ window.App = (() => {
         participants: parseList(fd.get('participants')),
         note: fd.get('note') || '',
       };
-      if (expenseId) {
-        doMutate(d => {
-          const it = d.expenses.find(x => x.id === expenseId);
-          if (it) { Object.assign(it, fields); syncItemFromExpense(d, it); }
-        }, '已保存');
-      } else {
-        // 新建记账要反向落到行程：按日期找那天（没有就新建），建一条行程条目双向关联
-        doMutate(d => {
-          const ex = { id: Store.uid('exp'), itemId: '', ...fields };
-          d.itinerary = d.itinerary || [];
-          let day = d.itinerary.find(x => x.date === ex.date);
-          if (!day) {
-            day = { id: Store.uid('day'), date: ex.date, items: [] };
-            d.itinerary.push(day);
-            if (Store.getRole() !== 'temporary') d.itinerary.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-          }
-          const it = {
-            id: Store.uid('itm'),
-            time: ex.time, endTime: '',
-            title: ex.title || ex.category,
-            location: '', lat: null, lng: null, note: ex.note || '',
-            category: (Store.CONST.expenseToItemCategory || {})[ex.category] || '其他',
-            subCategory: ex.subCategory || '',
-            refNo: ex.refNo || '',
-            amount: ex.amount, payer: ex.payer,
-            participants: Array.isArray(ex.participants) ? ex.participants.slice() : [],
-            expenseId: ex.id,
-          };
-          day.items.push(it);
-          if (Array.isArray(day.order) && Store.getRole() !== 'temporary') day.order.push(it.id);
-          ex.itemId = it.id;
-          d.expenses.push(ex);
-        }, '已记下');
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        fields.images = await entryImageUrls(form);
+        if (expenseId) {
+          await Store.mutate(d => {
+            const it = d.expenses.find(x => x.id === expenseId);
+            if (it) { Object.assign(it, fields); syncItemFromExpense(d, it); }
+          });
+        } else {
+          // 新建记账要反向落到行程：按日期找那天（没有就新建），建一条行程条目双向关联
+          await Store.mutate(d => {
+            const ex = { id: Store.uid('exp'), itemId: '', ...fields };
+            d.itinerary = d.itinerary || [];
+            let day = d.itinerary.find(x => x.date === ex.date);
+            if (!day) {
+              day = { id: Store.uid('day'), date: ex.date, items: [] };
+              d.itinerary.push(day);
+              if (Store.getRole() !== 'temporary') d.itinerary.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            }
+            const it = {
+              id: Store.uid('itm'),
+              time: ex.time, endTime: '',
+              title: ex.title || ex.category,
+              location: '', lat: null, lng: null, note: ex.note || '',
+              category: (Store.CONST.expenseToItemCategory || {})[ex.category] || '其他',
+              subCategory: ex.subCategory || '',
+              refNo: ex.refNo || '',
+              amount: ex.amount, payer: ex.payer,
+              participants: Array.isArray(ex.participants) ? ex.participants.slice() : [],
+              expenseId: ex.id,
+            };
+            day.items.push(it);
+            if (Array.isArray(day.order) && Store.getRole() !== 'temporary') day.order.push(it.id);
+            ex.itemId = it.id;
+            d.expenses.push(ex);
+          });
+        }
+        toast(expenseId ? '已保存' : '已记下', 'success');
+        closeModal();
+      } catch (error) {
+        imageEntryStatus(form, '保存失败，图片和填写内容还在');
+        toast(error.message || '保存失败', 'error');
+      } finally {
+        if (form.isConnected && submit) submit.disabled = false;
       }
-      closeModal();
       return;
     }
 
@@ -1570,16 +1703,27 @@ window.App = (() => {
         link: fd.get('link') || '',
         note: fd.get('note') || '',
       };
-      if (bookingId) {
-        doMutate(d => {
-          d.bookings = d.bookings || [];
-          const it = d.bookings.find(x => x.id === bookingId);
-          if (it) Object.assign(it, fields);
-        }, '已保存票据');
-      } else {
-        doMutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); }, '已保存票据');
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      try {
+        fields.images = await entryImageUrls(form);
+        if (bookingId) {
+          await Store.mutate(d => {
+            d.bookings = d.bookings || [];
+            const it = d.bookings.find(x => x.id === bookingId);
+            if (it) Object.assign(it, fields);
+          });
+        } else {
+          await Store.mutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); });
+        }
+        toast('已保存票据', 'success');
+        closeModal();
+      } catch (error) {
+        imageEntryStatus(form, '保存失败，图片和填写内容还在');
+        toast(error.message || '保存失败', 'error');
+      } finally {
+        if (form.isConnected && submit) submit.disabled = false;
       }
-      closeModal();
       return;
     }
 
@@ -1628,6 +1772,10 @@ window.App = (() => {
 
   // ---------------- 变更委托（勾选/下拉） ----------------
   function onChange(e) {
+    if (e.target.matches('input[name="imageFiles"]')) {
+      onEntryImagesSelected(e.target);
+      return;
+    }
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
@@ -2014,6 +2162,10 @@ window.App = (() => {
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
+    document.addEventListener('input', e => {
+      const form = e.target.closest && e.target.closest('form[data-form="booking"], form[data-form="expense"]');
+      if (form && form._entryTouched && e.target.name !== 'imageFiles') form._entryTouched.add(e.target.name);
+    });
     document.addEventListener('error', (e) => {
       const image = e.target;
       if (!(image instanceof HTMLImageElement) || !image.dataset.original) return;
