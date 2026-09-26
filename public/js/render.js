@@ -489,17 +489,13 @@ window.Render = (() => {
     return stops;
   }
 
-  // 每日花费：记账按日期 + 已订票据按日期，摊到行程的每一天上
+  // Daily spending uses ledger entries so booking prices cannot be counted twice.
   function dailySpend(s) {
     const days = [...(s.itinerary || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const byDate = {};
     (s.expenses || []).forEach(e => {
       if (!e.date) return;
       byDate[e.date] = (byDate[e.date] || 0) + (Number(e.amount) || 0);
-    });
-    (s.bookings || []).forEach(b => {
-      if (!['已订', '已完成'].includes(b.status) || !b.date) return;
-      byDate[b.date] = (byDate[b.date] || 0) + (Number(b.price) || 0);
     });
     const list = days.map(d => ({ date: d.date, amount: byDate[d.date] || 0 }));
     // 行程外的日期也别丢

@@ -53,6 +53,31 @@ test('booking and expense entries remain reachable from the ledger with one imag
   assert.doesNotMatch(context.window.Render.formBooking([], null), /<option[^>]*>🚄/);
 });
 
+test('overview daily spending agrees with the ledger when an order also has a receipt', () => {
+  const context = {
+    window: {},
+    AuthUI: { user: null },
+    Store: {
+      getIdentity: () => null,
+      getRoster: () => [],
+      canManageTrip: () => false,
+      CONST: { currencySymbol: { CNY: '¥' } },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const state = {
+    meta: { tripName: 'Test', members: [], currency: 'CNY' },
+    itinerary: [{ date: '2026-10-01', items: [] }],
+    expenses: [{ date: '2026-10-01', amount: 123.45, category: '交通', participants: [] }],
+    bookings: [{ date: '2026-10-01', price: 123.45, status: '已订' }],
+    checklist: [], wishlist: [], photos: [], places: [], guides: [], tracks: [],
+  };
+  const html = context.window.Render.renderPage(state, 'overview');
+  assert.match(html, /class="bar-col has-value" title="2026-10-01 ¥123\.45"/);
+  assert.doesNotMatch(html, /2026-10-01 ¥246\.9/);
+});
+
 test('daily expense matrix uses trip days and amount-only member columns', () => {
   const context = {
     window: {},
