@@ -1076,7 +1076,10 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
   width: 100%;
   max-width: 480px;
   max-height: 88vh;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
   background: var(--surface);
   border-radius: 20px 20px 0 0;
   padding: 20px 22px 28px;
@@ -1089,6 +1092,7 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
   margin-bottom: 16px;
 }
 .modal-head h2 { margin: 0; font-size: 21.5px; font-weight: 700; }
+.modal-body, .modal-body form, .modal-body .form-row, .modal-body form label { min-width: 0; }
 .modal-body form { display: flex; flex-direction: column; gap: 13px; }
 
 .image-entry { display: grid; gap: 8px; }
@@ -1112,6 +1116,15 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .image-entry-subtitle { font-size: 13px; font-weight: 400; color: var(--muted); line-height: 1.4; }
 .image-entry-status { min-height: 1.3em; margin: 0; color: var(--primary-600); font-size: 14px; }
 .image-entry-status:empty { min-height: 0; }
+.image-entry-progress { display: grid; gap: 8px; padding: 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.image-entry-progress[hidden], .image-entry-retry[hidden], .image-entry-cancel[hidden] { display: none; }
+.image-entry-progress-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text); }
+.image-entry-percent { color: var(--muted); font-variant-numeric: tabular-nums; }
+.image-entry-meter { height: 6px; overflow: hidden; border-radius: 999px; background: var(--border); }
+.image-entry-meter > span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--primary); transition: width .18s ease; }
+.image-entry-meter.is-waiting > span { width: 35%; animation: image-entry-wait 1.3s ease-in-out infinite alternate; }
+.image-entry-cancel, .image-entry-retry { justify-self: start; }
+@keyframes image-entry-wait { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 .entry-images { display: flex; flex-wrap: wrap; gap: 8px; }
 .entry-images-inline { margin-top: 7px; }
 .entry-images-detail { margin-top: 14px; }

@@ -78,6 +78,12 @@ window.Render = (() => {
       </label>
       <p class="field-hint image-entry-hint">所选图片会用于填写表单；保存后保留原图和预览图。</p>
       <p class="image-entry-status" role="status" aria-live="polite"></p>
+      <div class="image-entry-progress" hidden>
+        <div class="image-entry-progress-head"><span class="image-entry-stage"></span><span class="image-entry-percent"></span></div>
+        <div class="image-entry-meter" role="progressbar" aria-label="图片处理进度"><span></span></div>
+        <button type="button" class="btn btn-ghost btn-sm image-entry-cancel" data-action="image-entry-cancel">取消识别</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm image-entry-retry" data-action="image-entry-retry" hidden>重试识别</button>
       <div class="entry-images">${imageThumbs(images, true)}</div>
     </div>`;
   }

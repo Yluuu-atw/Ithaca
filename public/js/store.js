@@ -291,8 +291,42 @@ window.Store = (() => {
   }
 
   // Upload any private image; existing photo callers keep the URL-only wrapper.
-  async function uploadImage(blob, scope) {
+  function sendImageRequest(url, blob, options = {}) {
+    const { signal, onProgress, onPhase } = options;
+    return new Promise((resolve, reject) => {
+      if (signal && signal.aborted) { reject(new DOMException('已取消', 'AbortError')); return; }
+      const xhr = new XMLHttpRequest();
+      const abort = () => xhr.abort();
+      let settled = false;
+      const finish = (error, data) => {
+        if (settled) return;
+        settled = true;
+        if (signal) signal.removeEventListener('abort', abort);
+        if (error) reject(error); else resolve(data);
+      };
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Content-Type', imageContentType(blob));
+      xhr.setRequestHeader('X-CSRF-Token', csrf);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) onProgress(event.loaded, event.total);
+      };
+      xhr.upload.onload = () => { if (onPhase) onPhase('processing'); };
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300) finish(null, data);
+        else finish(new Error(data.error || '图片处理失败'));
+      };
+      xhr.onerror = () => finish(new Error('网络连接中断，请重试'));
+      xhr.onabort = () => finish(new DOMException('已取消', 'AbortError'));
+      if (signal) signal.addEventListener('abort', abort, { once: true });
+      xhr.send(blob);
+    });
+  }
+
+  async function uploadImage(blob, scope, options) {
     const target = scope === 'memo' ? '?scope=memo' : `?tripId=${encodeURIComponent(currentTripId() || '')}`;
+    if (options) return sendImageRequest('/api/images' + target, blob, options);
     const res = await fetch('/api/images' + target, {
       method: 'POST',
       headers: { 'Content-Type': imageContentType(blob), 'X-CSRF-Token': csrf },
@@ -321,17 +355,37 @@ window.Store = (() => {
     return !!(await res.json()).available;
   }
 
-  async function recognizeImage(blob, kind) {
-    const res = await fetch(`/api/ai/extract?kind=${encodeURIComponent(kind)}&tripId=${encodeURIComponent(currentTripId() || '')}`, {
-      method: 'POST',
-      headers: { 'Content-Type': imageContentType(blob), 'X-CSRF-Token': csrf },
-      body: blob,
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || '没看清图片内容');
+  async function recognitionBlob(blob, signal) {
+    if (blob.size < 1024 * 1024 || typeof createImageBitmap !== 'function') return blob;
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(blob);
+      if (signal && signal.aborted) throw new DOMException('已取消', 'AbortError');
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const reduced = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.78));
+      if (signal && signal.aborted) throw new DOMException('已取消', 'AbortError');
+      return reduced && reduced.size < blob.size ? reduced : blob;
+    } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      return blob;
+    } finally {
+      if (bitmap) bitmap.close();
     }
-    return (await res.json()).fields || {};
+  }
+
+  async function recognizeImage(blob, kind, options = {}) {
+    const { signal, onPhase } = options;
+    if (onPhase) onPhase('preparing');
+    const prepared = await recognitionBlob(blob, signal);
+    if (signal && signal.aborted) throw new DOMException('已取消', 'AbortError');
+    if (onPhase) onPhase('uploading');
+    const data = await sendImageRequest(`/api/ai/extract?kind=${encodeURIComponent(kind)}&tripId=${encodeURIComponent(currentTripId() || '')}`, prepared, options);
+    return data.fields || {};
   }
 
   function previewLink(url) {

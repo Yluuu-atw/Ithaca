@@ -414,7 +414,7 @@ window.App = (() => {
 
   // ---------------- 弹窗 ----------------
   function openModal(title, formHTML) {
-    releaseEntryFiles(modalBody().querySelector('form'));
+    if (!modal().hidden && !closeModal()) return;
     modalTitle().textContent = title;
     modalBody().innerHTML = formHTML;
     modal().hidden = false;
@@ -424,10 +424,18 @@ window.App = (() => {
     if (first) first.focus();
   }
 
-  function closeModal() {
-    releaseEntryFiles(modalBody().querySelector('form'));
+  function closeModal(force = false) {
+    const form = modalBody().querySelector('form');
+    if (!force && form && form._entryTask) {
+      imageEntryStatus(form, form._entryTask.kind === 'commit' ? '正在保存，请稍等' : '先取消当前操作，再关闭页面');
+      return false;
+    }
+    if (!force && form && form._entryFiles && (form._entryFiles.length || form._entryTouched.size)
+      && !confirm('填写的内容尚未保存，确定放弃并退出吗？')) return false;
+    releaseEntryFiles(form);
     modal().hidden = true;
     modalBody().innerHTML = '';
+    return true;
   }
 
   function releaseEntryFiles(form) {
@@ -439,6 +447,10 @@ window.App = (() => {
     form._entryFiles = [];
     form._entryTouched = new Set();
     form._entryEditing = !!form.querySelector('[name="bookingId"], [name="expenseId"]');
+    form.addEventListener('invalid', event => {
+      const label = event.target.closest('label');
+      imageEntryStatus(form, `请先填写${label ? label.firstChild.textContent.trim() : '必填信息'}，再保存`);
+    }, true);
     form._aiAvailability = Store.imageRecognitionAvailable().catch(() => false).then(available => {
       if (!form.isConnected) return false;
       if (!available) {
@@ -453,6 +465,30 @@ window.App = (() => {
   function imageEntryStatus(form, message) {
     const status = form.querySelector('.image-entry-status');
     if (status) status.textContent = message;
+  }
+
+  function imageEntryProgress(form, stage, percent = null, cancellable = true) {
+    const box = form.querySelector('.image-entry-progress');
+    if (!box) return;
+    box.hidden = false;
+    box.querySelector('.image-entry-stage').textContent = stage;
+    box.querySelector('.image-entry-percent').textContent = percent == null ? '' : `${Math.round(percent)}%`;
+    const meter = box.querySelector('.image-entry-meter');
+    meter.classList.toggle('is-waiting', percent == null);
+    if (percent != null) meter.querySelector('span').style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    const cancel = box.querySelector('.image-entry-cancel');
+    cancel.hidden = !cancellable;
+    if (cancellable) cancel.textContent = form._entryTask && form._entryTask.kind === 'recognition' ? '取消识别' : '取消上传';
+  }
+
+  function clearImageTask(form) {
+    form._entryTask = null;
+    const box = form.querySelector('.image-entry-progress');
+    if (box) box.hidden = true;
+    const submit = form.querySelector('[type="submit"]');
+    if (submit) submit.disabled = false;
+    const picker = form.querySelector('[name="imageFiles"]');
+    if (picker) picker.disabled = false;
   }
 
   function appendSelectedImage(form, file) {
@@ -510,29 +546,80 @@ window.App = (() => {
       if (form.isConnected) imageEntryStatus(form, `已添加 ${files.length} 张图片`);
       return;
     }
+    await runImageRecognition(form, entries[0]);
+  }
+
+  async function runImageRecognition(form, entry) {
+    if (form._entryTask || !entry || !form._entryFiles.includes(entry)) return;
+    const task = { kind: 'recognition', controller: new AbortController() };
+    form._entryTask = task;
     const submit = form.querySelector('[type="submit"]');
     if (submit) submit.disabled = true;
-    imageEntryStatus(form, '正在看图片…');
+    const picker = form.querySelector('[name="imageFiles"]');
+    if (picker) picker.disabled = true;
+    form.querySelector('.image-entry-retry').hidden = true;
+    imageEntryStatus(form, '正在看图片，完成后请核对内容');
+    imageEntryProgress(form, '正在准备图片');
     try {
-      const result = await Store.recognizeImage(entries[0].file, form.dataset.form);
-      if (form.isConnected && form._entryFiles.includes(entries[0])) {
+      const result = await Store.recognizeImage(entry.file, form.dataset.form, {
+        signal: task.controller.signal,
+        onPhase: phase => {
+          if (!form.isConnected || form._entryTask !== task) return;
+          imageEntryProgress(form, phase === 'preparing' ? '正在准备图片' : phase === 'uploading' ? '正在上传识别图片' : '正在提取信息');
+        },
+        onProgress: (loaded, total) => {
+          if (form.isConnected && form._entryTask === task) imageEntryProgress(form, '正在上传识别图片', loaded / total * 100);
+        },
+      });
+      if (form.isConnected && form._entryTask === task && form._entryFiles.includes(entry)) {
         applyImageDraft(form, result);
         imageEntryStatus(form, '看好了，核对一下填写的内容');
       }
-    } catch (_) {
-      if (form.isConnected) imageEntryStatus(form, '没看清，可以自己填；图片仍会保留');
+    } catch (error) {
+      if (form.isConnected && form._entryTask === task) {
+        imageEntryStatus(form, error.name === 'AbortError' ? '已取消识别，图片和填写内容仍在' : `${error.message || '没看清图片'}；可以重试或手动填写`);
+        form.querySelector('.image-entry-retry').hidden = false;
+      }
     } finally {
-      if (form.isConnected && submit) submit.disabled = false;
+      if (form.isConnected && form._entryTask === task) clearImageTask(form);
     }
   }
 
-  async function entryImageUrls(form) {
+  async function entryImageUrls(form, task) {
     const saved = [...form.querySelectorAll('.entry-image[data-existing-url]')].map(el => el.dataset.existingUrl);
-    for (const entry of form._entryFiles || []) {
-      if (!entry.url) entry.url = (await Store.uploadImage(entry.file)).url;
+    const entries = form._entryFiles || [];
+    for (let index = 0; index < entries.length; index++) {
+      const entry = entries[index];
+      if (!entry.url) {
+        imageEntryProgress(form, `正在上传第 ${index + 1}/${entries.length} 张图片`, 0);
+        entry.url = (await Store.uploadImage(entry.file, undefined, {
+          signal: task.controller.signal,
+          onProgress: (loaded, total) => imageEntryProgress(form, `正在上传第 ${index + 1}/${entries.length} 张图片`, loaded / total * 100),
+          onPhase: () => imageEntryProgress(form, '正在生成图片预览'),
+        })).url;
+      }
       saved.push(entry.url);
     }
     return [...new Set(saved)];
+  }
+
+  function startImageSave(form) {
+    if (form._entryTask) return null;
+    const hasFiles = !!(form._entryFiles || []).some(entry => !entry.url);
+    const task = { kind: hasFiles ? 'upload' : 'commit', controller: new AbortController() };
+    form._entryTask = task;
+    const submit = form.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    const picker = form.querySelector('[name="imageFiles"]');
+    if (picker) picker.disabled = true;
+    imageEntryStatus(form, '正在保存，完成后会自动返回');
+    imageEntryProgress(form, hasFiles ? '准备上传图片' : '正在保存记录', null, hasFiles);
+    return task;
+  }
+
+  function commitImageSave(form, task) {
+    task.kind = 'commit';
+    imageEntryProgress(form, '正在保存记录', null, false);
   }
 
   // ---------------- 数据操作 ----------------
@@ -1084,6 +1171,24 @@ window.App = (() => {
         PhotoViewer.open([{ id: 'memo', url: el.dataset.url }], 'memo');
         break;
 
+      case 'image-entry-cancel': {
+        const form = el.closest('form');
+        const task = form && form._entryTask;
+        if (task && task.kind !== 'commit') {
+          el.disabled = true;
+          imageEntryStatus(form, '正在取消…');
+          task.controller.abort();
+        }
+        break;
+      }
+
+      case 'image-entry-retry': {
+        const form = el.closest('form');
+        const entry = form && form._entryFiles && form._entryFiles[0];
+        if (entry) runImageRecognition(form, entry);
+        break;
+      }
+
       case 'entry-image-remove': {
         const thumb = el.closest('.entry-image');
         const form = el.closest('form');
@@ -1094,6 +1199,7 @@ window.App = (() => {
           if (entry) URL.revokeObjectURL(entry.preview);
           thumb.remove();
           form.querySelectorAll('.entry-image[data-pending-index]').forEach((node, i) => { node.dataset.pendingIndex = String(i); });
+          if (!form._entryFiles.length) form.querySelector('.image-entry-retry').hidden = true;
         } else thumb.remove();
         break;
       }
@@ -1513,10 +1619,12 @@ window.App = (() => {
         participants: parseList(fd.get('participants')),
         note: fd.get('note') || '',
       };
-      const submit = form.querySelector('[type="submit"]');
-      if (submit) submit.disabled = true;
+      const task = startImageSave(form);
+      if (!task) return;
       try {
-        fields.images = await entryImageUrls(form);
+        fields.images = await entryImageUrls(form, task);
+        if (task.controller.signal.aborted) throw new DOMException('已取消', 'AbortError');
+        commitImageSave(form, task);
         if (expenseId) {
           await Store.mutate(d => {
             const it = d.expenses.find(x => x.id === expenseId);
@@ -1552,12 +1660,12 @@ window.App = (() => {
           });
         }
         toast(expenseId ? '已保存' : '已记下', 'success');
-        closeModal();
+        closeModal(true);
       } catch (error) {
-        imageEntryStatus(form, '保存失败，图片和填写内容还在');
-        toast(error.message || '保存失败', 'error');
+        imageEntryStatus(form, error.name === 'AbortError' ? '已取消上传，图片和填写内容仍在' : '保存失败，图片和填写内容仍在');
+        if (error.name !== 'AbortError') toast(error.message || '保存失败', 'error');
       } finally {
-        if (form.isConnected && submit) submit.disabled = false;
+        if (form.isConnected && form._entryTask === task) clearImageTask(form);
       }
       return;
     }
@@ -1703,10 +1811,12 @@ window.App = (() => {
         link: fd.get('link') || '',
         note: fd.get('note') || '',
       };
-      const submit = form.querySelector('[type="submit"]');
-      if (submit) submit.disabled = true;
+      const task = startImageSave(form);
+      if (!task) return;
       try {
-        fields.images = await entryImageUrls(form);
+        fields.images = await entryImageUrls(form, task);
+        if (task.controller.signal.aborted) throw new DOMException('已取消', 'AbortError');
+        commitImageSave(form, task);
         if (bookingId) {
           await Store.mutate(d => {
             d.bookings = d.bookings || [];
@@ -1717,12 +1827,12 @@ window.App = (() => {
           await Store.mutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); });
         }
         toast('已保存票据', 'success');
-        closeModal();
+        closeModal(true);
       } catch (error) {
-        imageEntryStatus(form, '保存失败，图片和填写内容还在');
-        toast(error.message || '保存失败', 'error');
+        imageEntryStatus(form, error.name === 'AbortError' ? '已取消上传，图片和填写内容仍在' : '保存失败，图片和填写内容仍在');
+        if (error.name !== 'AbortError') toast(error.message || '保存失败', 'error');
       } finally {
-        if (form.isConnected && submit) submit.disabled = false;
+        if (form.isConnected && form._entryTask === task) clearImageTask(form);
       }
       return;
     }
@@ -2183,6 +2293,12 @@ window.App = (() => {
       }
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+    window.addEventListener('beforeunload', (e) => {
+      const form = !modal().hidden && modalBody().querySelector('form');
+      if (!form || !form._entryTask) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
     $('#importFile').addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) importFile(file);
