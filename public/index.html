@@ -81,6 +81,28 @@
     </div>
   </div>
 
+  <dialog class="photo-viewer" id="photoViewer" aria-label="查看原图">
+    <div class="photo-viewer-head">
+      <span id="photoViewerCount" aria-live="polite"></span>
+      <div class="photo-viewer-tools">
+        <button type="button" data-viewer-action="zoom-out" aria-label="缩小">缩小</button>
+        <button type="button" data-viewer-action="zoom-reset" aria-label="恢复适应窗口">适应</button>
+        <button type="button" data-viewer-action="zoom-in" aria-label="放大">放大</button>
+        <a id="photoViewerDownload" download target="_blank" rel="noopener">下载原图</a>
+        <button type="button" data-viewer-action="close" aria-label="关闭原图">关闭</button>
+      </div>
+    </div>
+    <div class="photo-viewer-main">
+      <button type="button" class="photo-viewer-arrow" data-viewer-action="previous" aria-label="上一张">上一张</button>
+      <div class="photo-viewer-stage" id="photoViewerStage">
+        <img id="photoViewerImage" alt="" draggable="false" referrerpolicy="no-referrer">
+        <span class="photo-viewer-status" id="photoViewerStatus" role="status"></span>
+      </div>
+      <button type="button" class="photo-viewer-arrow" data-viewer-action="next" aria-label="下一张">下一张</button>
+    </div>
+    <div class="photo-viewer-caption" id="photoViewerCaption"></div>
+  </dialog>
+
   <div class="toast" id="toast" hidden></div>
   <input type="file" id="importFile" accept="application/json,.json" hidden>
 
@@ -92,6 +114,7 @@
   <script src="js/brand.js"></script>
   <script src="js/auth-ui.js"></script>
   <script src="js/render.js"></script>
+  <script src="js/photo-viewer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

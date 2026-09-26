@@ -1472,7 +1472,9 @@ window.Render = (() => {
   function renderPhotoCard(s, p) {
     return `<figure class="photo-card">
       <div class="photo-img-wrap">
-        <img class="photo-img" ${photoSourceAttrs(p.url)} alt="${esc(p.caption || '照片')}" loading="lazy">
+        <button type="button" class="photo-open" data-action="photo-open" data-id="${esc(p.id)}" aria-label="查看${esc(p.caption || '照片')}原图">
+          <img class="photo-img" ${photoSourceAttrs(p.url)} alt="${esc(p.caption || '照片')}" loading="lazy">
+        </button>
         <button class="icon-btn danger photo-del" data-action="photo-del" data-id="${esc(p.id)}" title="删除">✕</button>
       </div>
       ${p.caption || p.location
@@ -1482,6 +1484,12 @@ window.Render = (() => {
           </figcaption>`
         : ''}
     </figure>`;
+  }
+
+  function renderMemoPhoto(url) {
+    return `<button type="button" class="memo-photo-open" data-action="photo-open-url" data-url="${esc(url)}" aria-label="查看原图">
+      <img class="memo-photo" ${photoSourceAttrs(url)} alt="" loading="lazy">
+    </button>`;
   }
 
   // ---------------- 照片上传表单 ----------------
@@ -2112,7 +2120,7 @@ window.Render = (() => {
     }
     return `<div class="memo-list">${list.map(m => {
       const name = tripName(m.tripId);
-      const photos = (m.photos || []).map(u => `<img class="memo-photo" ${photoSourceAttrs(u)} alt="" loading="lazy">`).join('');
+      const photos = (m.photos || []).map(renderMemoPhoto).join('');
       return `<article class="memo-card">
         <header class="memo-head">
           <span class="memo-time">${esc(fmtDateTime(m.createdAt))}</span>
@@ -2135,7 +2143,7 @@ window.Render = (() => {
         const name = (t.meta && t.meta.tripName) || '未命名';
         return `<option value="${esc(t.id)}" ${m.tripId === t.id ? 'selected' : ''}>${esc(name)}</option>`;
       })).join('');
-    const has = (m.photos || []).length ? `<div class="memo-photos">${(m.photos || []).map(u => `<img class="memo-photo" ${photoSourceAttrs(u)} alt="">`).join('')}</div>
+    const has = (m.photos || []).length ? `<div class="memo-photos">${(m.photos || []).map(renderMemoPhoto).join('')}</div>
       <label class="memo-keep"><input type="checkbox" name="keep" checked> 保留已有照片（取消勾选则清空）</label>` : '';
     return `<form data-form="memo">
       <input type="hidden" name="id" value="${esc(m.id || '')}">

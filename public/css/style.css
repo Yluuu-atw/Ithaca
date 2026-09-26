@@ -1190,6 +1190,19 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
   object-fit: cover;
   display: block;
 }
+.photo-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.photo-open:focus-visible, .memo-photo-open:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: -3px;
+}
 .photo-del {
   position: absolute;
   top: 8px;
@@ -1205,6 +1218,104 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 }
 .photo-cap-text { font-size: 17px; font-weight: 500; }
 .photo-cap-loc { font-size: 15px; color: var(--muted); }
+
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  border: 0;
+  background: var(--bg);
+  color: var(--text);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.photo-viewer[open] { display: grid; }
+.photo-viewer::backdrop { background: rgba(24, 22, 20, .7); }
+.photo-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.photo-viewer-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.photo-viewer-tools button, .photo-viewer-tools a, .photo-viewer-arrow {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 11px;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.photo-viewer-tools button:hover, .photo-viewer-tools a:hover, .photo-viewer-arrow:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.photo-viewer-arrow:disabled { opacity: .4; cursor: default; }
+.photo-viewer-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 0;
+}
+.photo-viewer-arrow { align-self: center; margin: 10px; }
+.photo-viewer-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+.photo-viewer-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+  will-change: transform;
+}
+.photo-viewer-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  pointer-events: none;
+}
+.photo-viewer-status:empty { display: none; }
+.photo-viewer-caption {
+  min-height: 48px;
+  padding: 12px 18px;
+  text-align: center;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 640px) {
+  .photo-viewer-head { align-items: flex-start; flex-direction: column; padding: 8px 12px; }
+  .photo-viewer-tools { justify-content: flex-start; gap: 5px; }
+  .photo-viewer-tools button, .photo-viewer-tools a { padding: 6px 8px; font-size: 13px; }
+  .photo-viewer-main { position: relative; display: block; }
+  .photo-viewer-stage { width: 100%; height: 100%; }
+  .photo-viewer-arrow { position: absolute; z-index: 1; bottom: 12px; margin: 0; padding: 6px; font-size: 13px; }
+  .photo-viewer-arrow[data-viewer-action="previous"] { left: 12px; }
+  .photo-viewer-arrow[data-viewer-action="next"] { right: 12px; }
+  .photo-viewer-caption { min-height: 38px; padding: 8px 12px; }
+}
 
 /* ---------------- 行程：简洁/复杂模式 ---------------- */
 .head-actions { display: flex; align-items: center; gap: 8px; }
@@ -2289,6 +2400,7 @@ body:not(.is-welcome) .welcome { display: none; }
 .memo-acts { margin-left: auto; display: flex; gap: 6px; }
 .memo-text { font-size: 17px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
 .memo-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.memo-photo-open { display: block; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
 .memo-photo { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
 .memo-keep { font-size: 14.5px; color: var(--muted); }
 

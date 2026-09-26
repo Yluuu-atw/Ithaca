@@ -15,7 +15,7 @@ window.App = (() => {
     'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
     'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
-    'map-fit', 'modal-close', 'nav', 'packing-type', 'place-detail', 'place-filter',
+    'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
     'welcome-home', 'welcome-trips',
@@ -966,6 +966,14 @@ window.App = (() => {
 
       case 'photo-add':
         openModal('添加照片', Render.formPhoto());
+        break;
+
+      case 'photo-open':
+        PhotoViewer.open(Store.getState().photos || [], el.dataset.id);
+        break;
+
+      case 'photo-open-url':
+        PhotoViewer.open([{ id: 'memo', url: el.dataset.url }], 'memo');
         break;
 
       case 'photo-del':
@@ -2000,6 +2008,7 @@ window.App = (() => {
 
   // ---------------- 初始化 ----------------
   function init() {
+    PhotoViewer.init();
     Store.subscribe(render);
     Store.subscribe(backfillCovers);
     document.addEventListener('click', onClick);
