@@ -27,6 +27,7 @@ const { createPasskeys } = require('./data/passkeys');
 const { createSharing } = require('./data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 const { formalPerson, assignAuthors, syncTripRoster } = require('./data/people');
+const { extractImageDraft, RecognitionError, MAX_IMAGE_BYTES } = require('./data/ai-recognition');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -750,6 +751,37 @@ async function handleImageUpload(req, res, pathname, principal) {
 
 async function handleApi(req, res, pathname, principal) {
   if (await handleThumbnail(req, res, pathname, principal)) return;
+  if (pathname === '/api/ai/status') {
+    if (req.method !== 'GET') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+    return sendJSON(res, 200, { available: !!process.env.ARK_API_KEY });
+  }
+  if (pathname === '/api/ai/extract') {
+    if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+    const params = new URL(req.url, 'http://localhost').searchParams;
+    const kind = params.get('kind');
+    const tripId = params.get('tripId');
+    if (kind !== 'booking' && kind !== 'expense') return sendJSON(res, 400, { error: '不支持的识别类型' });
+    if (!tripId || !canEdit(db, principal, tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
+    if (!process.env.ARK_API_KEY) return sendJSON(res, 503, { error: '图片识别暂不可用' });
+    const identity = principal.userId || `${principal.tempTripId}:${principal.tempPersonId}`;
+    if (limited(req, `ai:${identity}`, 12, 15 * 60 * 1000)
+      || limited(req, 'ai:all', 30, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '识别次数过多，请稍后再试' });
+    if (Number(req.headers['content-length']) > MAX_IMAGE_BYTES) return sendJSON(res, 413, { error: '图片过大' });
+    try {
+      const bytes = await readBody(req, MAX_IMAGE_BYTES);
+      const fields = await extractImageDraft({
+        kind, bytes, contentType: (req.headers['content-type'] || '').split(';')[0].trim(),
+        apiKey: process.env.ARK_API_KEY, model: process.env.ARK_MODEL_ID || undefined,
+      });
+      const currentPrincipal = resolvePrincipal(req.headers.cookie || '');
+      if (!currentPrincipal) return sendJSON(res, 401, { error: '请先登录' });
+      if (!canEdit(db, currentPrincipal, tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
+      return sendJSON(res, 200, { fields });
+    } catch (error) {
+      if (error instanceof RecognitionError) return sendJSON(res, error.status, { error: error.message });
+      return sendJSON(res, error.message === '请求体过大' ? 413 : 400, { error: error.message === '请求体过大' ? '图片过大' : '图片识别失败' });
+    }
+  }
   if (pathname === '/api/users' && req.method === 'GET') {
     if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以搜索账号' });
     const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().toLocaleLowerCase('en-US');
