@@ -21,6 +21,10 @@ test('new expense uses local current minute and edits preserve stored time', () 
   assert.match(context.window.Render.formExpense([], null), /name="time" value="2026-09-26T17:42"/);
   assert.match(context.window.Render.formExpense([], { id: 'e1', date: '2026-08-05', time: '08:15' }), /name="time" value="2026-08-05T08:15"/);
   assert.match(context.window.Render.formExpense([], { id: 'e2', date: '', time: '' }), /name="time" value=""/);
+  const existing = context.window.Render.formExpense([], { id: 'e3', location: 'Old Town', lat: 31.22, lng: 121.48 });
+  assert.match(existing, /name="location"[^>]*value="Old Town"/);
+  assert.match(existing, /name="lat" value="31\.22"/);
+  assert.match(existing, /name="lng" value="121\.48"/);
 });
 
 test('booking and expense entries remain reachable from the ledger with one image flow', () => {

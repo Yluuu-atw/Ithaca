@@ -194,7 +194,7 @@ function defaultTrip() {
       packingTypes: [],   // 本趟用到的打包模板 id，候选池取并集；空则只显示「通用」
     },
     itinerary: [], // [{ id, date, order?, items: [{ id, time, startDate, endTime, endDate, title, location, lat, lng, note, category, subCategory, refNo, amount, payer, participants, expenseId }] }]  order 存展示顺序，startDate/endDate 只作跨天记录不参与排序
-    expenses: [],  // [{ id, date, time, title, amount, category, payer, participants, note, itemId }]  title/note 与行程条目同名同义，同步是纯复制；participants 是参与分摊的成员名数组（缺省视为全员），itemId 反向关联行程条目
+    expenses: [],  // [{ id, date, time, title, amount, category, location, lat, lng, payer, participants, note, itemId }]  location/lat/lng use WGS84 and sync with the linked itinerary item
     checklist: [], // [{ id, name, category, checked, owner }]
     wishlist: [],  // [{ id, name, location, note, priority, status }]
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]

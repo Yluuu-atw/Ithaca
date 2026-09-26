@@ -331,6 +331,9 @@ window.App = (() => {
       payer: item.payer || '',
       participants: (item.participants || []).slice(),
       note: item.note || '',
+      location: item.location || '',
+      lat: item.lat ?? null,
+      lng: item.lng ?? null,
     };
     if (!ex) {
       trip.expenses.push({ id: Store.uid('exp'), itemId: item.id, ...fields });
@@ -350,6 +353,9 @@ window.App = (() => {
       it.refNo = ex.refNo || '';
       if (ex.title) it.title = ex.title;
       it.note = ex.note || '';
+      it.location = ex.location || '';
+      it.lat = ex.lat ?? null;
+      it.lng = ex.lng ?? null;
       it.amount = Number(ex.amount) || 0;
       if (ex.payer) it.payer = ex.payer;
       if (Array.isArray(ex.participants)) it.participants = ex.participants.slice();
@@ -1607,6 +1613,10 @@ window.App = (() => {
       const expenseId = fd.get('expenseId');
       // 与行程表单一致：datetime-local 拆成日期 + 时分两段存
       const [date, time] = splitDT(fd.get('time'));
+      const lat = Number(fd.get('lat'));
+      const lng = Number(fd.get('lng'));
+      const hasPoint = fd.get('lat') !== '' && fd.get('lng') !== ''
+        && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
       const fields = {
         date,
         time,
@@ -1618,6 +1628,9 @@ window.App = (() => {
         payer: fd.get('payer') || '',
         participants: parseList(fd.get('participants')),
         note: fd.get('note') || '',
+        location: (fd.get('location') || '').trim(),
+        lat: hasPoint ? lat : null,
+        lng: hasPoint ? lng : null,
       };
       const task = startImageSave(form);
       if (!task) return;
@@ -1645,7 +1658,7 @@ window.App = (() => {
               id: Store.uid('itm'),
               time: ex.time, endTime: '',
               title: ex.title || ex.category,
-              location: '', lat: null, lng: null, note: ex.note || '',
+              location: ex.location, lat: ex.lat, lng: ex.lng, note: ex.note || '',
               category: (Store.CONST.expenseToItemCategory || {})[ex.category] || '其他',
               subCategory: ex.subCategory || '',
               refNo: ex.refNo || '',

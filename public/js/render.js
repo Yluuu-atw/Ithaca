@@ -1342,6 +1342,9 @@ window.Render = (() => {
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
       ${imageEntry(v.images)}
       <label>时间<input type="datetime-local" name="time" value="${esc(item ? (v.date ? `${v.date}T${v.time || '00:00'}` : '') : localNowValue())}"></label>
+      <label>地点<input name="location" placeholder="餐厅、商店或地址（可选）" value="${esc(v.location || '')}"></label>
+      <input type="hidden" name="lat" value="${v.lat == null ? '' : esc(v.lat)}">
+      <input type="hidden" name="lng" value="${v.lng == null ? '' : esc(v.lng)}">
       <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
         <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
