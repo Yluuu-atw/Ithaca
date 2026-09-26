@@ -1095,6 +1095,14 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .modal-body, .modal-body form, .modal-body .form-row, .modal-body form label { min-width: 0; }
 .modal-body form { display: flex; flex-direction: column; gap: 13px; }
 
+.expense-location { display: grid; gap: 8px; min-width: 0; }
+.expense-location-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.expense-location-status { margin: 0; }
+.expense-location-suggestions[hidden], .expense-location-map[hidden], .expense-location-attribution[hidden] { display: none; }
+.expense-location-suggestion { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.expense-location-map { height: 250px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; z-index: 1; }
+.expense-location-attribution { margin: 0; }
+
 .image-entry { display: grid; gap: 8px; }
 .modal-body form .image-entry-pick {
   display: grid;

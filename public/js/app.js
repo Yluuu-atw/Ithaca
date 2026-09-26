@@ -446,6 +446,7 @@ window.App = (() => {
 
   function releaseEntryFiles(form) {
     for (const entry of (form && form._entryFiles) || []) URL.revokeObjectURL(entry.preview);
+    if (form && form._locationMap) form._locationMap.remove();
   }
 
   function configureImageEntry(form) {
@@ -547,12 +548,76 @@ window.App = (() => {
     input.value = '';
     if (!files.length) return;
     const entries = files.map(file => appendSelectedImage(form, file));
+    if (form.dataset.form === 'expense') suggestPhotoGps(form, files);
     const available = await form._aiAvailability;
     if (!form.isConnected || !available || !entries.length) {
       if (form.isConnected) imageEntryStatus(form, `已添加 ${files.length} 张图片`);
       return;
     }
     await runImageRecognition(form, entries[0]);
+  }
+
+  async function suggestPhotoGps(form, files) {
+    if (!window.exifr || !window.exifr.gps) return;
+    for (const file of files) {
+      try {
+        const gps = await window.exifr.gps(file);
+        if (!form.isConnected) return;
+        if (!gps) continue;
+        const { latitude: lat, longitude: lng } = gps;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
+        form._photoGps = { lat, lng };
+        const suggestions = form.querySelector('.expense-location-suggestions');
+        suggestions.hidden = false;
+        suggestions.innerHTML = `<div class="expense-location-suggestion"><span>照片含拍摄位置，可作为地点参考。</span><button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-photo">使用照片位置</button></div>`;
+        return;
+      } catch (_) { /* Files without GPS metadata are expected. */ }
+    }
+  }
+
+  function expenseLocationStatus(form, message) {
+    const status = form.querySelector('.expense-location-status');
+    if (status) status.textContent = message;
+  }
+
+  function setExpenseLocation(form, place, message) {
+    const location = form.elements.namedItem('location');
+    location.value = place.location || '';
+    form.elements.namedItem('lat').value = Number.isFinite(place.lat) ? String(place.lat) : '';
+    form.elements.namedItem('lng').value = Number.isFinite(place.lng) ? String(place.lng) : '';
+    form._entryTouched.add('location');
+    const suggestions = form.querySelector('.expense-location-suggestions');
+    if (suggestions) suggestions.hidden = true;
+    expenseLocationStatus(form, message);
+    if (form._locationMap && Number.isFinite(place.lat) && Number.isFinite(place.lng)) {
+      const point = [place.lat, place.lng];
+      if (form._locationPin) form._locationPin.setLatLng(point);
+      else form._locationPin = L.marker(point).addTo(form._locationMap);
+      form._locationMap.setView(point, 16);
+    }
+  }
+
+  function showExpenseLocationMap(form) {
+    const box = form.querySelector('.expense-location-map');
+    box.hidden = false;
+    form.querySelector('.expense-location-attribution').hidden = false;
+    if (form._locationMap) { form._locationMap.invalidateSize(); return; }
+    const lat = Number(form.elements.namedItem('lat').value);
+    const lng = Number(form.elements.namedItem('lng').value);
+    const hasPoint = form.elements.namedItem('lat').value !== '' && form.elements.namedItem('lng').value !== '';
+    const tripPoint = (Store.getState().itinerary || []).flatMap(day => day.items || [])
+      .find(item => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+    const initial = hasPoint ? [lat, lng] : tripPoint ? [tripPoint.lat, tripPoint.lng] : [20, 0];
+    const map = L.map(box, { zoomControl: true }).setView(initial, hasPoint || tripPoint ? 13 : 2);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
+    form._locationMap = map;
+    if (hasPoint) form._locationPin = L.marker(initial).addTo(map);
+    map.on('click', event => {
+      setExpenseLocation(form, { location: '', lat: event.latlng.lat, lng: event.latlng.lng }, '已标记地图位置；可填写地点名称。');
+    });
+    requestAnimationFrame(() => map.invalidateSize());
   }
 
   async function runImageRecognition(form, entry) {
@@ -1000,6 +1065,34 @@ window.App = (() => {
       case 'expense-add':
         openModal('记一笔', Render.formExpense(members()));
         break;
+
+      case 'expense-location-gps': {
+        const form = el.closest('form[data-form="expense"]');
+        if (!form || !navigator.geolocation) { if (form) expenseLocationStatus(form, '此设备暂不支持定位'); break; }
+        el.disabled = true;
+        expenseLocationStatus(form, '正在获取当前位置…');
+        navigator.geolocation.getCurrentPosition(position => {
+          el.disabled = false;
+          if (!form.isConnected) return;
+          setExpenseLocation(form, { location: '', lat: position.coords.latitude, lng: position.coords.longitude }, '已标记当前位置；可填写地点名称。');
+        }, () => {
+          el.disabled = false;
+          if (form.isConnected) expenseLocationStatus(form, '未取得位置，可手动填写或在地图上选点。');
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+        break;
+      }
+
+      case 'expense-location-map': {
+        const form = el.closest('form[data-form="expense"]');
+        if (form) showExpenseLocationMap(form);
+        break;
+      }
+
+      case 'expense-location-photo': {
+        const form = el.closest('form[data-form="expense"]');
+        if (form && form._photoGps) setExpenseLocation(form, { location: '', ...form._photoGps }, '已采用照片拍摄位置；请核对是否为实际消费地点。');
+        break;
+      }
 
       case 'expense-del': {
         if (!confirm('删除这笔支出？')) return;
@@ -2288,6 +2381,12 @@ window.App = (() => {
     document.addEventListener('input', e => {
       const form = e.target.closest && e.target.closest('form[data-form="booking"], form[data-form="expense"]');
       if (form && form._entryTouched && e.target.name !== 'imageFiles') form._entryTouched.add(e.target.name);
+      if (form && form.dataset.form === 'expense' && e.target.name === 'location') {
+        form.elements.namedItem('lat').value = '';
+        form.elements.namedItem('lng').value = '';
+        if (form._locationPin) { form._locationPin.remove(); form._locationPin = null; }
+        expenseLocationStatus(form, '地点名称已修改；需要标记位置时请重新选点。');
+      }
     });
     document.addEventListener('error', (e) => {
       const image = e.target;

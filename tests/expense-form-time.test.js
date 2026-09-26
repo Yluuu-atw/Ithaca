@@ -25,6 +25,8 @@ test('new expense uses local current minute and edits preserve stored time', () 
   assert.match(existing, /name="location"[^>]*value="Old Town"/);
   assert.match(existing, /name="lat" value="31\.22"/);
   assert.match(existing, /name="lng" value="121\.48"/);
+  assert.match(existing, /data-action="expense-location-gps"/);
+  assert.match(existing, /data-action="expense-location-map"/);
 });
 
 test('booking and expense entries remain reachable from the ledger with one image flow', () => {

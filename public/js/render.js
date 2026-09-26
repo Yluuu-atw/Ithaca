@@ -1062,6 +1062,7 @@ window.Render = (() => {
         <span class="exp-sub">
           <span class="badge" data-cat="${esc(e.category || '其他')}">${esc(e.category || '其他')}</span>
           ${e.subCategory ? `<span class="exp-subcat">${esc(e.subCategory)}</span>` : ''}
+          ${e.location ? `<span class="exp-ref">${emo('📍')} ${esc(e.location)}</span>` : ''}
           ${e.refNo ? `<span class="exp-ref">${emo('🎫')} ${esc(e.refNo)}</span>` : ''}
           ${e.images && e.images.length ? `<span class="exp-ref">${emo('📷')} ${e.images.length}</span>` : ''}
           ${memberChip(s.meta, e.payer || '')}
@@ -1342,9 +1343,19 @@ window.Render = (() => {
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
       ${imageEntry(v.images)}
       <label>时间<input type="datetime-local" name="time" value="${esc(item ? (v.date ? `${v.date}T${v.time || '00:00'}` : '') : localNowValue())}"></label>
-      <label>地点<input name="location" placeholder="餐厅、商店或地址（可选）" value="${esc(v.location || '')}"></label>
-      <input type="hidden" name="lat" value="${v.lat == null ? '' : esc(v.lat)}">
-      <input type="hidden" name="lng" value="${v.lng == null ? '' : esc(v.lng)}">
+      <div class="expense-location">
+        <label>地点<input name="location" placeholder="餐厅、商店或地址（可选）" value="${esc(v.location || '')}" autocomplete="off"></label>
+        <input type="hidden" name="lat" value="${v.lat == null ? '' : esc(v.lat)}">
+        <input type="hidden" name="lng" value="${v.lng == null ? '' : esc(v.lng)}">
+        <div class="expense-location-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-gps">使用当前位置</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-map">在地图上选点</button>
+        </div>
+        <p class="field-hint expense-location-status" role="status" aria-live="polite">${v.lat != null && v.lng != null ? '已标记位置；修改地点名称后需要重新选点。' : '地点可以留空；标记位置后会显示在旅行地图上。'}</p>
+        <div class="expense-location-suggestions" hidden></div>
+        <div class="expense-location-map" hidden></div>
+        <p class="field-hint expense-location-attribution" hidden>地点数据 © OpenStreetMap contributors</p>
+      </div>
       <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
         <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
