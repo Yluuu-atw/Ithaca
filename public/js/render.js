@@ -56,6 +56,13 @@ window.Render = (() => {
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  function photoSourceAttrs(url) {
+    const original = String(url || '');
+    const match = /^\/uploads\/([a-zA-Z0-9_.-]+\.(?:png|jpe?g|gif|webp|heic|heif))$/i.exec(original);
+    if (!match) return `src="${esc(original)}"`;
+    return `src="/api/photo-thumbs/${esc(match[1])}.webp" data-original="${esc(original)}"`;
+  }
+
   /**
    * 链接消毒：esc() 只转义字符，拦不住 javascript: / data: 这类伪协议
    * （它们不含特殊字符，能原样穿过 esc 进入 href，点击即执行脚本）。
@@ -345,7 +352,7 @@ window.Render = (() => {
       ].filter(Boolean).join(' ');
       return `<button class="board-card ${isActive ? 'is-active' : ''}" data-action="trip-open" data-id="${esc(t.id)}" title="${esc(m.tripName || '')}">
         ${cover
-          ? `<span class="board-cover"><img src="${esc(cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
+          ? `<span class="board-cover"><img ${photoSourceAttrs(cover)} alt="" loading="lazy" referrerpolicy="no-referrer"></span>`
           : `<span class="board-cover board-cover-empty">${avatarImg(m, 0)}</span>`}
         <span class="board-main">
           <span class="board-name">${esc(m.tripName || '未命名')}</span>
@@ -1465,7 +1472,7 @@ window.Render = (() => {
   function renderPhotoCard(s, p) {
     return `<figure class="photo-card">
       <div class="photo-img-wrap">
-        <img class="photo-img" src="${esc(p.url)}" alt="${esc(p.caption || '照片')}" loading="lazy">
+        <img class="photo-img" ${photoSourceAttrs(p.url)} alt="${esc(p.caption || '照片')}" loading="lazy">
         <button class="icon-btn danger photo-del" data-action="photo-del" data-id="${esc(p.id)}" title="删除">✕</button>
       </div>
       ${p.caption || p.location
@@ -2105,7 +2112,7 @@ window.Render = (() => {
     }
     return `<div class="memo-list">${list.map(m => {
       const name = tripName(m.tripId);
-      const photos = (m.photos || []).map(u => `<img class="memo-photo" src="${esc(u)}" alt="" loading="lazy">`).join('');
+      const photos = (m.photos || []).map(u => `<img class="memo-photo" ${photoSourceAttrs(u)} alt="" loading="lazy">`).join('');
       return `<article class="memo-card">
         <header class="memo-head">
           <span class="memo-time">${esc(fmtDateTime(m.createdAt))}</span>
@@ -2128,7 +2135,7 @@ window.Render = (() => {
         const name = (t.meta && t.meta.tripName) || '未命名';
         return `<option value="${esc(t.id)}" ${m.tripId === t.id ? 'selected' : ''}>${esc(name)}</option>`;
       })).join('');
-    const has = (m.photos || []).length ? `<div class="memo-photos">${(m.photos || []).map(u => `<img class="memo-photo" src="${esc(u)}" alt="">`).join('')}</div>
+    const has = (m.photos || []).length ? `<div class="memo-photos">${(m.photos || []).map(u => `<img class="memo-photo" ${photoSourceAttrs(u)} alt="">`).join('')}</div>
       <label class="memo-keep"><input type="checkbox" name="keep" checked> 保留已有照片（取消勾选则清空）</label>` : '';
     return `<form data-form="memo">
       <input type="hidden" name="id" value="${esc(m.id || '')}">

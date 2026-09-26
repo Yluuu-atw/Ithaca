@@ -2005,6 +2005,13 @@ window.App = (() => {
     document.addEventListener('click', onClick);
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
+    document.addEventListener('error', (e) => {
+      const image = e.target;
+      if (!(image instanceof HTMLImageElement) || !image.dataset.original) return;
+      const original = image.dataset.original;
+      delete image.dataset.original;
+      image.src = original;
+    }, true);
     initDayItemDrag();
     initPoolDrag();
     // 记账分类切换时重填二级字段（细分 + 车次/航班号）
