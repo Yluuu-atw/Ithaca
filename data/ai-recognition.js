@@ -134,7 +134,7 @@ async function prepareImage(bytes, contentType) {
   }
 }
 
-async function extractImageDraft({ kind, bytes, contentType, apiKey, model = DEFAULT_MODEL, fetchImpl = fetch, timeoutMs = REQUEST_TIMEOUT_MS }) {
+async function extractImageDraft({ kind, bytes, contentType, apiKey, model = DEFAULT_MODEL, fetchImpl = fetch, timeoutMs = REQUEST_TIMEOUT_MS, signal: callerSignal }) {
   if (!FIELD_SPECS[kind]) throw new RecognitionError('不支持的识别类型');
   if (!apiKey) throw new RecognitionError('图片识别暂不可用', 503);
   const prepared = await prepareImage(bytes, contentType);
@@ -149,7 +149,8 @@ async function extractImageDraft({ kind, bytes, contentType, apiKey, model = DEF
     ] }],
   };
   let response;
-  const signal = AbortSignal.timeout(timeoutMs);
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = callerSignal ? AbortSignal.any([timeoutSignal, callerSignal]) : timeoutSignal;
   try {
     response = await fetchImpl(ARK_ENDPOINT, {
       method: 'POST',
@@ -158,7 +159,8 @@ async function extractImageDraft({ kind, bytes, contentType, apiKey, model = DEF
       signal,
     });
   } catch (error) {
-    if (signal.aborted || error.name === 'TimeoutError' || error.name === 'AbortError') throw new RecognitionError('图片识别超时，请稍后再试', 504);
+    if (callerSignal && callerSignal.aborted) throw new RecognitionError('识别已取消', 499);
+    if (timeoutSignal.aborted || error.name === 'TimeoutError') throw new RecognitionError('图片识别超时，请稍后再试', 504);
     throw new RecognitionError('图片识别暂时失败，请稍后再试', 502);
   }
   if (!response.ok) throw new RecognitionError('图片识别暂时失败，请稍后再试', 502);

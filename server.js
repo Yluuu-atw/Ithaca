@@ -767,19 +767,26 @@ async function handleApi(req, res, pathname, principal) {
     if (limited(req, `ai:${identity}`, 12, 15 * 60 * 1000)
       || limited(req, 'ai:all', 30, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '识别次数过多，请稍后再试' });
     if (Number(req.headers['content-length']) > MAX_IMAGE_BYTES) return sendJSON(res, 413, { error: '图片过大' });
+    const controller = new AbortController();
+    const onClose = () => { if (!res.writableEnded) controller.abort(); };
+    res.once('close', onClose);
     try {
       const bytes = await readBody(req, MAX_IMAGE_BYTES);
       const fields = await extractImageDraft({
         kind, bytes, contentType: (req.headers['content-type'] || '').split(';')[0].trim(),
         apiKey: process.env.ARK_API_KEY, model: process.env.ARK_MODEL_ID || undefined,
+        signal: controller.signal,
       });
       const currentPrincipal = resolvePrincipal(req.headers.cookie || '');
       if (!currentPrincipal) return sendJSON(res, 401, { error: '请先登录' });
       if (!canEdit(db, currentPrincipal, tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
       return sendJSON(res, 200, { fields });
     } catch (error) {
+      if (controller.signal.aborted) return;
       if (error instanceof RecognitionError) return sendJSON(res, error.status, { error: error.message });
       return sendJSON(res, error.message === '请求体过大' ? 413 : 400, { error: error.message === '请求体过大' ? '图片过大' : '图片识别失败' });
+    } finally {
+      res.removeListener('close', onClose);
     }
   }
   if (pathname === '/api/users' && req.method === 'GET') {

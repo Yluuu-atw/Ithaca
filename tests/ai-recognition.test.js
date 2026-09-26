@@ -72,6 +72,23 @@ test('invalid image and upstream errors do not expose provider details', async (
   }), error => error instanceof RecognitionError && error.status === 502);
 });
 
+test('canceling recognition aborts the upstream model request', async () => {
+  const controller = new AbortController();
+  let upstreamAborted = false;
+  const fetchImpl = async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener('abort', () => {
+      upstreamAborted = true;
+      reject(new DOMException('Canceled', 'AbortError'));
+    }, { once: true });
+    controller.abort();
+  });
+  await assert.rejects(extractImageDraft({
+    kind: 'expense', bytes: await sampleImage(), contentType: 'image/png', apiKey: 'fake', fetchImpl,
+    signal: controller.signal,
+  }), error => error instanceof RecognitionError && error.status === 499);
+  assert.equal(upstreamAborted, true);
+});
+
 async function freePort() {
   const server = net.createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
