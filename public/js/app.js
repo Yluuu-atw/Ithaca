@@ -420,8 +420,8 @@ window.App = (() => {
     modal().hidden = false;
     configureImageEntry(modalBody().querySelector('form'));
     applyPermissions(modal());
-    const first = modalBody().querySelector('input:not([type="hidden"]):not([hidden]), select, textarea');
-    if (first) first.focus();
+    modalTitle().setAttribute('tabindex', '-1');
+    modalTitle().focus({ preventScroll: true });
   }
 
   function closeModal(force = false) {
