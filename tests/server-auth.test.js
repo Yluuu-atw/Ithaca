@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
+const sharp = require('sharp');
 
 async function freePort() {
   const server = net.createServer();
@@ -80,7 +81,7 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
       body: JSON.stringify({ baseVersion: visitorData.meta.version, data: ownerData }),
     });
     assert.equal(injected.status, 403);
-    const image = Buffer.from('89504e470d0a1a0a', 'hex');
+    const image = await sharp({ create: { width: 900, height: 600, channels: 3, background: '#b68b61' } }).png().toBuffer();
     const upload = await fetch(`${origin}/api/photos?tripId=${ownerData.trips[0].id}`, {
       method: 'POST',
       headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'image/png' },
@@ -88,8 +89,21 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     });
     assert.equal(upload.status, 200);
     const photoUrl = (await upload.json()).url;
+    const thumbUrl = `/api/photo-thumbs/${photoUrl.slice('/uploads/'.length)}.webp`;
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: cookie } })).status, 200);
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: visitorCookie } })).status, 404);
+    assert.equal((await fetch(`${origin}${thumbUrl}`, { headers: { Cookie: visitorCookie } })).status, 404);
+    const thumb = await fetch(`${origin}${thumbUrl}`, { headers: { Cookie: cookie } });
+    assert.equal(thumb.status, 200);
+    assert.equal(thumb.headers.get('content-type'), 'image/webp');
+    assert.equal(thumb.headers.get('cache-control'), 'private, no-store');
+    const thumbBytes = Buffer.from(await thumb.arrayBuffer());
+    assert.ok(thumbBytes.length < image.length);
+    const thumbInfo = await sharp(thumbBytes).metadata();
+    assert.equal(thumbInfo.format, 'webp');
+    assert.equal(thumbInfo.width, 480);
+    assert.equal(thumbInfo.height, 480);
+    assert.equal((await fetch(`${origin}${thumbUrl}`, { headers: { Cookie: cookie } })).status, 200);
     const latest = await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json();
     latest.trips[0].photos.push({ id: 'photo_1', url: photoUrl });
     const savedPhoto = await fetch(`${origin}/api/data`, {
@@ -171,6 +185,7 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     assert.deepEqual(sharedData.permissions, { [tripId]: 'viewer' });
     assert.deepEqual(sharedData.mySettlements, {});
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: shareCookie } })).status, 200);
+    assert.equal((await fetch(`${origin}${thumbUrl}`, { headers: { Cookie: shareCookie } })).status, 200);
     assert.equal((await fetch(`${origin}/api/data`, {
       method: 'PUT', headers: { Cookie: shareCookie, Origin: origin, 'Content-Type': 'application/json' }, body: '{}',
     })).status, 403);
@@ -179,6 +194,7 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     })).status, 200);
     assert.equal((await fetch(`${origin}/api/data`, { headers: { Cookie: shareCookie } })).status, 401);
     assert.equal((await fetch(`${origin}${photoUrl}`, { headers: { Cookie: shareCookie } })).status, 404);
+    assert.equal((await fetch(`${origin}${thumbUrl}`, { headers: { Cookie: shareCookie } })).status, 401);
     assert.equal((await fetch(`${origin}/api/link-preview`, {
       method: 'POST',
       headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },

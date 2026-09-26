@@ -5,6 +5,7 @@ data/auth.json
 data/auth.json.*.tmp
 data/setup-token
 data/uploads/
+data/thumbs/
 data/backups/
 
 node_modules/

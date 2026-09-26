@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Ithaca server — no external dependencies.
+ * Ithaca server.
  *
  * 职责：
  *   1. 托管 public/ 静态资源
@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const sharp = require('sharp');
 const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
 const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
 const { createAuth, SESSION_DAYS } = require('./data/auth');
@@ -33,6 +34,7 @@ const DATA_DIR = process.env.ITHACA_DATA_DIR ? path.resolve(process.env.ITHACA_D
 const DB_PATH = path.join(DATA_DIR, 'db.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+const THUMB_DIR = path.join(DATA_DIR, 'thumbs');
 const AUTH_PATH = path.join(DATA_DIR, 'auth.json');
 const SETUP_TOKEN_PATH = process.env.ITHACA_SETUP_TOKEN_PATH || path.join(__dirname, '.local', 'setup-token');
 const ORIGIN = process.env.ITHACA_ORIGIN || `http://localhost:${PORT}`;
@@ -222,6 +224,59 @@ function serveStatic(req, res, pathname) {
     res.writeHead(200, headers);
     fs.createReadStream(filePath).pipe(res);
   });
+}
+
+const thumbnailTasks = new Map();
+
+async function ensureThumbnail(name) {
+  const output = path.join(THUMB_DIR, `${name}.webp`);
+  try {
+    await fs.promises.access(output);
+    return output;
+  } catch (_) {
+    // The first request generates the preview for both existing and new photos.
+  }
+  if (!thumbnailTasks.has(name)) {
+    const task = (async () => {
+      await fs.promises.mkdir(THUMB_DIR, { recursive: true });
+      const temporary = `${output}.${crypto.randomUUID()}.tmp`;
+      try {
+        await sharp(path.join(UPLOAD_DIR, name), { limitInputPixels: 80_000_000 })
+          .autoOrient()
+          .resize(480, 480, { fit: 'cover', withoutEnlargement: true })
+          .webp({ quality: 75, effort: 4 })
+          .toFile(temporary);
+        await fs.promises.rename(temporary, output);
+      } finally {
+        await fs.promises.rm(temporary, { force: true });
+      }
+      return output;
+    })();
+    thumbnailTasks.set(name, task);
+    task.finally(() => thumbnailTasks.delete(name)).catch(() => {});
+  }
+  return thumbnailTasks.get(name);
+}
+
+async function handleThumbnail(req, res, pathname, principal) {
+  if (!pathname.startsWith('/api/photo-thumbs/')) return false;
+  const match = /^\/api\/photo-thumbs\/([a-zA-Z0-9_.-]+\.(?:png|jpe?g|gif|webp|heic|heif))\.webp$/i.exec(pathname);
+  if (req.method !== 'GET' || !match || !canReadAsset(db, principal, match[1])) {
+    sendJSON(res, 404, { error: '照片不存在' });
+    return true;
+  }
+  try {
+    const file = await ensureThumbnail(match[1]);
+    if (!canReadAsset(db, principal, match[1])) {
+      sendJSON(res, 404, { error: '照片不存在' });
+      return true;
+    }
+    res.writeHead(200, { 'Content-Type': 'image/webp', 'Cache-Control': 'private, no-store' });
+    fs.createReadStream(file).pipe(res);
+  } catch (error) {
+    sendJSON(res, error.code === 'ENOENT' ? 404 : 422, { error: '无法生成照片缩略图' });
+  }
+  return true;
 }
 
 // ---------------- REST API ----------------
@@ -684,6 +739,7 @@ async function handlePhotoUpload(req, res, pathname, principal) {
 }
 
 async function handleApi(req, res, pathname, principal) {
+  if (await handleThumbnail(req, res, pathname, principal)) return;
   if (pathname === '/api/users' && req.method === 'GET') {
     if (!principal.userId) return sendJSON(res, 403, { error: '只有正式成员可以搜索账号' });
     const query = (new URL(req.url, 'http://localhost').searchParams.get('q') || '').trim().toLocaleLowerCase('en-US');

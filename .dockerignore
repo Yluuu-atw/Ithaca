@@ -5,5 +5,6 @@ data/db.json
 data/auth.json
 data/setup-token
 data/uploads
+data/thumbs
 data/backups
 *.pem
