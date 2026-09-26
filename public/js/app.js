@@ -447,6 +447,7 @@ window.App = (() => {
   function releaseEntryFiles(form) {
     for (const entry of (form && form._entryFiles) || []) URL.revokeObjectURL(entry.preview);
     if (form && form._locationMap) form._locationMap.remove();
+    if (form && form._locationSearchController) form._locationSearchController.abort();
   }
 
   function configureImageEntry(form) {
@@ -521,13 +522,6 @@ window.App = (() => {
   }
 
   function applyImageDraft(form, fields) {
-    if (form.dataset.form === 'expense') {
-      const input = form.elements.namedItem('time');
-      if (input && !form._entryTouched.has('time') && (!form._entryEditing || !input.value)) {
-        const [date, time] = String(input.value || '').split('T');
-        input.value = `${fields.date || date || ''}T${fields.time || time || ''}`;
-      }
-    }
     for (const [name, value] of Object.entries(fields)) {
       if (form.dataset.form === 'expense' && (name === 'date' || name === 'time')) continue;
       const input = form.elements.namedItem(name);
@@ -567,7 +561,7 @@ window.App = (() => {
         const { latitude: lat, longitude: lng } = gps;
         if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
         form._photoGps = { lat, lng };
-        const suggestions = form.querySelector('.expense-location-suggestions');
+        const suggestions = form.querySelector('.expense-photo-suggestion');
         suggestions.hidden = false;
         suggestions.innerHTML = `<div class="expense-location-suggestion"><span>照片含拍摄位置，可作为地点参考。</span><button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-photo">使用照片位置</button></div>`;
         return;
@@ -580,6 +574,52 @@ window.App = (() => {
     if (status) status.textContent = message;
   }
 
+  async function searchExpenseLocation(form, query, { automatic = false, label = '' } = {}) {
+    if (!form.isConnected) return;
+    if (form._locationSearchController) form._locationSearchController.abort();
+    const controller = new AbortController();
+    form._locationSearchController = controller;
+    expenseLocationStatus(form, automatic ? '正在确认订单地点…' : '正在查找地点…');
+    try {
+      const results = await Store.searchPlaces(query, { signal: controller.signal });
+      if (!form.isConnected || form._locationSearchController !== controller) return;
+      if (automatic && (form._entryTouched.has('location') || form.elements.namedItem('location').value)) return;
+      const broad = new Set(['country', 'state', 'province', 'city', 'county', 'district', 'suburb', 'village']);
+      if (automatic && results.length === 1 && !broad.has(results[0].type)
+        && !form._entryTouched.has('location') && !form.elements.namedItem('location').value) {
+        setExpenseLocation(form, { location: label || results[0].name || results[0].address, lat: results[0].lat, lng: results[0].lng }, '已从订单确认地点并标记；请核对。');
+        return;
+      }
+      if (!results.length) {
+        expenseLocationStatus(form, automatic ? '订单里的地点未能准确找到，暂不填写。' : '没有找到地点；可以手动填写或在地图上选点。');
+        return;
+      }
+      form._locationCandidates = results;
+      const box = form.querySelector('.expense-location-suggestions');
+      box.hidden = false;
+      box.innerHTML = `<p class="field-hint">${automatic ? '找到几个可能的地点，请选择：' : '选择一个地点：'}</p>${results.map((place, index) => `
+        <button type="button" class="expense-location-result" data-action="expense-location-choose" data-index="${index}">
+          <strong>${Render.esc(place.name || place.address)}</strong><span>${Render.esc(place.address)}</span>
+        </button>`).join('')}`;
+      form.querySelector('.expense-location-attribution').hidden = false;
+      expenseLocationStatus(form, automatic ? '地点存在歧义，请核对后选择。' : '找到地点，请核对后选择。');
+    } catch (error) {
+      if (error.name !== 'AbortError' && form.isConnected) expenseLocationStatus(form, automatic ? '订单地点暂时查不到，可手动填写。' : error.message || '地点查询失败');
+    } finally {
+      if (form._locationSearchController === controller) form._locationSearchController = null;
+    }
+  }
+
+  async function suggestRecognizedLocation(form, fields) {
+    if (form._entryTouched.has('location') || form.elements.namedItem('location').value) return;
+    const placeName = String(fields.placeName || '').trim();
+    const address = String(fields.address || '').trim();
+    const specificBranch = /(?:店|分店|门店|支店|branch|station|terminal|酒店|餐厅|饭店)/i.test(placeName);
+    if (address.length < 6 && !specificBranch) return;
+    const query = [address, placeName].filter(Boolean).join(' ');
+    await searchExpenseLocation(form, query, { automatic: true, label: placeName || address });
+  }
+
   function setExpenseLocation(form, place, message) {
     const location = form.elements.namedItem('location');
     location.value = place.location || '';
@@ -588,6 +628,8 @@ window.App = (() => {
     form._entryTouched.add('location');
     const suggestions = form.querySelector('.expense-location-suggestions');
     if (suggestions) suggestions.hidden = true;
+    const photoSuggestion = form.querySelector('.expense-photo-suggestion');
+    if (photoSuggestion) photoSuggestion.hidden = true;
     expenseLocationStatus(form, message);
     if (form._locationMap && Number.isFinite(place.lat) && Number.isFinite(place.lng)) {
       const point = [place.lat, place.lng];
@@ -645,6 +687,7 @@ window.App = (() => {
       if (form.isConnected && form._entryTask === task && form._entryFiles.includes(entry)) {
         applyImageDraft(form, result);
         imageEntryStatus(form, '看好了，核对一下填写的内容');
+        if (form.dataset.form === 'expense') void suggestRecognizedLocation(form, result);
       }
     } catch (error) {
       if (form.isConnected && form._entryTask === task) {
@@ -1065,6 +1108,22 @@ window.App = (() => {
       case 'expense-add':
         openModal('记一笔', Render.formExpense(members()));
         break;
+
+      case 'expense-location-search': {
+        const form = el.closest('form[data-form="expense"]');
+        if (!form) break;
+        const query = form.elements.namedItem('location').value.trim();
+        if (query.length < 3) { expenseLocationStatus(form, '请先填写至少三个字的地点名称。'); break; }
+        void searchExpenseLocation(form, query);
+        break;
+      }
+
+      case 'expense-location-choose': {
+        const form = el.closest('form[data-form="expense"]');
+        const candidate = form && form._locationCandidates && form._locationCandidates[Number(el.dataset.index)];
+        if (candidate) setExpenseLocation(form, { location: candidate.name || candidate.address, lat: candidate.lat, lng: candidate.lng }, '已选定地点并标记在地图上。');
+        break;
+      }
 
       case 'expense-location-gps': {
         const form = el.closest('form[data-form="expense"]');
@@ -2382,6 +2441,7 @@ window.App = (() => {
       const form = e.target.closest && e.target.closest('form[data-form="booking"], form[data-form="expense"]');
       if (form && form._entryTouched && e.target.name !== 'imageFiles') form._entryTouched.add(e.target.name);
       if (form && form.dataset.form === 'expense' && e.target.name === 'location') {
+        if (form._locationSearchController) form._locationSearchController.abort();
         form.elements.namedItem('lat').value = '';
         form.elements.namedItem('lng').value = '';
         if (form._locationPin) { form._locationPin.remove(); form._locationPin = null; }

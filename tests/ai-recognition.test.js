@@ -51,6 +51,9 @@ test('expense drafts validate categories, dates, amounts and strip unsupported f
   assert.deepEqual(normalizeDraft('expense', { amount: '0.00', category: 'not-a-category', date: '2026-02-28', time: '19:30' }), {
     date: '2026-02-28', time: '19:30', amount: 0, category: '其他',
   });
+  assert.deepEqual(normalizeDraft('expense', { placeName: 'Example Cafe Central Branch', address: '100 Main Street', coordinates: '31,121' }), {
+    placeName: 'Example Cafe Central Branch', address: '100 Main Street',
+  });
   assert.deepEqual(normalizeDraft('booking', { type: 'invented', status: '已支付', price: '9999999999', date: '2026-01-01' }), {
     type: 'other', date: '2026-01-01',
   });
@@ -135,6 +138,11 @@ test('recognition route checks login, CSRF and trip edit rights before processin
     assert.equal((await fetch(endpoint, { method: 'POST', headers: { ...headers, Origin: 'https://other.example' }, body: bytes })).status, 403);
     assert.equal((await fetch(endpoint, { method: 'POST', headers, body: bytes })).status, 503);
     assert.equal((await fetch(`${origin}/api/ai/extract?kind=unknown&tripId=${tripId}`, { method: 'POST', headers, body: bytes })).status, 400);
+    const placeEndpoint = `${origin}/api/places/search`;
+    const placeBody = JSON.stringify({ tripId, query: 'x' });
+    assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: placeBody })).status, 401);
+    assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: ownerCookie }, body: placeBody })).status, 403);
+    assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: ownerCookie, 'X-CSRF-Token': ownerCsrf }, body: placeBody })).status, 400);
     const visitor = await fetch(`${origin}/api/auth/register`, {
       method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'visitor', password: 'a secure visitor password' }),
@@ -143,6 +151,7 @@ test('recognition route checks login, CSRF and trip edit rights before processin
     const visitorCookie = visitor.headers.get('set-cookie').split(';')[0];
     const visitorCsrf = (await visitor.json()).csrf;
     assert.equal((await fetch(endpoint, { method: 'POST', headers: { ...headers, Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: bytes })).status, 403);
+    assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: JSON.stringify({ tripId, query: 'Cafe' }) })).status, 403);
     const after = await (await fetch(`${origin}/api/data`, { headers: { Cookie: ownerCookie } })).json();
     assert.equal(after.trips[0].bookings.length, 0);
     assert.equal(after.trips[0].expenses.length, 0);

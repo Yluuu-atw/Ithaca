@@ -388,6 +388,18 @@ window.Store = (() => {
     return data.fields || {};
   }
 
+  async function searchPlaces(query, options = {}) {
+    const res = await fetch('/api/places/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      body: JSON.stringify({ query, tripId: currentTripId() }),
+      signal: options.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '地点查询失败');
+    return data.results || [];
+  }
+
   function previewLink(url) {
     return fetch('/api/link-preview', {
       method: 'POST',
@@ -398,7 +410,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getGroupSettlement, getPersonId, canEditRecord, uploadPhoto, uploadImage, imageRecognitionAvailable, recognizeImage, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getGroupSettlement, getPersonId, canEditRecord, uploadPhoto, uploadImage, imageRecognitionAvailable, recognizeImage, searchPlaces, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,

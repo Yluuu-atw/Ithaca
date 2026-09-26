@@ -28,6 +28,7 @@ const { createSharing } = require('./data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 const { formalPerson, assignAuthors, syncTripRoster } = require('./data/people');
 const { extractImageDraft, RecognitionError, MAX_IMAGE_BYTES } = require('./data/ai-recognition');
+const { createPlaceSearch, PlaceSearchError } = require('./data/place-search');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -59,6 +60,7 @@ let db = loadDb();
 const auth = createAuth(AUTH_PATH, SETUP_TOKEN_PATH);
 const passkeys = createPasskeys(auth, ORIGIN);
 const sharing = createSharing(auth, () => db, commit);
+const placeSearch = createPlaceSearch();
 
 function projectFor(source, principal) {
   return project(source, principal, auth.store.get().users);
@@ -751,6 +753,19 @@ async function handleImageUpload(req, res, pathname, principal) {
 
 async function handleApi(req, res, pathname, principal) {
   if (await handleThumbnail(req, res, pathname, principal)) return;
+  if (pathname === '/api/places/search') {
+    if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+    const identity = principal.userId || `${principal.tempTripId}:${principal.tempPersonId}`;
+    if (limited(req, `places:${identity}`, 20, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '地点查询过于频繁，请稍后再试' });
+    try {
+      const body = await readJSON(req);
+      if (!body.tripId || !canEdit(db, principal, body.tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
+      const results = await placeSearch.search(body.query);
+      return sendJSON(res, 200, { results, attribution: '© OpenStreetMap contributors' });
+    } catch (error) {
+      return sendJSON(res, error instanceof PlaceSearchError ? error.status : 400, { error: error instanceof PlaceSearchError ? error.message : '地点查询失败' });
+    }
+  }
   if (pathname === '/api/ai/status') {
     if (req.method !== 'GET') return sendJSON(res, 405, { error: 'Method Not Allowed' });
     return sendJSON(res, 200, { available: !!process.env.ARK_API_KEY });

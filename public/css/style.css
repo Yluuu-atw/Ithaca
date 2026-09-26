@@ -1098,8 +1098,13 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .expense-location { display: grid; gap: 8px; min-width: 0; }
 .expense-location-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .expense-location-status { margin: 0; }
-.expense-location-suggestions[hidden], .expense-location-map[hidden], .expense-location-attribution[hidden] { display: none; }
+.expense-location-suggestions[hidden], .expense-photo-suggestion[hidden], .expense-location-map[hidden], .expense-location-attribution[hidden] { display: none; }
 .expense-location-suggestion { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.expense-location-suggestions { display: grid; gap: 6px; }
+.expense-location-suggestions > p { margin: 0; }
+.expense-location-result { display: grid; gap: 3px; width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
+.expense-location-result span { overflow-wrap: anywhere; color: var(--muted); font-size: 12px; }
+.expense-location-result:hover, .expense-location-result:focus-visible { border-color: var(--primary); }
 .expense-location-map { height: 250px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; z-index: 1; }
 .expense-location-attribution { margin: 0; }
 

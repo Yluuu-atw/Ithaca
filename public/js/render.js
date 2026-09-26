@@ -1348,10 +1348,12 @@ window.Render = (() => {
         <input type="hidden" name="lat" value="${v.lat == null ? '' : esc(v.lat)}">
         <input type="hidden" name="lng" value="${v.lng == null ? '' : esc(v.lng)}">
         <div class="expense-location-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-search">搜索地点</button>
           <button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-gps">使用当前位置</button>
           <button type="button" class="btn btn-ghost btn-sm" data-action="expense-location-map">在地图上选点</button>
         </div>
         <p class="field-hint expense-location-status" role="status" aria-live="polite">${v.lat != null && v.lng != null ? '已标记位置；修改地点名称后需要重新选点。' : '地点可以留空；标记位置后会显示在旅行地图上。'}</p>
+        <div class="expense-photo-suggestion" hidden></div>
         <div class="expense-location-suggestions" hidden></div>
         <div class="expense-location-map" hidden></div>
         <p class="field-hint expense-location-attribution" hidden>地点数据 © OpenStreetMap contributors</p>
