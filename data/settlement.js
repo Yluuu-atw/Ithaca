@@ -19,25 +19,38 @@ function allocate(cents, people, balance, sign) {
   people.forEach((person, index) => { balance[person.id] += sign * Math.sign(cents) * (each + (index < remainder ? 1 : 0)); });
 }
 
-function calculateTransfers(trip, grant) {
-  const people = grant && grant.people || [];
-  const balance = Object.fromEntries(people.map(person => [person.id, 0]));
+function expenseAllocation(expense, people, byName) {
+  const amount = Number(expense.amount);
+  const amountMinor = Number.isFinite(amount) ? Math.round(amount * 100) : 0;
   const advanced = Object.fromEntries(people.map(person => [person.id, 0]));
   const owed = Object.fromEntries(people.map(person => [person.id, 0]));
-  const byName = new Map(people.map(person => [person.name, person]));
-  for (const expense of trip.expenses || []) {
-    const amount = Number(expense.amount);
-    if (!Number.isFinite(amount) || amount === 0) continue;
-    const cents = Math.round(amount * 100);
-    if (!cents) continue;
+  if (amountMinor) {
     const payer = byName.get(expense.payer || people[0] && people[0].name);
     const participants = Array.isArray(expense.participants)
       ? [...new Set(expense.participants)].map(name => byName.get(name)).filter(Boolean)
       : expense.split === '单方' && payer ? [payer] : people;
     const payers = payer ? [payer] : people;
     const debtors = participants.length ? participants : people;
-    allocate(cents, payers, advanced, 1);
-    allocate(cents, debtors, owed, 1);
+    allocate(amountMinor, payers, advanced, 1);
+    allocate(amountMinor, debtors, owed, 1);
+  }
+  return { expenseId: expense.id || '', amountMinor, advanced, owed };
+}
+
+function calculateTransfers(trip, grant) {
+  const people = grant && grant.people || [];
+  const balance = Object.fromEntries(people.map(person => [person.id, 0]));
+  const advanced = Object.fromEntries(people.map(person => [person.id, 0]));
+  const owed = Object.fromEntries(people.map(person => [person.id, 0]));
+  const byName = new Map(people.map(person => [person.name, person]));
+  const allocations = [];
+  for (const expense of trip.expenses || []) {
+    const allocation = expenseAllocation(expense, people, byName);
+    allocations.push(allocation);
+    for (const person of people) {
+      advanced[person.id] += allocation.advanced[person.id];
+      owed[person.id] += allocation.owed[person.id];
+    }
   }
   for (const person of people) balance[person.id] = advanced[person.id] - owed[person.id];
   const debtors = people.filter(person => balance[person.id] < 0).map(person => ({ id: person.id, amount: -balance[person.id] }));
@@ -55,7 +68,7 @@ function calculateTransfers(trip, grant) {
     if (!from.amount) debit++;
     if (!to.amount) credit++;
   }
-  return { advanced, owed, balance, transfers };
+  return { advanced, owed, balance, transfers, allocations };
 }
 
 function personalSettlement(trip, grant, principal, users = []) {
@@ -76,6 +89,14 @@ function personalSettlement(trip, grant, principal, users = []) {
     advancedMinor: plan.advanced[person.id],
     owedMinor: plan.owed[person.id],
     balanceMinor: plan.balance[person.id],
+    expenseShares: plan.allocations
+      .filter(allocation => allocation.advanced[person.id] || allocation.owed[person.id])
+      .map(allocation => ({
+        expenseId: allocation.expenseId,
+        amountMinor: allocation.amountMinor,
+        advancedMinor: allocation.advanced[person.id],
+        shareMinor: allocation.owed[person.id],
+      })),
     transfers,
   };
 }
