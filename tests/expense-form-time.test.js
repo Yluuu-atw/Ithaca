@@ -51,7 +51,7 @@ test('tickets filter the same ledger and use the expense entry flow', () => {
     Theme: { DARK_BG: '#202020' },
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
-  const state = { id: 'trip_1', meta: { members: [], currency: 'CNY' }, expenses: [], bookings: [], itinerary: [] };
+  const state = { id: 'trip_1', meta: { members: [], currency: 'CNY' }, expenses: [], itinerary: [] };
   const page = context.window.Render.renderPage(state, 'bookings');
   assert.match(page, /data-action="expense-image-start"/);
   assert.match(page, /data-action="expense-add"/);
@@ -98,6 +98,7 @@ test('tickets filter the same ledger and use the expense entry flow', () => {
   assert.match(mergedForm, /data-existing-url="\/uploads\/ticket\.webp"/);
   assert.equal((mergedForm.match(/data-existing-url="\/uploads\/ticket\.webp"/g) || []).length, 1);
   assert.match(mergedForm, /data-action="entry-image-remove"/);
+  assert.doesNotMatch(mergedForm, /name="receiptEnabled"[^>]*disabled/);
 });
 
 test('booking recognition maps to receipt fields without creating an expense amount', () => {
@@ -155,7 +156,7 @@ test('booking recognition maps to receipt fields without creating an expense amo
   assert.deepEqual(JSON.parse(JSON.stringify(retainedReceiptImages(ticket.receipt, ['/uploads/receipt.webp']))), ['/uploads/receipt.webp']);
 });
 
-test('receipt filter applies to daily spending and bill rows without counting legacy prices', () => {
+test('receipt filter applies to daily spending and bill rows without counting reference prices', () => {
   const context = {
     window: {},
     Store: {
@@ -175,16 +176,18 @@ test('receipt filter applies to daily spending and bill rows without counting le
       { id: 'plain', date: '2026-10-01', title: 'Plain', payer: 'Alice', amount: 10 },
       { id: 'ticket', date: '2026-10-01', title: 'Ticket', payer: 'Alice', amount: 20, receipt: { price: 200 } },
       { id: 'photo', date: '2026-10-01', title: 'Photo', payer: 'Alice', amount: 30, images: ['/uploads/photo.webp'] },
+      { id: 'reference', date: '2026-10-01', title: 'Reference', payer: 'Alice', amount: 0, receipt: { price: 900 } },
     ],
-    bookings: [{ id: 'old', date: '2026-10-01', price: 900, status: '已订' }],
   };
   const all = context.window.Render.renderPage(state, 'bookings', { ledgerFilter: 'all' });
   const receipts = context.window.Render.renderPage(state, 'bookings', { ledgerFilter: 'receipt' });
-  assert.match(all, /共 3 笔 · 支出 ¥60/);
-  assert.match(receipts, /共 2 笔 · 支出 ¥50/);
+  assert.match(all, /共 4 笔 · 支出 ¥60/);
+  assert.match(receipts, /共 3 笔 · 支出 ¥50/);
   assert.match(receipts, /Ticket/);
   assert.match(receipts, /Photo/);
-  assert.doesNotMatch(receipts, /Plain|¥900/);
+  assert.match(receipts, /Reference/);
+  assert.match(receipts, /参考价 ¥900/);
+  assert.doesNotMatch(receipts, /Plain/);
   assert.match(receipts, /exp-mx-total">¥50/);
   assert.match(receipts, /结算按全部账单计算/);
 });
@@ -205,8 +208,7 @@ test('overview daily spending agrees with the ledger when an order also has a re
   const state = {
     meta: { tripName: 'Test', members: [], currency: 'CNY' },
     itinerary: [{ date: '2026-10-01', items: [] }],
-    expenses: [{ date: '2026-10-01', amount: 123.45, category: '交通', participants: [], receipt: { legacyBookingId: 'booking_1' } }],
-    bookings: [{ id: 'booking_1', date: '2026-10-01', price: 123.45, status: '已订' }, { id: 'booking_2', price: 999, status: '待订' }],
+    expenses: [{ date: '2026-10-01', amount: 123.45, category: '交通', participants: [], receipt: { price: 123.45, status: '已订' } }],
     checklist: [], wishlist: [], photos: [], places: [], guides: [], tracks: [],
   };
   const html = context.window.Render.renderPage(state, 'overview');

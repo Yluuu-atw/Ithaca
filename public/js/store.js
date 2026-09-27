@@ -179,7 +179,7 @@ window.Store = (() => {
   const EMPTY_TRIP = {
     id: '', meta: { tripName: '', destination: '', startDate: '', endDate: '', currency: 'CNY', members: [], archived: false },
     itinerary: [], expenses: [], checklist: [], wishlist: [],
-    tracks: [], photos: [], places: [], bookings: [], guides: [],
+    tracks: [], photos: [], places: [], guides: [],
   };
   function getState() { return tripById(currentTripId()) || EMPTY_TRIP; }
   // 打包模板是文档级的，跨旅行复用，只能从整份文档取
@@ -217,7 +217,7 @@ window.Store = (() => {
           archived: false,
         },
         itinerary: [], expenses: [], checklist: [], wishlist: [],
-        tracks: [], photos: [], places: [], bookings: [], guides: [],
+        tracks: [], photos: [], places: [], guides: [],
       };
       doc.trips.push(t);
       newId = t.id;

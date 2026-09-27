@@ -1502,23 +1502,6 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 }
 .detail-list { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 
-.detail-route { display: flex; align-items: center; gap: 10px; font-size: 21.5px; font-weight: 700; line-height: 1.35; }
-.detail-route .arrow { flex: 0 0 auto; color: var(--muted); font-weight: 400; }
-.detail-route .pt { min-width: 0; }
-/* gap 露出底色当分隔线，比给每格单独加边框干净 */
-.detail-facts {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-.detail-fact { background: var(--surface); padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.detail-fact dt { font-size: 13.5px; color: var(--muted); }
-.detail-fact dd { margin: 0; font-size: 16.5px; font-weight: 600; word-break: break-word; }
-.detail-amount { font-size: 25px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
 
 /* ---------------- 攻略 / 预订 ---------------- */
 .place-tools { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
@@ -1650,60 +1633,7 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 
 textarea { resize: vertical; min-height: 60px; }
 
-/* ---------------- 票据 / 预订凭证 ---------------- */
-.booking-section { margin-top: 32px; }
-.booking-section > h2 { margin: 0 0 14px; font-size: 21px; }
-.booking-list { display: flex; flex-direction: column; gap: 12px; }
-.booking-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: border-color .15s ease, box-shadow .15s ease, transform .05s ease;
-}
-.booking-card:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
-.booking-card:active { transform: scale(.98); }
-.booking-card.has-payer { border-left: 4px solid var(--payer-color, var(--border)); padding-left: 15px; }
-.bk-payer {
-  flex: 0 0 auto;
-  width: 32px; height: 32px;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 20px; line-height: 1;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--payer-color, var(--border)) 16%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--payer-color, var(--border)) 34%, transparent);
-}
-.bk-icon {
-  flex: 0 0 auto;
-  width: 44px; height: 44px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
-  background: var(--surface-2);
-  border-radius: 13px;
-  box-shadow: inset 0 0 0 1px rgba(60, 60, 50, .05);
-}
-.bk-icon[data-type="flight"] { background: var(--cat-flight-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-flight) 26%, transparent); }
-.bk-icon[data-type="train"]  { background: var(--cat-train-soft);  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-train) 26%, transparent); }
-.bk-icon[data-type="bus"]    { background: var(--cat-bus-soft);    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-bus) 26%, transparent); }
-.bk-icon[data-type="hotel"]  { background: var(--cat-hotel-soft);  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-hotel) 26%, transparent); }
-.bk-icon[data-type="other"]  { background: var(--cat-other-soft);  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-other) 26%, transparent); }
-.bk-main { flex: 1; min-width: 0; }
-.bk-title { font-weight: 600; font-size: 19px; }
-.bk-sub {
-  font-size: 15.5px;
-  color: var(--muted);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.bk-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.bk-price { font-weight: 700; font-size: 21.5px; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
-
+/* ---------------- 票据信息 ---------------- */
 .bk-status { font-size: 15px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .st-want { background: var(--accent-soft); color: var(--accent); }
 .st-pending { background: var(--primary-soft); color: var(--primary-600); }
@@ -2042,7 +1972,7 @@ textarea { resize: vertical; min-height: 60px; }
 
   /* iOS Safari：输入框字号 <16px 会触发聚焦自动缩放，这里固定 16px 并禁用双击缩放 */
   input, select, textarea { font-size: 20px; }
-  button, .chip, .tl-summary, .booking-card, .place-card { touch-action: manipulation; }
+  button, .chip, .tl-summary, .place-card { touch-action: manipulation; }
 
   .card { padding: 16px; }
   .grid-form { grid-template-columns: 1fr; }

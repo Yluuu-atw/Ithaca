@@ -7,12 +7,12 @@
  */
 
 window.App = (() => {
-  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', settlementDetailsOpen: false, settlementDetailsTripId: '', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
+  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', settlementDetailsOpen: false, settlementDetailsTripId: '', placeFilter: { category: '全部', keyword: '' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
   let shareNotice = '';
   let sharePeople = [];
   const viewActions = new Set([
-    'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
+    'board-toggle',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
     'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter', 'settlement-details-toggle',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
@@ -29,7 +29,6 @@ window.App = (() => {
       'wish-status': 'wishlist', 'wish-edit': 'wishlist', 'wish-del': 'wishlist',
       'photo-del': 'photos', 'place-edit': 'places', 'place-del': 'places',
       'guide-edit': 'guides', 'guide-del': 'guides',
-      'booking-edit': 'bookings', 'booking-del': 'bookings',
     };
     if (lists[action]) {
       const record = (trip[lists[action]] || []).find(item => item.id === el.dataset.id);
@@ -234,11 +233,11 @@ window.App = (() => {
     const usernames = new Map(data.members.map(member => [member.id, member.username]));
     const members = (data.people || []).map(person => {
       const owner = person.userId === AuthUI.user.id;
-      const label = owner ? '所有者' : person.kind === 'temporary' ? '临时成员 · 仅本旅行' : person.kind === 'legacy' ? '待关联' : roles.get(person.userId) === 'viewer' ? '正式成员 · 只读' : '正式成员 · 可编辑';
+      const label = owner ? '所有者' : person.kind === 'temporary' ? '临时成员 · 仅本旅行' : person.kind === 'unlinked' ? '待关联' : roles.get(person.userId) === 'viewer' ? '正式成员 · 只读' : '正式成员 · 可编辑';
       const displayName = person.displayName || person.name;
       const username = owner ? AuthUI.user.username : usernames.get(person.userId);
       const account = person.kind === 'formal' && username && displayName !== username ? ` · @${Render.esc(username)}` : '';
-      return `<div class="access-row"><span>${Render.esc(displayName)}${account} · ${label}</span>${owner ? '' : `<span class="access-row-actions"><button class="btn btn-ghost btn-sm" data-action="share-member-replace" data-person-id="${Render.esc(person.id)}">替换</button>${person.kind === 'legacy' ? '' : `<button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-person-id="${Render.esc(person.id)}">移除</button>`}</span>`}</div>`;
+      return `<div class="access-row"><span>${Render.esc(displayName)}${account} · ${label}</span>${owner ? '' : `<span class="access-row-actions"><button class="btn btn-ghost btn-sm" data-action="share-member-replace" data-person-id="${Render.esc(person.id)}">替换</button>${person.kind === 'unlinked' ? '' : `<button class="btn btn-ghost btn-sm" data-action="share-member-remove" data-person-id="${Render.esc(person.id)}">移除</button>`}</span>`}</div>`;
     }).join('');
     const invites = data.invites.map(invite => `<div class="access-row"><span>${invite.role === 'editor' ? '可编辑' : '只读'}邀请 · ${new Date(invite.expiresAt).toLocaleDateString()} 到期</span><button class="btn btn-ghost btn-sm" data-action="share-invite-remove" data-id="${Render.esc(invite.id)}">撤销</button></div>`).join('');
     openModal('分享与权限', `
@@ -452,7 +451,6 @@ window.App = (() => {
       ledgerFilter: current.ledgerFilter,
       settlementDetailsOpen: current.settlementDetailsOpen && current.settlementDetailsTripId === data.id,
       placeFilter: current.placeFilter,
-      bookingFilter: current.bookingFilter,
       guideFilter: current.guideFilter,
       showArchived: current.showArchived,
       editMeta: current.editMeta,
@@ -501,10 +499,10 @@ window.App = (() => {
   }
 
   function configureImageEntry(form) {
-    if (!form || !['booking', 'expense'].includes(form.dataset.form)) return;
+    if (!form || form.dataset.form !== 'expense') return;
     form._entryFiles = [];
     form._entryTouched = new Set();
-    form._entryEditing = !!form.querySelector('[name="bookingId"], [name="expenseId"]');
+    form._entryEditing = !!form.querySelector('[name="expenseId"]');
     form.addEventListener('invalid', event => {
       const label = event.target.closest('label');
       imageEntryStatus(form, `请先填写${label ? label.firstChild.textContent.trim() : '必填信息'}，再保存`);
@@ -1455,7 +1453,7 @@ window.App = (() => {
         break;
 
       case 'image-entry-cancel': {
-        const form = modalBody().querySelector('form[data-form="expense"], form[data-form="booking"]');
+        const form = modalBody().querySelector('form[data-form="expense"]');
         const task = form && form._entryTask;
         if (task && task.kind !== 'commit') {
           el.disabled = true;
@@ -1556,38 +1554,6 @@ window.App = (() => {
         el.closest('form').querySelector('[name=tags]').value = picked.join(',');
         break;
       }
-
-      case 'booking-add':
-        openModal('添加票据', Render.formBooking(members()));
-        break;
-
-      case 'booking-detail':
-        openModal('票据详情', Render.bookingDetail(Store.getState(), el.dataset.id));
-        break;
-
-      case 'booking-edit': {
-        const it = (Store.getState().bookings || []).find(x => x.id === el.dataset.id);
-        if (it) openModal('编辑票据', Render.formBooking(members(), it));
-        break;
-      }
-
-      case 'booking-del': {
-        const id = el.dataset.id;
-        deleteEntry(el, '删除这张票据？所附图片也会从旅行中移除。', trip => {
-          trip.bookings = (trip.bookings || []).filter(entry => entry.id !== id);
-        });
-        break;
-      }
-
-      case 'booking-filter-type':
-        current.bookingFilter.type = el.dataset.type;
-        render();
-        break;
-
-      case 'booking-filter-status':
-        current.bookingFilter.status = el.dataset.status;
-        render();
-        break;
 
       case 'switch-trip':
         openModal('切换旅行', Render.tripPicker());
@@ -1897,7 +1863,7 @@ window.App = (() => {
       const savedExpense = expenseId && (Store.getState().expenses || []).find(item => item.id === expenseId);
       const previousReceipt = savedExpense && savedExpense.receipt && typeof savedExpense.receipt === 'object'
         ? savedExpense.receipt : null;
-      const receiptEnabled = fd.get('receiptEnabled') === '1' || !!(previousReceipt && previousReceipt.legacyBookingId);
+      const receiptEnabled = fd.get('receiptEnabled') === '1';
       // 与行程表单一致：datetime-local 拆成日期 + 时分两段存
       const [date, time] = splitDT(fd.get('time'));
       const lat = Number(fd.get('lat'));
@@ -2108,52 +2074,6 @@ window.App = (() => {
         doMutate(d => { d.places = d.places || []; d.places.push({ id: Store.uid('plc'), ...fields }); }, '已保存');
       }
       closeModal();
-      return;
-    }
-
-    if (kind === 'booking') {
-      const bookingId = fd.get('bookingId');
-      const fields = {
-        type: fd.get('type') || 'other',
-        title: fd.get('title') || '',
-        status: fd.get('status') || '待订',
-        from: fd.get('from') || '',
-        to: fd.get('to') || '',
-        date: fd.get('date') || '',
-        time: fd.get('time') || '',
-        endDate: fd.get('endDate') || '',
-        endTime: fd.get('endTime') || '',
-        carrier: fd.get('carrier') || '',
-        seat: fd.get('seat') || '',
-        refNo: fd.get('refNo') || '',
-        price: Number(fd.get('price')) || 0,
-        payer: fd.get('payer') || '',
-        link: fd.get('link') || '',
-        note: fd.get('note') || '',
-      };
-      const task = startImageSave(form);
-      if (!task) return;
-      try {
-        fields.images = await entryImageUrls(form, task);
-        if (task.controller.signal.aborted) throw new DOMException('已取消', 'AbortError');
-        commitImageSave(form, task);
-        if (bookingId) {
-          await Store.mutate(d => {
-            d.bookings = d.bookings || [];
-            const it = d.bookings.find(x => x.id === bookingId);
-            if (it) Object.assign(it, fields);
-          });
-        } else {
-          await Store.mutate(d => { d.bookings = d.bookings || []; d.bookings.push({ id: Store.uid('bk'), ...fields }); });
-        }
-        toast('已保存票据', 'success');
-        closeModal(true);
-      } catch (error) {
-        imageEntryStatus(form, error.name === 'AbortError' ? '已取消上传，图片和填写内容仍在' : '保存失败，图片和填写内容仍在');
-        if (error.name !== 'AbortError') toast(error.message || '保存失败', 'error');
-      } finally {
-        if (form.isConnected && form._entryTask === task) clearImageTask(form);
-      }
       return;
     }
 
@@ -2593,7 +2513,7 @@ window.App = (() => {
     document.addEventListener('submit', onSubmit);
     document.addEventListener('change', onChange);
     document.addEventListener('input', e => {
-      const form = e.target.closest && e.target.closest('form[data-form="booking"], form[data-form="expense"]');
+      const form = e.target.closest && e.target.closest('form[data-form="expense"]');
       if (form && form._entryTouched && e.target.name !== 'imageFiles') form._entryTouched.add(e.target.name);
       if (form && form.dataset.form === 'expense' && e.target.name === 'location') {
         if (form._locationSearchController) form._locationSearchController.abort();
