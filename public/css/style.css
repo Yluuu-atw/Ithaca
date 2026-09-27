@@ -408,6 +408,12 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   color: var(--muted);
   font-size: 17.5px;
 }
+.ledger-filters { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; margin: 0 0 14px; padding: 4px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); }
+.ledger-filter { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 86px; padding: 7px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
+.ledger-filter span { font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; }
+.ledger-filter.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); font-weight: 700; }
+.ledger-filter:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.ledger-filter-hint { margin: -9px 0 15px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .ledger-scan {
   display: flex;
   align-items: center;
@@ -817,6 +823,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   text-align: right;
   min-width: 92px;
 }
+.exp-amt small { display: block; color: var(--muted); font-size: 11px; font-weight: 500; white-space: nowrap; }
 
 .expense-detail { display: grid; gap: 14px; color: var(--text); }
 .expense-detail-hero {
@@ -836,7 +843,10 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .expense-detail-fact dt, .expense-detail-section-label { color: var(--muted); font-size: 13px; font-weight: 600; }
 .expense-detail-fact dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
 .expense-detail-people { display: flex; flex-wrap: wrap; gap: 5px; }
-.expense-detail-location, .expense-detail-note, .expense-detail-attachments { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--border); }
+.expense-detail-location, .expense-detail-note, .expense-detail-attachments, .expense-detail-receipt { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--border); }
+.expense-detail-receipt .expense-detail-facts { padding-top: 4px; }
+.expense-detail-receipt a { justify-self: start; color: var(--primary-600); font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
+.expense-detail-hero small { color: var(--muted); font-size: 13px; }
 .expense-detail-place { display: flex; align-items: flex-start; gap: 5px; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
 .expense-detail-place .emo { flex: 0 0 auto; width: 19px; height: 19px; }
 .expense-detail-location a { justify-self: start; color: var(--primary-600); font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
@@ -1148,6 +1158,13 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .modal-body, .modal-body form, .modal-body .form-row, .modal-body form label { min-width: 0; }
 .modal-body form { display: flex; flex-direction: column; gap: 13px; }
 .modal-body form[data-form="expense"] > label:has(input[name="time"]) { align-self: flex-start; width: min(100%, 260px); }
+.expense-receipt { display: grid; gap: 10px; padding: 11px 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.modal-body form .expense-receipt-toggle { display: inline-flex; flex-direction: row; align-items: center; gap: 9px; width: fit-content; color: var(--text); cursor: pointer; font-size: 15px; font-weight: 600; }
+.expense-receipt-toggle input { width: 18px; height: 18px; min-width: 18px; margin: 0; padding: 0; accent-color: var(--primary); }
+.expense-receipt > .field-hint, .expense-receipt-fields > .field-hint { margin: 0; line-height: 1.5; }
+.expense-receipt-fields { display: none; gap: 11px; min-width: 0; padding-top: 3px; }
+.expense-receipt:has(input[name="receiptEnabled"]:checked) .expense-receipt-fields { display: grid; }
+.expense-receipt-existing { display: grid; gap: 7px; color: var(--muted); font-size: 13px; }
 
 .expense-location { display: grid; gap: 8px; min-width: 0; }
 .expense-location-actions { display: flex; flex-wrap: wrap; gap: 7px; }

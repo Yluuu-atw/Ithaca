@@ -63,9 +63,9 @@ window.Render = (() => {
     return `src="/api/image-previews/${esc(match[1])}.webp" data-original="${esc(original)}"`;
   }
 
-  function imageThumbs(images, removable = false) {
+  function imageThumbs(images, removable = false, includeInForm = true) {
     return (Array.isArray(images) ? images : []).filter(url => /^\/uploads\/[a-zA-Z0-9_.-]+$/.test(url)).map(url => `
-      <span class="entry-image" data-existing-url="${esc(url)}">
+      <span class="entry-image" ${includeInForm ? `data-existing-url="${esc(url)}"` : ''}>
         <button type="button" class="entry-image-open" data-action="photo-open-url" data-url="${esc(url)}" aria-label="查看原图"><img ${photoSourceAttrs(url)} alt="图片预览" loading="lazy"></button>
         ${removable ? '<button type="button" class="entry-image-remove" data-action="entry-image-remove" aria-label="移除图片">×</button>' : ''}
       </span>`).join('');
@@ -335,7 +335,7 @@ window.Render = (() => {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'trips': return renderTrips(opts.showArchived);
       case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
-      case 'bookings': return renderExpenses(state) + `<section class="booking-section"><h2>票据</h2>${renderBookings(state, opts.bookingFilter)}</section>`;
+      case 'bookings': return renderExpenses(state, opts.ledgerFilter);
       case 'map': return renderMap(state, opts.tileSource);
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
@@ -362,12 +362,13 @@ window.Render = (() => {
       const days = (t.itinerary || []).length;
       const expCost = (t.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
       const cost = expCost;
+      const receiptCount = (t.expenses || []).filter(isReceiptExpense).length;
       const stats = [days ? `${days} 天` : '', cost ? money(cost, m.currency || 'CNY') : '']
         .filter(Boolean).join(' · ');
       const counts = [
         (t.photos || []).length ? `${emo('📷')}${t.photos.length}` : '',
         (t.places || []).length ? `${emo('📌')}${t.places.length}` : '',
-        (t.bookings || []).length ? `${emo('🎫')}${t.bookings.length}` : '',
+        receiptCount ? `${emo('🎫')}${receiptCount}` : '',
         (t.guides || []).length ? `${emo('📕')}${t.guides.length}` : '',
       ].filter(Boolean).join(' ');
       return `<button class="board-card ${isActive ? 'is-active' : ''}" data-action="trip-open" data-id="${esc(t.id)}" title="${esc(m.tripName || '')}">
@@ -645,7 +646,7 @@ window.Render = (() => {
     const photoN = (s.photos || []).length;
     const guideN = (s.guides || []).length;
     const placeN = (s.places || []).length;
-    const bookingN = (s.bookings || []).length;
+    const bookingN = (s.expenses || []).filter(isReceiptExpense).length;
 
     return `
       <h1 class="trip-title"><span class="tape" aria-hidden="true"></span>${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
@@ -932,17 +933,30 @@ window.Render = (() => {
   }
 
   // ---------------- 记账 ----------------
-  function renderExpenses(s) {
+  function isReceiptExpense(expense) {
+    return !!(expense.receipt || (Array.isArray(expense.images) && expense.images.length));
+  }
+
+  function renderExpenses(s, filter) {
     const exp = summarizeExpenses(s);
-    const grouped = groupByDate(s.expenses);
+    const allExpenses = s.expenses || [];
+    const receiptCount = allExpenses.filter(isReceiptExpense).length;
+    const activeFilter = filter === 'receipt' ? 'receipt' : 'all';
+    const visibleExpenses = activeFilter === 'receipt' ? allExpenses.filter(isReceiptExpense) : allExpenses;
+    const visibleTotal = visibleExpenses.reduce((sum, expense) => sum + (Number(expense.amount) || 0), 0);
+    const grouped = groupByDate(visibleExpenses);
     const members = s.meta.members || [];
     const scan = `<button type="button" class="ledger-scan" data-action="expense-image-start">
       <img src="vendor/fluent-emoji/1f4f7.png" alt="">
       <span><strong>让我看看</strong><small>选一张消费截图，帮你填写记账</small></span>
     </button>`;
     const head = `<div class="list-head">
-      <span>共 ${s.expenses.length} 笔 · 支出 ${money(exp.total, s.meta.currency)}</span>
+      <span>共 ${visibleExpenses.length} 笔 · 支出 ${money(visibleTotal, s.meta.currency)}</span>
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
+    </div>`;
+    const filters = `<div class="ledger-filters" role="group" aria-label="记账筛选">
+      <button type="button" class="ledger-filter ${activeFilter === 'all' ? 'active' : ''}" data-action="ledger-filter" data-filter="all" aria-pressed="${activeFilter === 'all'}">全部 <span>${allExpenses.length}</span></button>
+      <button type="button" class="ledger-filter ${activeFilter === 'receipt' ? 'active' : ''}" data-action="ledger-filter" data-filter="receipt" aria-pressed="${activeFilter === 'receipt'}">票据 <span>${receiptCount}</span></button>
     </div>`;
 
     // 结算：大标题当主角，进度条跟着
@@ -975,7 +989,7 @@ window.Render = (() => {
     const summary = mine ? renderPersonalSettlement(s, mine) : aggregate;
 
     // 每日支出与明细装进同一个大方框，中间用手账风剪刀线隔开，明细做成小票
-    const matrix = renderExpenseMatrix(s);
+    const matrix = renderExpenseMatrix(s, visibleExpenses, activeFilter);
     const detail = grouped.length
       ? `<section class="exp-sec"><h3 class="exp-sec-h">${emo('🧾')} 账单</h3>` +
         grouped.map(g => renderExpenseGroup(s, g)).join('') + `</section>`
@@ -985,9 +999,11 @@ window.Render = (() => {
       : (matrix || detail);
     const frame = inner ? `<div class="exp-frame">${inner}</div>` : '';
 
-    const empty = `<div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div>`;
+    const empty = activeFilter === 'receipt'
+      ? '<div class="empty"><p>还没有带票据的账单</p><p class="empty-hint">带图片或票据信息的账单会显示在这里。</p></div>'
+      : `<div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div>`;
 
-    return scan + head + summary + (frame || empty);
+    return scan + filters + (activeFilter === 'receipt' ? '<p class="ledger-filter-hint">结算按全部账单计算；这里仅筛选每日支出和账单。</p>' : '') + head + summary + (frame || empty);
   }
 
   function renderPersonalSettlement(s, mine) {
@@ -1020,18 +1036,22 @@ window.Render = (() => {
   }
 
   // Trip day × member amounts; bill details remain in the dated receipts below.
-  function renderExpenseMatrix(s) {
+  function renderExpenseMatrix(s, expenses, filter) {
     const members = s.meta.members || [];
-    const dates = [...new Set([
+    const allDates = [...new Set([
       ...(s.itinerary || []).map(day => day.date),
       ...(s.expenses || []).map(expense => expense.date),
     ].filter(Boolean))].sort();
+    const dates = [...new Set([
+      ...(filter === 'receipt' ? [] : (s.itinerary || []).map(day => day.date)),
+      ...expenses.map(expense => expense.date),
+    ].filter(Boolean))].sort();
     if (!dates.length) return '';
     const cur = s.meta.currency;
-    const rows = dates.map((date, index) => {
+    const rows = dates.map(date => {
       const dayNo = s.meta.startDate && diffDays(s.meta.startDate, date) >= 0
-        ? diffDays(s.meta.startDate, date) + 1 : index + 1;
-      const dayExp = s.expenses.filter(e => e.date === date);
+        ? diffDays(s.meta.startDate, date) + 1 : allDates.indexOf(date) + 1;
+      const dayExp = expenses.filter(e => e.date === date);
       const daySum = dayExp.reduce((a, e) => a + (Number(e.amount) || 0), 0);
       const cells = members.map(name => {
         const mine = dayExp.filter(e => e.payer === name);
@@ -1053,7 +1073,12 @@ window.Render = (() => {
     const total = g.items.reduce((a, e) => a + (Number(e.amount) || 0), 0);
     const cur = s.meta.currency;
     const items = [...g.items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    const rows = items.map(e => `<li class="exp-row" data-action="expense-detail" data-id="${esc(e.id)}" role="button" tabindex="0" aria-label="查看 ${esc(e.title || e.note || e.category || '支出')}，${esc(e.date || '')} ${esc(e.time || '')}，${esc(e.category || '其他')}，${esc(money(e.amount, cur))}">
+    const rows = items.map(e => {
+      const receipt = e.receipt && typeof e.receipt === 'object' ? e.receipt : null;
+      const unspent = receipt && !(Number(e.amount) || 0);
+      const quote = receipt && Number(receipt.price) > 0 && unspent
+        ? `<span class="exp-ref">参考价 ${money(receipt.price, cur)}</span>` : '';
+      return `<li class="exp-row" data-action="expense-detail" data-id="${esc(e.id)}" role="button" tabindex="0" aria-label="查看 ${esc(e.title || e.note || e.category || '支出')}，${esc(e.date || '')} ${esc(e.time || '')}，${esc(e.category || '其他')}，${esc(money(e.amount, cur))}">
       <span class="exp-dot"></span>
       <span class="exp-t">${esc(e.time || '—')}</span>
       <span class="exp-what">
@@ -1064,12 +1089,16 @@ window.Render = (() => {
           ${e.location ? `<span class="exp-ref">${emo('📍')} ${esc(e.location)}</span>` : ''}
           ${e.refNo ? `<span class="exp-ref">${emo('🎫')} ${esc(e.refNo)}</span>` : ''}
           ${e.images && e.images.length ? `<span class="exp-ref">${emo('📷')} ${e.images.length}</span>` : ''}
+          ${receipt ? `<span class="exp-ref">${emo('🎫')} ${esc(receipt.status || '票据')}</span>` : ''}
+          ${receipt && receipt.needsReview && unspent ? '<span class="exp-ref">待核对是否已付款</span>' : ''}
+          ${quote}
           ${memberChip(s.meta, e.payer || '')}
           ${participantAvatars(s.meta, e)}
         </span>
       </span>
-      <span class="exp-amt">${money(e.amount, cur)}</span>
-    </li>`).join('');
+      <span class="exp-amt">${money(e.amount, cur)}${unspent ? '<small>未计支出</small>' : ''}</span>
+    </li>`;
+    }).join('');
     return `<div class="receipt">
       <div class="receipt-head">
         <span class="receipt-date">${fmtDate(g.date)} ${weekday(g.date)}</span>
@@ -1100,26 +1129,46 @@ window.Render = (() => {
       ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}` : '';
     const when = [expense.date ? expense.date.replace(/-/g, '.') : '', expense.time || ''].filter(Boolean).join(' · ');
     const category = expense.category || '其他';
+    const receipt = expense.receipt && typeof expense.receipt === 'object' ? expense.receipt : null;
+    const unspent = receipt && !(Number(expense.amount) || 0);
+    const images = [...new Set([
+      ...(Array.isArray(expense.images) ? expense.images : []),
+      ...(receipt && Array.isArray(receipt.images) ? receipt.images : []),
+    ])];
+    const receiptRoute = receipt && [receipt.from, receipt.to].filter(Boolean).join(' → ');
+    const receiptFacts = receipt ? [
+      receipt.type ? ['票种', bkType(receipt.type).label] : null,
+      receipt.date || receipt.time ? ['出发时间', [receipt.date, receipt.time].filter(Boolean).join(' ')] : null,
+      receiptRoute ? ['行程', receiptRoute] : null,
+      receipt.endDate || receipt.endTime ? ['结束时间', [receipt.endDate, receipt.endTime].filter(Boolean).join(' ')] : null,
+      receipt.carrier ? ['承运 / 车次', receipt.carrier] : null,
+      receipt.seat ? ['座位 / 房型', receipt.seat] : null,
+      receipt.refNo ? ['订单号', receipt.refNo] : null,
+      Number(receipt.price) > 0 && (unspent || Number(receipt.price) !== Number(expense.amount))
+        ? ['参考价', `${money(receipt.price, s.meta.currency)}（不计入支出）`] : null,
+    ].filter(Boolean).map(([label, value]) => `<div class="expense-detail-fact"><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('') : '';
     const facts = [
       when ? `<div class="expense-detail-fact"><dt>时间</dt><dd>${esc(when)}</dd></div>` : '',
       expense.payer ? `<div class="expense-detail-fact"><dt>付款人</dt><dd>${memberChip(s.meta, expense.payer)}</dd></div>` : '',
       participants.length ? `<div class="expense-detail-fact expense-detail-fact-wide"><dt>参与分摊</dt><dd class="expense-detail-people">${participants.map(name => memberChip(s.meta, name)).join('')}</dd></div>` : '',
-      expense.refNo ? `<div class="expense-detail-fact"><dt>车次 / 航班号</dt><dd>${esc(expense.refNo)}</dd></div>` : '',
+      expense.refNo && !(receipt && receipt.refNo) ? `<div class="expense-detail-fact"><dt>车次 / 航班号</dt><dd>${esc(expense.refNo)}</dd></div>` : '',
     ].filter(Boolean).join('');
     return `<article class="expense-detail">
       <header class="expense-detail-hero">
-        <div class="expense-detail-tags"><span class="badge" data-cat="${esc(category)}">${esc(category)}</span>${expense.subCategory ? `<span>${esc(expense.subCategory)}</span>` : ''}</div>
+        <div class="expense-detail-tags"><span class="badge" data-cat="${esc(category)}">${esc(category)}</span>${expense.subCategory ? `<span>${esc(expense.subCategory)}</span>` : ''}${receipt ? `<span class="bk-status st-${bkStatusCls(receipt.status)}">${esc(receipt.status || '票据')}</span>` : ''}</div>
         <h3>${esc(expense.title || category)}</h3>
         <strong class="expense-detail-amount">${money(expense.amount, s.meta.currency)}</strong>
+        ${receipt && receipt.needsReview && unspent ? '<small>待核对是否已付款；目前未计支出</small>' : unspent ? '<small>未计支出；参考价不参与结算</small>' : ''}
       </header>
       ${facts ? `<dl class="expense-detail-facts">${facts}</dl>` : ''}
+      ${receipt ? `<section class="expense-detail-receipt"><span class="expense-detail-section-label">票据信息</span>${receiptFacts ? `<dl class="expense-detail-facts">${receiptFacts}</dl>` : ''}${safeUrl(receipt.link) ? `<a href="${esc(safeUrl(receipt.link))}" target="_blank" rel="noopener noreferrer">打开票据链接</a>` : ''}</section>` : ''}
       ${expense.location || hasPoint ? `<section class="expense-detail-location">
         <span class="expense-detail-section-label">地点</span>
         <div class="expense-detail-place">${emo('📍')} <span>${esc(expense.location || '已标记位置')}</span></div>
         ${mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener noreferrer">在地图中查看</a>` : ''}
       </section>` : ''}
       ${expense.note ? `<section class="expense-detail-note"><span class="expense-detail-section-label">备注</span><p>${esc(expense.note)}</p></section>` : ''}
-      ${expense.images && expense.images.length ? `<section class="expense-detail-attachments"><span class="expense-detail-section-label">附件</span><div class="entry-images">${imageThumbs(expense.images)}</div></section>` : ''}
+      ${images.length ? `<section class="expense-detail-attachments"><span class="expense-detail-section-label">附件</span><div class="entry-images">${imageThumbs(images)}</div></section>` : ''}
       ${canEdit ? `<div class="expense-detail-actions"><button type="button" class="btn btn-primary" data-action="expense-edit" data-id="${esc(expense.id)}">编辑</button><button type="button" class="btn btn-ghost expense-detail-delete" data-action="expense-del" data-id="${esc(expense.id)}">删除</button></div>` : ''}
     </article>`;
   }
@@ -1372,13 +1421,20 @@ window.Render = (() => {
     return out.join('');
   }
 
-  function formExpense(members, item) {
+  function formExpense(members, item, options = {}) {
     const cats = Store.CONST.expenseCategories;
     const v = item || {};
     const curCat = item ? (v.category || '其他') : '';
+    const receipt = v.receipt && typeof v.receipt === 'object' ? v.receipt : {};
+    const hasReceipt = !!(v.receipt || options.receipt);
+    const lockedReceipt = !!receipt.legacyBookingId;
+    const images = [...new Set([
+      ...(Array.isArray(v.images) ? v.images : []),
+      ...(Array.isArray(receipt.images) ? receipt.images : []),
+    ])];
     return `<form data-form="expense">
       ${item ? `<input type="hidden" name="expenseId" value="${esc(item.id)}">` : ''}
-      ${imageEntry(v.images)}
+      ${imageEntry(images)}
       <label>时间<input type="datetime-local" name="time" value="${esc(item ? (v.date ? `${v.date}T${v.time || '00:00'}` : '') : localNowValue())}"></label>
       <div class="expense-location">
         <label>地点<input name="location" placeholder="餐厅、商店或地址（可选）" value="${esc(v.location || '')}" autocomplete="off"></label>
@@ -1397,12 +1453,30 @@ window.Render = (() => {
       </div>
       <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
-        <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? '' : v.amount)}"></label>
+        <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? (options.receipt ? 0 : '') : v.amount)}"></label>
         <label>谁付的${memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer')}</label>
       </div>
-      <label>分类<select name="category" id="expCat">${cats.map(c => `<option ${item && c === curCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      <label>分类<select name="category" id="expCat">${cats.map(c => `<option ${(item && c === curCat) || (!item && options.receipt && c === '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <div id="expFields">${item ? expFieldsHtml(curCat, v) : ''}</div>
       <label>涉及谁<span class="field-hint">在这几个人之间平摊</span>${memberMultiPicker(members, item ? v.participants : undefined, Store.getState().meta, 'participants')}</label>
+      <section class="expense-receipt">
+        <label class="expense-receipt-toggle"><input type="checkbox" name="receiptEnabled" value="1" ${hasReceipt ? 'checked' : ''} ${lockedReceipt ? 'disabled' : ''}><span>票据信息</span></label>
+        ${lockedReceipt ? '<input type="hidden" name="receiptEnabled" value="1"><p class="field-hint">由旧预订合并，保留票据关联。</p>' : ''}
+        <div class="expense-receipt-fields">
+          <div class="form-row">
+            <label>票种<select name="receiptType">${(Store.CONST.bookingTypes || []).map(type => `<option value="${esc(type.id)}" ${type.id === (receipt.type || 'other') ? 'selected' : ''}>${esc(type.label)}</option>`).join('')}</select></label>
+            <label>状态<select name="receiptStatus">${(Store.CONST.bookingStatus || []).map(status => `<option ${status === (receipt.status || '待订') ? 'selected' : ''}>${esc(status)}</option>`).join('')}</select></label>
+          </div>
+          <div class="form-row"><label>出发日期<input type="date" name="receiptDate" value="${esc(receipt.date || '')}"></label><label>出发时间<input type="time" name="receiptTime" value="${esc(receipt.time || '')}"></label></div>
+          <div class="form-row"><label>出发地 / 起点<input name="receiptFrom" value="${esc(receipt.from || '')}"></label><label>到达地 / 终点<input name="receiptTo" value="${esc(receipt.to || '')}"></label></div>
+          <div class="form-row"><label>结束日期<input type="date" name="receiptEndDate" value="${esc(receipt.endDate || '')}"></label><label>结束时间<input type="time" name="receiptEndTime" value="${esc(receipt.endTime || '')}"></label></div>
+          <div class="form-row"><label>承运 / 车次<input name="receiptCarrier" value="${esc(receipt.carrier || '')}"></label><label>座位 / 房型<input name="receiptSeat" value="${esc(receipt.seat || '')}"></label></div>
+          <label>订单号<input name="receiptRefNo" value="${esc(receipt.refNo || '')}"></label>
+          <label>票据链接<input name="receiptLink" placeholder="https://" value="${esc(receipt.link || '')}"></label>
+          <label>参考价<input name="receiptPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="可留空" value="${esc(receipt.price == null ? '' : receipt.price)}"></label>
+          <p class="field-hint">参考价不计入支出；未付款时花费填 0，确认已付款后填写实际金额。</p>
+        </div>
+      </section>
       <label>备注<input name="note" placeholder="补充说明" value="${esc(v.note || '')}"></label>
       <div class="form-actions">
         <button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button>
@@ -1778,7 +1852,7 @@ window.Render = (() => {
   }
 
   // ---------------- 票据 / 预订凭证 ----------------
-  const bkType = (id) => Store.CONST.bookingTypes.find(x => x.id === id) || { icon: '🎫', label: '其他' };
+  const bkType = (id) => (Store.CONST.bookingTypes || []).find(x => x.id === id) || { icon: '🎫', label: '其他' };
   const bkStatusCls = (st) => ({ 待订: 'want', 已订: 'booked', 已完成: 'done', 已取消: 'cancel' }[st] || 'want');
 
   function renderBookings(s, filter) {

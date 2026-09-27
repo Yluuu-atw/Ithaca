@@ -31,7 +31,7 @@ test('new expense uses local current minute and edits preserve stored time', () 
   assert.doesNotMatch(existing, /data-action="expense-del"/);
 });
 
-test('booking and expense entries remain reachable from the ledger with one image flow', () => {
+test('tickets filter the same ledger and use the expense entry flow', () => {
   const context = {
     window: {},
     Store: {
@@ -55,17 +55,24 @@ test('booking and expense entries remain reachable from the ledger with one imag
   const page = context.window.Render.renderPage(state, 'bookings');
   assert.match(page, /data-action="expense-image-start"/);
   assert.match(page, /data-action="expense-add"/);
-  assert.match(page, /data-action="booking-add"/);
-  for (const form of [context.window.Render.formExpense([], null), context.window.Render.formBooking([], null)]) {
+  assert.match(page, /data-action="ledger-filter" data-filter="all"/);
+  assert.match(page, /data-action="ledger-filter" data-filter="receipt"/);
+  assert.doesNotMatch(page, /data-action="booking-add"|class="booking-section"/);
+  for (const form of [context.window.Render.formExpense([], null), context.window.Render.formExpense([], null, { receipt: true })]) {
     assert.match(form, /让我看看/);
     assert.match(form, /vendor\/fluent-emoji\/1f4f7\.png/);
     assert.match(form, /name="imageFiles"/);
   }
-  const savedBooking = { id: 'ticket_1', title: 'Train ticket', type: 'train' };
-  assert.match(context.window.Render.formBooking([], savedBooking), /data-action="booking-del" data-id="ticket_1">删除这张票据/);
-  assert.match(context.window.Render.bookingDetail({ meta: state.meta, bookings: [savedBooking] }, 'ticket_1'), /data-action="booking-del" data-id="ticket_1">删除票据/);
-  assert.doesNotMatch(context.window.Render.formBooking([], null), /data-action="booking-del"/);
-  assert.doesNotMatch(context.window.Render.formBooking([], null), /<option[^>]*>🚄/);
+  const receiptForm = context.window.Render.formExpense([], null, { receipt: true });
+  assert.match(receiptForm, /name="receiptEnabled" value="1" checked/);
+  assert.match(receiptForm, /name="receiptRefNo"/);
+  assert.match(receiptForm, /name="receiptDate"/);
+  assert.match(receiptForm, /name="receiptTime"/);
+  assert.match(receiptForm, /<option selected>待订<\/option>/);
+  assert.match(receiptForm, /<option selected>其他<\/option>/);
+  assert.match(receiptForm, /参考价不计入支出/);
+  assert.match(receiptForm, /未付款时花费填 0/);
+  assert.doesNotMatch(receiptForm, /data-form="booking"/);
 
   const expense = { id: 'expense_1', title: '北京丰台', date: '2026-09-27', time: '12:34', amount: 42, category: '交通', itemId: 'linked_item' };
   const expenseState = { ...state, expenses: [expense], itinerary: [{ date: expense.date, items: [{ id: 'linked_item' }] }] };
@@ -82,6 +89,104 @@ test('booking and expense entries remain reachable from the ledger with one imag
   assert.match(editable, /data-action="expense-del"/);
   context.Store.canEditRecord = record => record.id !== 'linked_item';
   assert.doesNotMatch(context.window.Render.expenseDetail(expenseState, 'expense_1'), /data-action="expense-edit"|data-action="expense-del"/);
+
+  const mergedTicket = { ...expense, images: ['/uploads/bill.webp'], receipt: { type: 'train', images: ['/uploads/ticket.webp'] } };
+  const mergedDetail = context.window.Render.expenseDetail({ ...expenseState, expenses: [mergedTicket] }, 'expense_1');
+  assert.match(mergedDetail, /\/uploads\/bill\.webp/);
+  assert.match(mergedDetail, /\/uploads\/ticket\.webp/);
+  const mergedForm = context.window.Render.formExpense([], mergedTicket);
+  assert.match(mergedForm, /data-existing-url="\/uploads\/ticket\.webp"/);
+  assert.equal((mergedForm.match(/data-existing-url="\/uploads\/ticket\.webp"/g) || []).length, 1);
+  assert.match(mergedForm, /data-action="entry-image-remove"/);
+});
+
+test('booking recognition maps to receipt fields without creating an expense amount', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../public/js/app.js'), 'utf8')
+    .replace('return { init };', 'return { init, testHelpers: { entryRecognitionKind, bookingDraftToExpenseDraft, applyImageDraft, syncExpenseFromItem, retainedReceiptImages } };')
+    .replace("document.addEventListener('DOMContentLoaded', App.init);", '');
+  const context = {
+    window: {}, document: { addEventListener() {} },
+    Store: { CONST: { itemToExpenseCategory: {} } },
+  };
+  vm.runInNewContext(source, context);
+  const { entryRecognitionKind, bookingDraftToExpenseDraft, applyImageDraft, syncExpenseFromItem, retainedReceiptImages } = context.window.App.testHelpers;
+  const receiptForm = { dataset: { form: 'expense' }, elements: { namedItem: () => ({ checked: true }) } };
+  assert.equal(entryRecognitionKind(receiptForm), 'booking');
+  assert.equal(entryRecognitionKind({ ...receiptForm, elements: { namedItem: () => ({ checked: false }) } }), 'expense');
+  const mapped = JSON.parse(JSON.stringify(bookingDraftToExpenseDraft({
+    type: 'train', status: '待订', title: 'Train G123', date: '2026-10-03', time: '08:30',
+    from: '北京', to: '上海', carrier: 'G123', price: 123.45, amount: 123.45,
+  })));
+  assert.deepEqual(mapped, {
+    title: 'Train G123', receiptType: 'train', receiptStatus: '待订', receiptDate: '2026-10-03',
+    receiptTime: '08:30', receiptFrom: '北京', receiptTo: '上海', receiptCarrier: 'G123',
+    receiptPrice: 123.45, category: '交通',
+  });
+  assert.equal(Object.hasOwn(mapped, 'amount'), false);
+  const controls = new Map([
+    ['time', { value: '2026-09-01T12:34', tagName: 'INPUT' }],
+    ['amount', { value: '0', tagName: 'INPUT' }],
+    ['receiptDate', { value: '', tagName: 'INPUT' }],
+    ['receiptTime', { value: '', tagName: 'INPUT' }],
+    ['receiptPrice', { value: '', tagName: 'INPUT' }],
+  ]);
+  applyImageDraft({ dataset: { form: 'expense' }, _entryTouched: new Set(), _entryEditing: true,
+    elements: { namedItem: name => controls.get(name) }, querySelector: () => null }, mapped);
+  assert.equal(controls.get('time').value, '2026-09-01T12:34');
+  assert.equal(controls.get('amount').value, '0');
+  assert.equal(controls.get('receiptDate').value, '2026-10-03');
+  assert.equal(controls.get('receiptTime').value, '08:30');
+  assert.equal(controls.get('receiptPrice').value, '123.45');
+
+  const ticket = { id: 'exp_ticket', itemId: 'item_ticket', amount: 123.45, images: ['/uploads/receipt.webp'],
+    receipt: { images: ['/uploads/receipt.webp'], price: 123.45 } };
+  const imageOnly = { id: 'exp_image', itemId: 'item_image', amount: 20, images: ['/uploads/photo.webp'] };
+  const plain = { id: 'exp_plain', itemId: 'item_plain', amount: 20 };
+  const trip = { expenses: [ticket, imageOnly, plain] };
+  for (const id of ['item_ticket', 'item_image', 'item_plain']) {
+    syncExpenseFromItem(trip, { id, amount: 0, title: 'Updated itinerary item' }, '2026-10-03');
+  }
+  assert.deepEqual(trip.expenses.map(entry => entry.id), ['exp_ticket', 'exp_image']);
+  assert.equal(ticket.amount, 0);
+  assert.equal(ticket.title, 'Updated itinerary item');
+  assert.equal(ticket.date, '2026-10-03');
+  assert.equal(imageOnly.amount, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(retainedReceiptImages(ticket.receipt, []))), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(retainedReceiptImages(ticket.receipt, ['/uploads/receipt.webp']))), ['/uploads/receipt.webp']);
+});
+
+test('receipt filter applies to daily spending and bill rows without counting legacy prices', () => {
+  const context = {
+    window: {},
+    Store: {
+      getIdentity: () => null,
+      getRoster: () => [],
+      getMySettlement: () => null,
+      getGroupSettlement: () => null,
+      CONST: { currencySymbol: { CNY: '¥' }, bookingTypes: [], bookingStatus: [] },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const state = {
+    meta: { members: ['Alice'], currency: 'CNY', startDate: '2026-10-01' },
+    itinerary: [{ date: '2026-10-01' }],
+    expenses: [
+      { id: 'plain', date: '2026-10-01', title: 'Plain', payer: 'Alice', amount: 10 },
+      { id: 'ticket', date: '2026-10-01', title: 'Ticket', payer: 'Alice', amount: 20, receipt: { price: 200 } },
+      { id: 'photo', date: '2026-10-01', title: 'Photo', payer: 'Alice', amount: 30, images: ['/uploads/photo.webp'] },
+    ],
+    bookings: [{ id: 'old', date: '2026-10-01', price: 900, status: '已订' }],
+  };
+  const all = context.window.Render.renderPage(state, 'bookings', { ledgerFilter: 'all' });
+  const receipts = context.window.Render.renderPage(state, 'bookings', { ledgerFilter: 'receipt' });
+  assert.match(all, /共 3 笔 · 支出 ¥60/);
+  assert.match(receipts, /共 2 笔 · 支出 ¥50/);
+  assert.match(receipts, /Ticket/);
+  assert.match(receipts, /Photo/);
+  assert.doesNotMatch(receipts, /Plain|¥900/);
+  assert.match(receipts, /exp-mx-total">¥50/);
+  assert.match(receipts, /结算按全部账单计算/);
 });
 
 test('overview daily spending agrees with the ledger when an order also has a receipt', () => {
@@ -100,13 +205,14 @@ test('overview daily spending agrees with the ledger when an order also has a re
   const state = {
     meta: { tripName: 'Test', members: [], currency: 'CNY' },
     itinerary: [{ date: '2026-10-01', items: [] }],
-    expenses: [{ date: '2026-10-01', amount: 123.45, category: '交通', participants: [] }],
-    bookings: [{ date: '2026-10-01', price: 123.45, status: '已订' }],
+    expenses: [{ date: '2026-10-01', amount: 123.45, category: '交通', participants: [], receipt: { legacyBookingId: 'booking_1' } }],
+    bookings: [{ id: 'booking_1', date: '2026-10-01', price: 123.45, status: '已订' }, { id: 'booking_2', price: 999, status: '待订' }],
     checklist: [], wishlist: [], photos: [], places: [], guides: [], tracks: [],
   };
   const html = context.window.Render.renderPage(state, 'overview');
   assert.match(html, /class="bar-col has-value" title="2026-10-01 ¥123\.45"/);
   assert.doesNotMatch(html, /2026-10-01 ¥246\.9/);
+  assert.match(html, /<div class="stat-value">1<\/div><div class="stat-label">票据<\/div>/);
 });
 
 test('daily expense matrix uses trip days and amount-only member columns', () => {

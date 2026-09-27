@@ -7,14 +7,14 @@
  */
 
 window.App = (() => {
-  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
+  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
   let shareNotice = '';
   let sharePeople = [];
   const viewActions = new Set([
     'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
-    'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
+    'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
@@ -321,11 +321,6 @@ window.App = (() => {
     const cost = Number(item.amount) || 0;
     trip.expenses = trip.expenses || [];
     const ex = trip.expenses.find(x => x.itemId === item.id);
-    // 费用清零时把已生成的记账条目一并删掉，不留 0 元记录
-    if (!cost) {
-      if (ex) trip.expenses = trip.expenses.filter(x => x.id !== ex.id);
-      return;
-    }
     const fields = {
       date: date || '',
       time: item.time || '',
@@ -339,6 +334,12 @@ window.App = (() => {
       lat: item.lat ?? null,
       lng: item.lng ?? null,
     };
+    // Keep a zero-cost ledger entry when its receipt or images still matter.
+    if (!cost) {
+      if (ex && (ex.receipt || (Array.isArray(ex.images) && ex.images.length))) Object.assign(ex, fields);
+      else if (ex) trip.expenses = trip.expenses.filter(x => x.id !== ex.id);
+      return;
+    }
     if (!ex) {
       trip.expenses.push({ id: Store.uid('exp'), itemId: item.id, ...fields });
       return;
@@ -448,6 +449,7 @@ window.App = (() => {
       ? document.activeElement.id : null;
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
       itineraryMode: current.itineraryMode,
+      ledgerFilter: current.ledgerFilter,
       placeFilter: current.placeFilter,
       bookingFilter: current.bookingFilter,
       guideFilter: current.guideFilter,
@@ -590,6 +592,37 @@ window.App = (() => {
     }
   }
 
+  function entryRecognitionKind(form) {
+    return form.dataset.form === 'expense' && form.elements.namedItem('receiptEnabled')?.checked
+      ? 'booking' : form.dataset.form;
+  }
+
+  function bookingDraftToExpenseDraft(fields) {
+    const draft = {};
+    for (const name of ['title', 'note']) {
+      if (typeof fields[name] === 'string') draft[name] = fields[name];
+    }
+    const bookingFields = {
+      type: 'receiptType', status: 'receiptStatus', date: 'receiptDate', time: 'receiptTime',
+      from: 'receiptFrom', to: 'receiptTo', endDate: 'receiptEndDate', endTime: 'receiptEndTime',
+      carrier: 'receiptCarrier', seat: 'receiptSeat', refNo: 'receiptRefNo', price: 'receiptPrice',
+    };
+    for (const [from, to] of Object.entries(bookingFields)) {
+      if (typeof fields[from] === 'string' || (from === 'price' && Number.isFinite(fields[from]))) {
+        draft[to] = fields[from];
+      }
+    }
+    const category = { flight: '交通', train: '交通', bus: '交通', hotel: '住宿', other: '其他' }[fields.type];
+    if (category) draft.category = category;
+    return draft;
+  }
+
+  function retainedReceiptImages(previousReceipt, images) {
+    const saved = new Set(images);
+    return (Array.isArray(previousReceipt?.images) ? previousReceipt.images : [])
+      .filter(url => saved.has(url));
+  }
+
   async function onEntryImagesSelected(input) {
     const form = input.closest('form');
     if (!form || !form._entryFiles) return;
@@ -729,7 +762,8 @@ window.App = (() => {
     imageEntryStatus(form, '正在看图片，完成后请核对内容');
     imageEntryProgress(form, '正在准备图片');
     try {
-      const result = await Store.recognizeImage(entry.file, form.dataset.form, {
+      const recognitionKind = entryRecognitionKind(form);
+      const result = await Store.recognizeImage(entry.file, recognitionKind, {
         signal: task.controller.signal,
         onPhase: phase => {
           if (!form.isConnected || form._entryTask !== task) return;
@@ -740,9 +774,11 @@ window.App = (() => {
         },
       });
       if (form.isConnected && form._entryTask === task && form._entryFiles.includes(entry)) {
-        applyImageDraft(form, result);
+        const draft = form.dataset.form === 'expense' && recognitionKind === 'booking'
+          ? bookingDraftToExpenseDraft(result) : result;
+        applyImageDraft(form, draft);
         imageEntryStatus(form, '看好了，核对一下填写的内容');
-        if (form.dataset.form === 'expense') void suggestRecognizedLocation(form, result);
+        if (form.dataset.form === 'expense' && recognitionKind === 'expense') void suggestRecognizedLocation(form, result);
       }
     } catch (error) {
       if (form.isConnected && form._entryTask === task) {
@@ -1160,12 +1196,19 @@ window.App = (() => {
         render();
         break;
 
+      case 'ledger-filter':
+        current.ledgerFilter = el.dataset.filter === 'receipt' ? 'receipt' : 'all';
+        render();
+        break;
+
       case 'expense-add':
-        openModal('记一笔', Render.formExpense(members()));
+        openModal(current.ledgerFilter === 'receipt' ? '添加票据' : '记一笔',
+          Render.formExpense(members(), null, { receipt: current.ledgerFilter === 'receipt' }));
         break;
 
       case 'expense-image-start':
-        openModal('记一笔', Render.formExpense(members()));
+        openModal(current.ledgerFilter === 'receipt' ? '添加票据' : '记一笔',
+          Render.formExpense(members(), null, { receipt: current.ledgerFilter === 'receipt' }));
         modalBody().querySelector('form[data-form="expense"] [name="imageFiles"]')?.click();
         break;
 
@@ -1428,7 +1471,10 @@ window.App = (() => {
           thumb.remove();
           form.querySelectorAll('.entry-image[data-pending-index]').forEach((node, i) => { node.dataset.pendingIndex = String(i); });
           if (!form._entryFiles.length) form.querySelector('.image-entry-retry').hidden = true;
-        } else thumb.remove();
+        } else {
+          thumb.remove();
+          if (form._entryTouched) form._entryTouched.add('images');
+        }
         break;
       }
 
@@ -1836,6 +1882,10 @@ window.App = (() => {
 
     if (kind === 'expense') {
       const expenseId = fd.get('expenseId');
+      const savedExpense = expenseId && (Store.getState().expenses || []).find(item => item.id === expenseId);
+      const previousReceipt = savedExpense && savedExpense.receipt && typeof savedExpense.receipt === 'object'
+        ? savedExpense.receipt : null;
+      const receiptEnabled = fd.get('receiptEnabled') === '1' || !!(previousReceipt && previousReceipt.legacyBookingId);
       // 与行程表单一致：datetime-local 拆成日期 + 时分两段存
       const [date, time] = splitDT(fd.get('time'));
       const lat = Number(fd.get('lat'));
@@ -1857,10 +1907,30 @@ window.App = (() => {
         lat: hasPoint ? lat : null,
         lng: hasPoint ? lng : null,
       };
+      fields.receipt = receiptEnabled ? {
+        ...(previousReceipt || {}),
+        type: fd.get('receiptType') || 'other',
+        status: fd.get('receiptStatus') || '待订',
+        date: fd.get('receiptDate') || '',
+        time: fd.get('receiptTime') || '',
+        from: (fd.get('receiptFrom') || '').trim(),
+        to: (fd.get('receiptTo') || '').trim(),
+        endDate: fd.get('receiptEndDate') || '',
+        endTime: fd.get('receiptEndTime') || '',
+        carrier: (fd.get('receiptCarrier') || '').trim(),
+        seat: (fd.get('receiptSeat') || '').trim(),
+        refNo: (fd.get('receiptRefNo') || '').trim(),
+        link: (fd.get('receiptLink') || '').trim(),
+        price: Number(fd.get('receiptPrice')) || 0,
+      } : null;
+      if (fields.receipt && fields.amount > 0) delete fields.receipt.needsReview;
       const task = startImageSave(form);
       if (!task) return;
       try {
         fields.images = await entryImageUrls(form, task);
+        if (fields.receipt && previousReceipt) {
+          fields.receipt.images = retainedReceiptImages(previousReceipt, fields.images);
+        }
         if (task.controller.signal.aborted) throw new DOMException('已取消', 'AbortError');
         commitImageSave(form, task);
         if (expenseId) {
