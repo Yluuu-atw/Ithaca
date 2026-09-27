@@ -2,22 +2,29 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { defaultDoc } = require('../data/schema');
-const { claimLegacy } = require('../data/access');
-const { formalPerson, syncTripRoster } = require('../data/people');
+const { unusedAppearance, syncTripRoster } = require('../data/people');
 const { calculateTransfers, personalSettlement } = require('../data/settlement');
 const { project } = require('../data/document-policy');
 const { createSharing } = require('../data/sharing');
+const { ownedDoc, addFormalMember } = require('./fixtures');
+
+function addTemporaryMember(db, tripId) {
+  const grant = db.access[tripId];
+  const person = { id: 'person_temp_guest', kind: 'temporary', name: 'Guest',
+    ...unusedAppearance(grant.people) };
+  grant.people.push(person);
+  syncTripRoster(db.trips.find(trip => trip.id === tripId), grant);
+  return person;
+}
 
 test('settlement allocates cents deterministically and keeps confirmations private', async () => {
-  let db = claimLegacy(defaultDoc(), 'owner');
+  let db = ownedDoc('owner', 'Alice');
   const trip = db.trips[0];
   const grant = db.access[trip.id];
-  grant.people = [formalPerson('owner', 'Alice'), formalPerson('viewer', 'Bob'),
-    { id: 'person_temp_guest', kind: 'temporary', name: 'Guest', avatar: '🐱', color: '#7d94a8' }];
-  grant.members.viewer = 'viewer';
-  syncTripRoster(trip, grant);
-  trip.expenses.push({ id: 'e1', payer: 'Alice', participants: ['Alice', 'Bob', 'Guest'], amount: 10.01 });
+  addFormalMember(db, trip.id, 'viewer', 'Bob', 'viewer');
+  addTemporaryMember(db, trip.id);
+  trip.expenses.push({ id: 'e1', title: 'Shared meal', payer: 'Alice',
+    participants: ['Alice', 'Bob', 'Guest'], amount: 10.01 });
   const plan = calculateTransfers(trip, grant);
   assert.equal(plan.balance[grant.people[0].id], 667);
   assert.deepEqual(plan.transfers.map(item => item.amountMinor), [334, 333]);
@@ -64,20 +71,19 @@ test('settlement allocates cents deterministically and keeps confirmations priva
 });
 
 test('personal expense shares reconcile exactly with totals, refunds, and transfers', () => {
-  const db = claimLegacy(defaultDoc(), 'owner');
+  const db = ownedDoc('owner', 'Alice');
   const trip = db.trips[0];
   const grant = db.access[trip.id];
-  grant.people = [formalPerson('owner', 'Alice'), formalPerson('viewer', 'Bob'),
-    { id: 'person_temp_guest', kind: 'temporary', name: 'Guest', avatar: '🐱', color: '#7d94a8' }];
-  grant.members.viewer = 'viewer';
-  syncTripRoster(trip, grant);
+  addFormalMember(db, trip.id, 'viewer', 'Bob', 'viewer');
+  addTemporaryMember(db, trip.id);
   trip.expenses = [
-    { id: 'charge', payer: 'Alice', participants: ['Alice', 'Bob', 'Guest'], amount: 10.01 },
-    { id: 'refund', payer: 'Alice', participants: ['Alice', 'Bob', 'Guest'], amount: -10.01 },
-    { id: 'missing_payer', participants: ['Bob', 'Guest'], amount: 1.01 },
-    { id: 'legacy_single', payer: 'Bob', split: '单方', amount: 2.01 },
-    { id: 'penny', payer: 'Guest', participants: ['Alice', 'Bob', 'Guest'], amount: 0.01 },
-    { id: 'pending_ticket', payer: 'Alice', amount: 0, receipt: { price: 500 } },
+    { id: 'charge', title: 'Charge', payer: 'Alice', participants: ['Alice', 'Bob', 'Guest'], amount: 10.01 },
+    { id: 'refund', title: 'Refund', payer: 'Alice', participants: ['Alice', 'Bob', 'Guest'], amount: -10.01 },
+    { id: 'hosted', title: 'Hosted', payer: 'Alice', participants: ['Bob', 'Guest'], amount: 1.01 },
+    { id: 'single_person', title: 'Single person', payer: 'Bob', participants: ['Bob'], amount: 2.01 },
+    { id: 'penny', title: 'Penny', payer: 'Guest', participants: ['Alice', 'Bob', 'Guest'], amount: 0.01 },
+    { id: 'pending_ticket', title: 'Pending ticket', payer: 'Alice', participants: ['Alice'], amount: 0,
+      receipt: { price: 500 } },
   ];
 
   const plan = calculateTransfers(trip, grant);
@@ -97,11 +103,11 @@ test('personal expense shares reconcile exactly with totals, refunds, and transf
     { expenseId: 'charge', amountMinor: 1001, advancedMinor: 1001, shareMinor: 334 });
   assert.deepEqual(mine[0].expenseShares.find(row => row.expenseId === 'refund'),
     { expenseId: 'refund', amountMinor: -1001, advancedMinor: -1001, shareMinor: -334 });
-  assert.deepEqual(mine[0].expenseShares.find(row => row.expenseId === 'missing_payer'),
-    { expenseId: 'missing_payer', amountMinor: 101, advancedMinor: 101, shareMinor: 0 });
-  assert.deepEqual(mine[1].expenseShares.find(row => row.expenseId === 'legacy_single'),
-    { expenseId: 'legacy_single', amountMinor: 201, advancedMinor: 201, shareMinor: 201 });
-  assert.equal(mine[0].expenseShares.some(row => row.expenseId === 'legacy_single'), false);
+  assert.deepEqual(mine[0].expenseShares.find(row => row.expenseId === 'hosted'),
+    { expenseId: 'hosted', amountMinor: 101, advancedMinor: 101, shareMinor: 0 });
+  assert.deepEqual(mine[1].expenseShares.find(row => row.expenseId === 'single_person'),
+    { expenseId: 'single_person', amountMinor: 201, advancedMinor: 201, shareMinor: 201 });
+  assert.equal(mine[0].expenseShares.some(row => row.expenseId === 'single_person'), false);
   assert.deepEqual(mine.map(settlement => settlement.balanceMinor), [100, -51, -49]);
   assert.deepEqual(plan.transfers.map(transfer => transfer.amountMinor), [51, 49]);
   assert.equal(mine[0].transfers.every(transfer => transfer.direction === 'in'), true);
@@ -110,53 +116,36 @@ test('personal expense shares reconcile exactly with totals, refunds, and transf
 });
 
 test('a refund reverses the same per-member allocation', () => {
-  const db = claimLegacy(defaultDoc(), 'owner');
+  const db = ownedDoc('owner', 'Alice');
   const trip = db.trips[0];
   const grant = db.access[trip.id];
+  addFormalMember(db, trip.id, 'viewer', 'Bob', 'viewer');
   trip.expenses = [
-    { payer: trip.meta.members[0], participants: trip.meta.members.slice(), amount: 10.01 },
-    { payer: trip.meta.members[0], participants: trip.meta.members.slice(), amount: -10.01 },
+    { id: 'charge', title: 'Charge', payer: trip.meta.members[0], participants: trip.meta.members.slice(), amount: 10.01 },
+    { id: 'refund', title: 'Refund', payer: trip.meta.members[0], participants: trip.meta.members.slice(), amount: -10.01 },
   ];
   const plan = calculateTransfers(trip, grant);
   assert.deepEqual(plan.transfers, []);
   assert.ok(Object.values(plan.balance).every(value => value === 0));
 });
 
-test('receipt metadata and legacy reservation prices never create another transfer', () => {
-  const db = claimLegacy(defaultDoc(), 'owner');
+test('receipt reference prices never create another transfer', () => {
+  const db = ownedDoc('owner', 'Alice');
   const trip = db.trips[0];
   const grant = db.access[trip.id];
+  addFormalMember(db, trip.id, 'viewer', 'Bob', 'viewer');
   const [payer, companion] = trip.meta.members;
   trip.expenses = [{
-    id: 'expense_paid', payer, participants: [payer, companion], amount: 20,
-    receipt: { legacyBookingId: 'booking_paid', price: 999, status: '已订' },
+    id: 'expense_paid', title: 'Paid ticket', payer, participants: [payer, companion], amount: 20,
+    receipt: { price: 999, status: '已订' },
   }, {
-    id: 'expense_pending', payer, participants: [payer, companion], amount: 0,
-    receipt: { legacyBookingId: 'booking_pending', price: 888, status: '待订' },
+    id: 'expense_pending', title: 'Pending ticket', payer, participants: [payer, companion], amount: 0,
+    receipt: { price: 888, status: '待订' },
   }];
-  trip.bookings = [
-    { id: 'booking_paid', payer, price: 20, status: '已订' },
-    { id: 'booking_pending', payer, price: 888, status: '待订' },
-  ];
 
   const plan = calculateTransfers(trip, grant);
   assert.equal(plan.advanced[grant.people[0].id], 2000);
   assert.equal(plan.owed[grant.people[0].id], 1000);
   assert.equal(plan.owed[grant.people[1].id], 1000);
   assert.deepEqual(plan.transfers.map(transfer => transfer.amountMinor), [1000]);
-});
-
-test('a legacy expense without an ID still contributes to personal totals', () => {
-  const db = claimLegacy(defaultDoc(), 'owner');
-  const trip = db.trips[0];
-  const grant = db.access[trip.id];
-  const [payer, companion] = trip.meta.members;
-  trip.expenses = [{ payer, participants: [payer, companion], amount: 2 }];
-
-  const owner = personalSettlement(trip, grant, { userId: 'owner' });
-  assert.equal(owner.advancedMinor, 200);
-  assert.equal(owner.owedMinor, 100);
-  assert.deepEqual(owner.expenseShares, [
-    { expenseId: '', amountMinor: 200, advancedMinor: 200, shareMinor: 100 },
-  ]);
 });

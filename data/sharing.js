@@ -5,7 +5,7 @@ const { canManage, canRead } = require('./access');
 const { AccessDeniedError } = require('./document-policy');
 const { personForPrincipal, personalSettlement } = require('./settlement');
 const { usernameKey } = require('./auth');
-const { AVATAR_CHOICES, COLOR_CHOICES, avatarKey, unusedAppearance, formalPerson, personForUser, ensureRoster, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences, rewritePersonReferences } = require('./people');
+const { AVATAR_CHOICES, COLOR_CHOICES, avatarKey, unusedAppearance, formalPerson, personForUser, syncTripRoster, publicRoster, uniquePerson, hasPersonReferences, rewritePersonReferences } = require('./people');
 
 function token() { return crypto.randomBytes(32).toString('base64url'); }
 function hash(value) { return crypto.createHash('sha256').update(String(value || '')).digest('hex'); }
@@ -96,7 +96,6 @@ function createSharing(auth, getDb, commit) {
       const next = structuredClone(current);
       const grant = next.access[tripId];
       const trip = next.trips.find(entry => entry.id === tripId);
-      ensureRoster(trip, grant);
       let person = personForUser(grant, user.id);
       if (!person) {
         const appearance = unusedAppearance(grant.people);
@@ -123,7 +122,7 @@ function createSharing(auth, getDb, commit) {
       const person = personForUser(grant, memberId);
       if (person) {
         if (hasPersonReferences(trip, person)) {
-          person.kind = 'legacy';
+          person.kind = 'unlinked';
           delete person.userId;
         } else grant.people = grant.people.filter(entry => entry.id !== person.id);
       }
@@ -147,7 +146,7 @@ function createSharing(auth, getDb, commit) {
       if (person.userId === grant.ownerId) throw new Error('不能移除旅行所有者');
       if (person.userId) delete grant.members[person.userId];
       if (hasPersonReferences(trip, person)) {
-        person.kind = 'legacy';
+        person.kind = 'unlinked';
         delete person.userId;
         delete person.tokenHash;
       } else grant.people = grant.people.filter(entry => entry.id !== personId);
@@ -228,7 +227,6 @@ function createSharing(auth, getDb, commit) {
       const next = structuredClone(current);
       const grant = next.access[tripId];
       const trip = next.trips.find(entry => entry.id === tripId);
-      ensureRoster(trip, grant);
       uniquePerson(grant, person);
       Object.assign(person, unusedAppearance(grant.people));
       grant.people.push(person);
@@ -271,7 +269,6 @@ function createSharing(auth, getDb, commit) {
         if (index < 0) continue;
         if (grant.ownerId !== userId) {
           const trip = next.trips.find(entry => entry.id === id);
-          ensureRoster(trip, grant);
           const user = auth.store.get().users.find(entry => entry.id === userId);
           if (!user) throw new Error('账号不存在');
           if (!personForUser(grant, userId)) {

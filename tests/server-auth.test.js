@@ -7,6 +7,7 @@ const path = require('node:path');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
 const sharp = require('sharp');
+const { defaultTrip } = require('../data/schema');
 
 async function freePort() {
   const server = net.createServer();
@@ -16,35 +17,38 @@ async function freePort() {
   return port;
 }
 
-async function waitFor(file) {
+async function waitForServer(origin) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
+    try {
+      const response = await fetch(`${origin}/api/data`);
+      if (response.status === 401) return;
+    } catch (_) {}
     await new Promise(resolve => setTimeout(resolve, 25));
   }
-  throw new Error(`Timed out waiting for ${file}`);
+  throw new Error('Timed out waiting for server');
 }
 
-test('the initial owner setup seals data and issues a CSRF-protected session', async () => {
+test('registration creates a private trip and issues a CSRF-protected session', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/server-auth-'));
   const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
-  const tokenFile = path.join(dir, 'setup-token');
   const child = spawn(process.execPath, ['server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), ITHACA_DATA_DIR: dir, ITHACA_SETUP_TOKEN_PATH: tokenFile, ITHACA_ORIGIN: origin },
+    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), ITHACA_DATA_DIR: dir, ITHACA_ORIGIN: origin },
     stdio: 'ignore',
   });
   try {
-    const token = await waitFor(tokenFile);
+    await waitForServer(origin);
     assert.equal((await fetch(`${origin}/api/data`)).status, 401);
-    const setup = await fetch(`${origin}/api/auth/setup`, {
+    const registration = await fetch(`${origin}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: origin },
-      body: JSON.stringify({ username: 'owner', password: 'a secure owner password', token }),
+      body: JSON.stringify({ username: 'owner', password: 'a secure owner password' }),
     });
-    assert.equal(setup.status, 200);
-    const cookie = setup.headers.get('set-cookie').split(';')[0];
-    const { csrf } = await setup.json();
+    assert.equal(registration.status, 200);
+    const cookie = registration.headers.get('set-cookie').split(';')[0];
+    const { csrf } = await registration.json();
+    assert.equal((await fetch(`${origin}/api/auth/setup`, { method: 'POST' })).status, 404);
     const profilePath = `${origin}/api/auth/profile`;
     const profileBody = JSON.stringify({ displayName: 'Owner Name' });
     assert.equal((await fetch(profilePath, {
@@ -56,9 +60,16 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     assert.equal(profile.status, 200);
     assert.equal((await profile.json()).user.displayName, 'Owner Name');
     assert.equal((await (await fetch(`${origin}/api/auth/me`, { headers: { Cookie: cookie } })).json()).user.displayName, 'Owner Name');
-    const data = await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } });
-    assert.equal(data.status, 200);
-    const ownerData = await data.json();
+    const initial = await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json();
+    assert.equal(initial.trips.length, 0);
+    initial.trips.push(defaultTrip());
+    const created = await fetch(`${origin}/api/data`, {
+      method: 'PUT',
+      headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baseVersion: initial.meta.version, data: initial }),
+    });
+    assert.equal(created.status, 200);
+    const ownerData = (await created.json()).data;
     assert.equal(ownerData.trips.length, 1);
     assert.ok(ownerData.appearanceChoices.avatars.length > 1);
     assert.ok(ownerData.appearanceChoices.colors.length > 1);
@@ -167,7 +178,7 @@ test('the initial owner setup seals data and issues a CSRF-protected session', a
     })).status, 200);
     assert.equal((await (await fetch(`${origin}/api/data`, { headers: { Cookie: tempCookie } })).json()).rosters[tripId].find(person => person.id === temporary.person.id).displayName, 'Temp');
     const settlementDoc = await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json();
-    settlementDoc.trips[0].expenses.push({ id: 'expense_settlement', payer: settlementDoc.trips[0].meta.members[0],
+    settlementDoc.trips[0].expenses.push({ id: 'expense_settlement', title: 'Shared expense', payer: settlementDoc.trips[0].meta.members[0],
       participants: [settlementDoc.trips[0].meta.members[0], temporary.person.name], amount: 10 });
     const settlementSave = await fetch(`${origin}/api/data`, {
       method: 'PUT', headers: { Cookie: cookie, Origin: origin, 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },

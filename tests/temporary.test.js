@@ -5,25 +5,27 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createAuth } = require('../data/auth');
-const { defaultDoc, defaultTrip } = require('../data/schema');
-const { claimLegacy, roleFor } = require('../data/access');
+const { roleFor } = require('../data/access');
 const { createSharing } = require('../data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('../data/document-policy');
+const { ownedDoc } = require('./fixtures');
 
 test('temporary identity sees one trip and can only change own records', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/temporary-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const owner = await auth.register('owner', 'owner private password');
-    let db = claimLegacy(defaultDoc(), owner.id);
+    let db = ownedDoc(owner.id, owner.username);
     const tripId = db.trips[0].id;
-    db.trips[0].expenses.push({ id: 'owner_expense', title: 'Owner', authorId: db.access[tripId].people[0].id });
+    db.trips[0].expenses.push({ id: 'owner_expense', title: 'Owner', amount: 0,
+      payer: owner.username, participants: [owner.username], authorId: db.access[tripId].people[0].id });
     db.trips[0].itinerary.push({ id: 'owner_day', date: '2026-09-25', authorId: db.access[tripId].people[0].id, items: [
       { id: 'owner_item', title: 'Owner item', authorId: db.access[tripId].people[0].id },
     ] });
-    const hidden = defaultTrip();
+    const hiddenDoc = ownedDoc('other');
+    const hidden = hiddenDoc.trips[0];
     db.trips.push(hidden);
-    db.access[hidden.id] = { ownerId: 'other', members: {}, invites: [], share: null, people: [] };
+    db.access[hidden.id] = hiddenDoc.access[hidden.id];
     const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
     const created = await sharing.createTemporary(tripId, owner.id, '访客');
     assert.equal(JSON.stringify(db).includes(created.token), false);
@@ -33,9 +35,11 @@ test('temporary identity sees one trip and can only change own records', async (
     const view = project(db, principal);
     assert.deepEqual(view.trips.map(trip => trip.id), [tripId]);
     assert.equal(JSON.stringify(view).includes('tokenHash'), false);
-    view.trips[0].expenses.push({ id: 'temporary_expense', title: 'Mine' });
+    view.trips[0].expenses.push({ id: 'temporary_expense', title: 'Mine', amount: 0,
+      payer: created.person.name, participants: [created.person.name] });
     view.trips[0].itinerary[0].items.push({ id: 'temporary_item', title: 'Mine' });
-    view.trips[0].expenses.push({ id: 'temporary_receipt_to_remove', title: 'Remove', itemId: 'temporary_entry_to_remove' });
+    view.trips[0].expenses.push({ id: 'temporary_receipt_to_remove', title: 'Remove', amount: 0,
+      payer: created.person.name, participants: [created.person.name], itemId: 'temporary_entry_to_remove' });
     view.trips[0].itinerary[0].items.push({ id: 'temporary_entry_to_remove', title: 'Remove', expenseId: 'temporary_receipt_to_remove' });
     db = updateDocument(db, principal, view);
     assert.equal(db.trips[0].expenses[1].authorId, principal.tempPersonId);
@@ -90,9 +94,9 @@ test('temporary identity sees one trip and can only change own records', async (
 test('temporary member can remove the last own expense from another member’s generated day', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/temporary-generated-day-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const owner = await auth.register('owner', 'owner private password');
-    let db = claimLegacy(defaultDoc(), owner.id);
+    let db = ownedDoc(owner.id, owner.username);
     const tripId = db.trips[0].id;
     const ownerPersonId = db.access[tripId].people[0].id;
     db.trips[0].itinerary.push({
@@ -105,7 +109,8 @@ test('temporary member can remove the last own expense from another member’s g
     const principal = sharing.resolveTemporary(created.token);
     const added = project(db, principal);
     added.trips[0].expenses.push({
-      id: 'temporary_expense', title: 'Mine', itemId: 'temporary_item',
+      id: 'temporary_expense', title: 'Mine', amount: 0, payer: created.person.name,
+      participants: [created.person.name], itemId: 'temporary_item',
     });
     added.trips[0].itinerary[0].items.push({
       id: 'temporary_item', title: 'Mine', expenseId: 'temporary_expense',
@@ -134,19 +139,20 @@ test('temporary member can remove the last own expense from another member’s g
 test('replacing a member transfers references and revokes the old link', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/replacement-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const owner = await auth.register('owner', 'owner private password');
     const formal = await auth.register('formal', 'formal private password');
-    let db = claimLegacy(defaultDoc(), owner.id);
+    let db = ownedDoc(owner.id, owner.username);
     const tripId = db.trips[0].id;
     const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
     const temporary = await sharing.createTemporary(tripId, owner.id, '旅伴');
-    db.trips[0].expenses.push({ id: 'exp_1', payer: '旅伴', participants: ['旅伴', '我'], authorId: temporary.person.id });
+    db.trips[0].expenses.push({ id: 'exp_1', title: 'Shared ticket', amount: 0, payer: '旅伴',
+      participants: ['旅伴', owner.username], authorId: temporary.person.id });
     await sharing.replacePerson(tripId, owner.id, temporary.person.id, { kind: 'formal', username: formal.username });
     assert.equal(sharing.resolveTemporary(temporary.token), null);
     assert.equal(roleFor(db, { userId: formal.id }, tripId), 'editor');
     assert.equal(db.trips[0].expenses[0].payer, formal.username);
-    assert.deepEqual(db.trips[0].expenses[0].participants, [formal.username, '我']);
+    assert.deepEqual(db.trips[0].expenses[0].participants, [formal.username, owner.username]);
     assert.equal(db.trips[0].expenses[0].authorId, `person_user_${formal.id}`);
     await assert.rejects(sharing.replacePerson(tripId, owner.id, db.access[tripId].people[1].id, { kind: 'formal', username: owner.username }), /不能替换旅行所有者|这名成员已在旅行中/);
 

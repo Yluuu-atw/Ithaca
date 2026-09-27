@@ -8,6 +8,7 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const sharp = require('sharp');
 const { extractImageDraft, normalizeDraft, RecognitionError } = require('../data/ai-recognition');
+const { defaultTrip } = require('../data/schema');
 
 async function sampleImage() {
   return sharp({ create: { width: 2400, height: 1200, channels: 3, background: '#ffffff' } }).png().toBuffer();
@@ -100,34 +101,43 @@ async function freePort() {
   return port;
 }
 
-async function waitFor(file) {
+async function waitForServer(origin) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim();
+    try {
+      const response = await fetch(`${origin}/api/data`);
+      if (response.status === 401) return;
+    } catch (_) {}
     await new Promise(resolve => setTimeout(resolve, 25));
   }
-  throw new Error(`Timed out waiting for ${file}`);
+  throw new Error('Timed out waiting for server');
 }
 
 test('recognition route checks login, CSRF and trip edit rights before processing', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/ai-auth-'));
   const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
-  const tokenFile = path.join(dir, 'setup-token');
   const child = spawn(process.execPath, ['server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, ARK_API_KEY: '', HOST: '127.0.0.1', PORT: String(port), ITHACA_DATA_DIR: dir, ITHACA_SETUP_TOKEN_PATH: tokenFile, ITHACA_ORIGIN: origin },
+    env: { ...process.env, ARK_API_KEY: '', HOST: '127.0.0.1', PORT: String(port), ITHACA_DATA_DIR: dir, ITHACA_ORIGIN: origin },
     stdio: 'ignore',
   });
   try {
-    const token = await waitFor(tokenFile);
-    const setup = await fetch(`${origin}/api/auth/setup`, {
+    await waitForServer(origin);
+    const registration = await fetch(`${origin}/api/auth/register`, {
       method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'owner', password: 'a secure owner password', token }),
+      body: JSON.stringify({ username: 'owner', password: 'a secure owner password' }),
     });
-    assert.equal(setup.status, 200);
-    const ownerCookie = setup.headers.get('set-cookie').split(';')[0];
-    const ownerCsrf = (await setup.json()).csrf;
-    const tripId = (await (await fetch(`${origin}/api/data`, { headers: { Cookie: ownerCookie } })).json()).trips[0].id;
+    assert.equal(registration.status, 200);
+    const ownerCookie = registration.headers.get('set-cookie').split(';')[0];
+    const ownerCsrf = (await registration.json()).csrf;
+    const initial = await (await fetch(`${origin}/api/data`, { headers: { Cookie: ownerCookie } })).json();
+    initial.trips.push(defaultTrip());
+    const created = await fetch(`${origin}/api/data`, {
+      method: 'PUT', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: ownerCookie, 'X-CSRF-Token': ownerCsrf },
+      body: JSON.stringify({ baseVersion: initial.meta.version, data: initial }),
+    });
+    assert.equal(created.status, 200);
+    const tripId = (await created.json()).data.trips[0].id;
     const endpoint = `${origin}/api/ai/extract?kind=expense&tripId=${tripId}`;
     const bytes = await sampleImage();
     const headers = { Origin: origin, 'Content-Type': 'image/png', Cookie: ownerCookie, 'X-CSRF-Token': ownerCsrf };
@@ -153,7 +163,6 @@ test('recognition route checks login, CSRF and trip edit rights before processin
     assert.equal((await fetch(endpoint, { method: 'POST', headers: { ...headers, Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: bytes })).status, 403);
     assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: JSON.stringify({ tripId, query: 'Cafe' }) })).status, 403);
     const after = await (await fetch(`${origin}/api/data`, { headers: { Cookie: ownerCookie } })).json();
-    assert.equal(after.trips[0].bookings.length, 0);
     assert.equal(after.trips[0].expenses.length, 0);
   } finally {
     child.kill();

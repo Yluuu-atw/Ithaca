@@ -20,9 +20,8 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const sharp = require('sharp');
-const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
-const { migrateLegacyBookings } = require('./data/booking-migration');
-const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
+const { validateStoredDoc, defaultDoc, defaultProfile, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
+const { canEdit, canReadAsset, uploadNames } = require('./data/access');
 const { createAuth, SESSION_DAYS } = require('./data/auth');
 const { createPasskeys } = require('./data/passkeys');
 const { createSharing } = require('./data/sharing');
@@ -39,7 +38,6 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const THUMB_DIR = path.join(DATA_DIR, 'thumbs');
 const AUTH_PATH = path.join(DATA_DIR, 'auth.json');
-const SETUP_TOKEN_PATH = process.env.ITHACA_SETUP_TOKEN_PATH || path.join(__dirname, '.local', 'setup-token');
 const ORIGIN = process.env.ITHACA_ORIGIN || `http://localhost:${PORT}`;
 const COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_sid' : 'ithaca_sid';
 const SHARE_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_share' : 'ithaca_share';
@@ -49,31 +47,11 @@ const TEMP_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_temporar
 
 function loadDb() {
   if (!fs.existsSync(DB_PATH)) return defaultDoc();
-  let loaded;
-  try {
-    loaded = normalize(JSON.parse(fs.readFileSync(DB_PATH, 'utf8')));
-  } catch (err) {
-    console.error('[db] 数据文件损坏，已回退到默认值:', err.message);
-    return defaultDoc();
-  }
-  const migrated = migrateLegacyBookings(loaded);
-  if (!migrated.changed) return loaded;
-  migrated.doc.meta.version = loaded.meta.version + 1;
-  migrated.doc.meta.updatedAt = new Date().toISOString();
-  const temporary = `${DB_PATH}.${process.pid}.migration.tmp`;
-  try {
-    fs.writeFileSync(temporary, JSON.stringify(migrated.doc, null, 2), 'utf8');
-    fs.chmodSync(temporary, 0o600);
-    fs.renameSync(temporary, DB_PATH);
-  } finally {
-    fs.rmSync(temporary, { force: true });
-  }
-  console.log(`[db] 已合并旧票据：关联 ${migrated.stats.linked} 条，零金额记录 ${migrated.stats.referenceOnly} 条`);
-  return migrated.doc;
+  return validateStoredDoc(JSON.parse(fs.readFileSync(DB_PATH, 'utf8')));
 }
 
 let db = loadDb();
-const auth = createAuth(AUTH_PATH, SETUP_TOKEN_PATH);
+const auth = createAuth(AUTH_PATH);
 const passkeys = createPasskeys(auth, ORIGIN);
 const sharing = createSharing(auth, () => db, commit);
 const placeSearch = createPlaceSearch();
@@ -124,6 +102,7 @@ function commit(mutateFn, baseVersion) {
     const previous = db;
     const next = mutateFn(db);
     next.meta.updatedAt = new Date().toISOString();
+    validateStoredDoc(next);
     db = next;
     try {
       await writeDb(db);
@@ -380,7 +359,9 @@ async function handleAuth(req, res, pathname) {
       return sendJSON(res, 400, { error: error.message });
     }
   }
-  if (!['/api/auth/register', '/api/auth/login', '/api/auth/logout', '/api/auth/setup'].includes(pathname)) return false;
+  if (!['/api/auth/register', '/api/auth/login', '/api/auth/logout'].includes(pathname)) {
+    return sendJSON(res, 404, { error: '接口不存在' });
+  }
   if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
   if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
   if (limited(req, pathname, pathname === '/api/auth/login' ? 20 : 8, 15 * 60 * 1000)) {
@@ -398,16 +379,6 @@ async function handleAuth(req, res, pathname) {
     let user;
     if (pathname === '/api/auth/register') user = await auth.register(body.username, body.password);
     if (pathname === '/api/auth/login') user = await auth.login(body.username, body.password);
-    if (pathname === '/api/auth/setup') {
-      if (!db.trips.some(trip => !db.access[trip.id])) return sendJSON(res, 409, { error: '初始设置已完成' });
-      user = await auth.setup(body.username, body.password, body.token);
-      await commit(current => {
-        const next = claimLegacy(current, user.id);
-        next.meta.version = current.meta.version + 1;
-        return next;
-      });
-      await auth.finishSetup(user.id);
-    }
     const session = await auth.createSession(user.id);
     return sendJSON(res, 200, { user, csrf: session.csrf }, { 'Set-Cookie': sessionCookie(session.token, SESSION_DAYS * 24 * 60 * 60) });
   } catch (error) {
@@ -871,9 +842,8 @@ async function handleApi(req, res, pathname, principal) {
       // 乐观并发控制：校验版本、更新内存、落盘作为一个原子步骤串行执行
       const saved = await commit((cur) => {
         const next = updateDocument(cur, principal, payload.data);
-        const merged = migrateLegacyBookings(next).doc;
-        merged.meta.version = cur.meta.version + 1;
-        return merged;
+        next.meta.version = cur.meta.version + 1;
+        return next;
       }, baseVersion);
       return sendJSON(res, 200, { data: projectFor(saved, principal), version: saved.meta.version });
     } catch (err) {
@@ -903,13 +873,17 @@ async function handleApi(req, res, pathname, principal) {
       const tripIds = new Map();
       const trips = [];
       for (const source of incoming.trips) {
+        if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('导入旅行格式无效');
+        if (Object.hasOwn(source, 'bookings') || (source.expenses || []).some(expense =>
+          Object.hasOwn(expense, 'split') || !Array.isArray(expense.participants))) {
+          throw new Error('导入文件包含不再支持的旅行结构');
+        }
         const trip = normalizeTrip(source);
         const person = formalPerson(principal.userId, principal.username || principal.userId);
         assignAuthors(trip, person.id);
-        const migrated = migrateLegacyBookings({ trips: [trip] }).doc.trips[0];
         const nextId = uid('trip');
         tripIds.set(trip.id, nextId);
-        const result = await copyReferencedUploads(migrated, principal);
+        const result = await copyReferencedUploads(trip, principal);
         copied.push(...result.copies.map(copy => ({ ...copy, tripId: nextId })));
         result.value.id = nextId;
         trips.push(result.value);
@@ -945,9 +919,7 @@ async function handleApi(req, res, pathname, principal) {
             createdAt: new Date().toISOString(),
           };
         }
-        const profile = next.profiles[principal.userId] || {
-          welcomeTheme: '#f2ece0', memos: [], packingTemplates: defaultDoc().packingTemplates,
-        };
+        const profile = next.profiles[principal.userId] || defaultProfile();
         profile.memos.push(...memos);
         profile.packingTemplates.push(...templates);
         next.profiles[principal.userId] = profile;
@@ -996,10 +968,6 @@ const server = http.createServer((req, res) => {
 });
 
 async function start() {
-  if (db.trips.some(trip => !db.access[trip.id])) {
-    await auth.prepareSetup();
-    console.log(`[auth] 初始设置链接令牌已写入 ${SETUP_TOKEN_PATH}`);
-  }
   server.listen(PORT, HOST, () => {
   const addrs = [];
   for (const ifaces of Object.values(os.networkInterfaces())) {

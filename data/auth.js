@@ -1,14 +1,11 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const fs = require('node:fs');
-const path = require('node:path');
 const { createAuthStore } = require('./auth-store');
 
 const configuredDays = Number(process.env.ITHACA_SESSION_DAYS || 30);
 const SESSION_DAYS = Number.isInteger(configuredDays) && configuredDays >= 1 && configuredDays <= 90 ? configuredDays : 30;
 const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
-const SETUP_MS = 24 * 60 * 60 * 1000;
 const SCRYPT_OPTIONS = { N: 1 << 15, r: 8, p: 3, maxmem: 64 * 1024 * 1024 };
 
 function digest(value) {
@@ -65,53 +62,23 @@ function publicUser(user) {
     passkeys: (user.passkeys || []).map(({ id, label, createdAt }) => ({ id, label, createdAt })) };
 }
 
-function createAuth(file, setupFile) {
+function createAuth(file) {
   const store = createAuthStore(file);
-  const setupPath = setupFile || path.join(path.dirname(file), '..', '.local', 'setup-token');
 
-  async function createUser(username, password, setupToken) {
+  async function register(username, password) {
     const { name, key } = usernameKey(username);
     const secret = await passwordRecord(password);
     let user;
     await store.mutate(state => {
       if (state.users.some(candidate => candidate.usernameKey === key)) throw new Error('用户名已存在');
-      if (setupToken) {
-        if (!state.setup || state.setup.hash !== digest(setupToken) || state.setup.expiresAt < Date.now()) {
-          throw new Error('设置链接无效或已过期');
-        }
-        if (state.setup.pendingOwnerId) throw new Error('初始账号设置正在完成');
-      }
       user = {
         id: crypto.randomUUID(), username: name, usernameKey: key,
         displayName: name, password: secret, passkeys: [],
         createdAt: new Date().toISOString(),
       };
       state.users.push(user);
-      if (setupToken) state.setup.pendingOwnerId = user.id;
     });
     return publicUser(user);
-  }
-
-  async function register(username, password) {
-    return createUser(username, password, null);
-  }
-
-  async function setup(username, password, token) {
-    const state = store.get();
-    if (state.setup && state.setup.hash === digest(token) && state.setup.pendingOwnerId) {
-      const user = await login(username, password);
-      if (user.id !== state.setup.pendingOwnerId) throw new Error('设置链接无效或已过期');
-      return user;
-    }
-    return createUser(username, password, token);
-  }
-
-  async function finishSetup(userId) {
-    await store.mutate(state => {
-      if (!state.setup || state.setup.pendingOwnerId !== userId) throw new Error('初始账号设置状态不一致');
-      state.setup = null;
-    });
-    await fs.promises.rm(setupPath, { force: true });
   }
 
   async function login(username, password) {
@@ -160,20 +127,7 @@ function createAuth(file, setupFile) {
     await store.mutate(state => { state.sessions = state.sessions.filter(entry => entry.hash !== digest(token)); });
   }
 
-  async function prepareSetup() {
-    const state = store.get();
-    if (state.setup && state.setup.expiresAt > Date.now() && fs.existsSync(setupPath)) {
-      const existing = fs.readFileSync(setupPath, 'utf8').trim();
-      if (digest(existing) === state.setup.hash) return existing;
-    }
-    const token = randomToken();
-    await store.mutate(next => { next.setup = { hash: digest(token), expiresAt: Date.now() + SETUP_MS }; });
-    await fs.promises.mkdir(path.dirname(setupPath), { recursive: true });
-    await fs.promises.writeFile(setupPath, `${token}\n`, { mode: 0o600 });
-    return token;
-  }
-
-  return { store, register, setup, finishSetup, login, updateDisplayName, createSession, resolve, logout, prepareSetup };
+  return { store, register, login, updateDisplayName, createSession, resolve, logout };
 }
 
 module.exports = { createAuth, digest, publicUser, usernameKey, passwordRecord, verifyPassword, SESSION_DAYS };

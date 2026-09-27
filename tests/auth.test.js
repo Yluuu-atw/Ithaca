@@ -5,11 +5,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createAuth } = require('../data/auth');
+const { readAuth } = require('../data/auth-store');
 
 test('registration, password login, session expiry and logout use stored hashes', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/auth-flow-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const user = await auth.register('Traveler', 'a long private password');
     assert.equal(user.username, 'Traveler');
     assert.equal((await auth.login('traveler', 'a long private password')).id, user.id);
@@ -19,6 +20,7 @@ test('registration, password login, session expiry and logout use stored hashes'
     assert.equal(auth.resolve(token).user.id, user.id);
     assert.ok(csrf.length >= 32);
     const serialized = fs.readFileSync(path.join(dir, 'auth.json'), 'utf8');
+    assert.deepEqual(Object.keys(JSON.parse(serialized)).sort(), ['sessions', 'users']);
     assert.equal(serialized.includes(token), false);
     assert.equal(serialized.includes('a long private password'), false);
     await auth.logout(token);
@@ -28,18 +30,24 @@ test('registration, password login, session expiry and logout use stored hashes'
   }
 });
 
-test('an unrelated registrant cannot claim legacy trips without the operator token', async () => {
-  const dir = fs.mkdtempSync(path.join(__dirname, '../.local/setup-flow-'));
+test('auth store rejects legacy setup fields and malformed current state', () => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '../.local/auth-schema-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
-    const setupToken = await auth.prepareSetup();
-    await auth.register('visitor', 'a visitor password');
-    await assert.rejects(auth.setup('owner', 'an owner password', 'invalid'), /设置链接无效/);
-    const owner = await auth.setup('owner', 'an owner password', setupToken);
-    assert.equal(owner.username, 'owner');
-    assert.equal((await auth.setup('owner', 'an owner password', setupToken)).id, owner.id);
-    await auth.finishSetup(owner.id);
-    await assert.rejects(auth.setup('other', 'another long password', setupToken), /设置链接无效/);
+    const file = path.join(dir, 'auth.json');
+    const invalid = [
+      { version: 1, users: [], sessions: [] },
+      { users: [], sessions: [], setup: null },
+      { users: {}, sessions: [] },
+      { users: [], sessions: null },
+      { users: [null], sessions: [] },
+      { users: [], sessions: [null] },
+    ];
+    for (const value of invalid) {
+      fs.writeFileSync(file, JSON.stringify(value));
+      assert.throws(() => readAuth(file), /Invalid auth store/);
+    }
+    fs.writeFileSync(file, JSON.stringify({ users: [], sessions: [] }));
+    assert.deepEqual(readAuth(file), { users: [], sessions: [] });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

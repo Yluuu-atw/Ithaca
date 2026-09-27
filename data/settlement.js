@@ -26,9 +26,7 @@ function expenseAllocation(expense, people, byName) {
   const owed = Object.fromEntries(people.map(person => [person.id, 0]));
   if (amountMinor) {
     const payer = byName.get(expense.payer || people[0] && people[0].name);
-    const participants = Array.isArray(expense.participants)
-      ? [...new Set(expense.participants)].map(name => byName.get(name)).filter(Boolean)
-      : expense.split === '单方' && payer ? [payer] : people;
+    const participants = [...new Set(expense.participants)].map(name => byName.get(name)).filter(Boolean);
     const payers = payer ? [payer] : people;
     const debtors = participants.length ? participants : people;
     allocate(amountMinor, payers, advanced, 1);

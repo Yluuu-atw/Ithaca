@@ -4,7 +4,6 @@ window.AuthUI = (() => {
   let currentUser = null;
   let currentTemporary = null;
   let csrf = '';
-  let setupToken = '';
   let inviteToken = '';
   let linkError = '';
   let loginStep = 'account';
@@ -52,20 +51,17 @@ window.AuthUI = (() => {
   }
 
   function show(mode) {
-    const setup = !!setupToken;
-    const register = mode === 'register' || setup;
+    const register = mode === 'register';
     document.getElementById('authGate').hidden = false;
-    document.getElementById('authTitle').textContent = setup ? '设置旅行所有者账号' : register ? '注册九州 ITHACA' : '登录九州 ITHACA';
-    document.getElementById('authHint').textContent = setup
-      ? '此链接用于认领现有旅行。请设置至少 12 位密码。'
-      : inviteToken ? '先登录或注册，再加入受邀旅行。' : '登录后查看和管理你的旅行。';
+    document.getElementById('authTitle').textContent = register ? '注册九州 ITHACA' : '登录九州 ITHACA';
+    document.getElementById('authHint').textContent = inviteToken ? '先登录或注册，再加入受邀旅行。' : '登录后查看和管理你的旅行。';
     loginStep = register ? 'password' : 'account';
     hasPasskey = false;
     document.getElementById('authSubmit').textContent = register ? '创建账号' : '继续';
     document.getElementById('authPasswordRow').hidden = !register;
     document.getElementById('passkeyLogin').hidden = true;
     document.getElementById('authBack').hidden = true;
-    document.getElementById('authSwitch').hidden = setup;
+    document.getElementById('authSwitch').hidden = false;
     document.getElementById('authSwitch').textContent = register ? '已有账号？登录' : '没有账号？注册';
     document.getElementById('authForm').dataset.mode = register ? 'register' : 'login';
     const password = document.querySelector('#authForm [name=password]');
@@ -91,7 +87,6 @@ window.AuthUI = (() => {
 
   function finishLogin(session, complete) {
     setSession(session);
-    setupToken = '';
     return request('/api/temporary/leave', 'POST', {}).catch(() => {}).then(() => finishInvitation()).then(() => {
       document.getElementById('authGate').hidden = true;
       complete(session);
@@ -131,11 +126,11 @@ window.AuthUI = (() => {
     const values = new FormData(form);
     const username = String(values.get('username') || '').trim();
     const password = String(values.get('password') || '');
-    const endpoint = setupToken ? '/api/auth/setup' : form.dataset.mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const endpoint = form.dataset.mode === 'register' ? '/api/auth/register' : '/api/auth/login';
     button.disabled = true;
     errorText('');
     try {
-      const session = await request(endpoint, 'POST', { username, password, ...(setupToken ? { token: setupToken } : {}) });
+      const session = await request(endpoint, 'POST', { username, password });
       await finishLogin(session, complete);
     } catch (error) {
       errorText(error.message);
@@ -150,7 +145,6 @@ window.AuthUI = (() => {
 
   async function start() {
     const fragment = new URLSearchParams(location.hash.replace(/^#/, ''));
-    setupToken = fragment.get('setup') || '';
     inviteToken = fragment.get('invite') || '';
     const shareToken = fragment.get('share') || '';
     const temporaryToken = fragment.get('temporary') || '';
@@ -183,13 +177,11 @@ window.AuthUI = (() => {
         setTemporary(temporary);
         return temporary;
       } catch (_) { /* Continue with read-only sharing or account login. */ }
-      if (shareToken || !setupToken) {
-        const shared = await fetch('/api/data');
-        if (shared.ok) return { user: null, csrf: '' };
-      }
+      const shared = await fetch('/api/data');
+      if (shared.ok) return { user: null, csrf: '' };
     }
     return new Promise(resolve => {
-      show(setupToken ? 'register' : 'login');
+      show('login');
       try { document.querySelector('#authForm [name=username]').value = localStorage.getItem('ithaca.lastUsername') || ''; } catch (_) {}
       document.getElementById('authForm').addEventListener('submit', event => submit(event, resolve));
       document.getElementById('passkeyLogin').addEventListener('click', () => passkeyLogin(resolve));

@@ -17,7 +17,6 @@
  *     tracks    足迹：GPX 导入的轨迹
  *     photos    照片：旅行照片（手帐墙）
  *     places    攻略：要订的酒店/餐厅/景点
- *     bookings  Legacy reservation import input; emptied after ledger migration
  *     guides    攻略笔记：小红书等外部收藏
  */
 
@@ -26,8 +25,6 @@ const CATEGORIES = {
   expense: ['餐饮', '交通', '住宿', '门票', '购物', '娱乐', '其他'],
   checklist: ['证件', '衣物', '洗漱', '电子', '药品', '其他'],
 };
-const { ensureRoster } = require('./people');
-
 // 行程条目的二级分类：选完一级才显示对应的子类。空数组表示该大类不拆分。
 const SUB_CATEGORIES = {
   '交通': ['飞机', '高铁', '火车', '轮船', '长途汽车', '地铁', '公交', '出租车', '自驾', '步行'],
@@ -42,7 +39,6 @@ const ITEM_TO_EXPENSE_CATEGORY = {
   '交通': '交通', '餐饮': '餐饮', '住宿': '住宿', '购物': '购物', '景点': '门票', '其他': '其他',
 };
 
-const SPLIT_OPTIONS = ['均摊', '单方'];
 const PRIORITIES = ['高', '中', '低'];
 const WISH_STATUS = ['想去', '排入行程', '已完成'];
 const PLACE_CATEGORIES = ['住宿', '餐饮', '景点', '交通', '购物', '娱乐', '其他'];
@@ -187,9 +183,9 @@ function defaultTrip() {
       startDate: '',
       endDate: '',
       currency: 'CNY',
-      members: ['我', '她'],
-      avatars: ['😎', '🥰'],   // 与 members 一一对应
-      colors: ['#e6a877', '#6f9e8f'],   // 与 members 一一对应，用于按付款人区分
+      members: [],
+      avatars: [],   // 与 members 一一对应
+      colors: [],   // 与 members 一一对应，用于按付款人区分
       archived: false,
       packingTypes: [],   // 本趟用到的打包模板 id，候选池取并集；空则只显示「通用」
     },
@@ -200,7 +196,6 @@ function defaultTrip() {
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
     photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
     places: [],    // [{ id, name, category, location, lat, lng, date, note, status, cost, link }]
-    bookings: [],  // Legacy import input; the receipt fields live on expenses after migration.
     guides: [],    // [{ id, title, link, cover, tags: [], note }] 攻略笔记（小红书等外部收藏）
   };
 }
@@ -238,40 +233,68 @@ function normalizeTemplate(raw) {
   };
 }
 
-// 文档级元信息：乐观并发 + 首页背景色（首页与每趟旅行各存各的，互不影响）
 const DEFAULT_WELCOME_THEME = '#f2ece0';
+function defaultPackingTemplates() {
+  return PACKING_TEMPLATES.map(template => ({
+    id: template.id, name: template.name, icon: template.icon,
+    items: template.items.map(item => ({ name: item.name, category: item.category })),
+  }));
+}
+
+function defaultProfile() {
+  return { welcomeTheme: DEFAULT_WELCOME_THEME, memos: [], packingTemplates: defaultPackingTemplates() };
+}
+
+// Document metadata is used only for optimistic concurrency.
 function defaultDoc() {
   return {
-    meta: { version: 1, updatedAt: new Date().toISOString(), welcomeTheme: DEFAULT_WELCOME_THEME },
-    trips: [defaultTrip()],
-    memos: [],
+    meta: { version: 1, updatedAt: new Date().toISOString() },
+    trips: [],
     access: {},
     assets: {},
     profiles: {},
-    packingTemplates: PACKING_TEMPLATES.map(t => ({
-      id: t.id, name: t.name, icon: t.icon,
-      items: t.items.map(i => ({ name: i.name, category: i.category })),
-    })),
   };
 }
 
-// 一趟旅行的集合字段，迁移与归一化都要用
-const TRIP_LISTS = ['itinerary', 'expenses', 'checklist', 'wishlist', 'tracks', 'photos', 'places', 'bookings', 'guides'];
-
-// 未知字段的一次性告警：同一个 key 只提示一次，避免每次请求刷屏
-const warnedUnknown = new Set();
+const TRIP_LISTS = ['itinerary', 'expenses', 'checklist', 'wishlist', 'tracks', 'photos', 'places', 'guides'];
+const RECEIPT_FIELDS = new Set([
+  'type', 'status', 'date', 'time', 'from', 'to', 'endDate', 'endTime',
+  'carrier', 'seat', 'refNo', 'link', 'price', 'images', 'needsReview',
+]);
 
 // 归一化一趟旅行：meta 补默认值，集合字段确保是数组，未知字段原样保留
 function normalizeTrip(raw) {
+  if (!isRecord(raw) || !isRecord(raw.meta)) throw new Error('旅行格式无效');
+  if (Object.hasOwn(raw, 'bookings')) throw new Error('旅行包含旧预订字段');
+  if (raw.itinerary !== undefined && !Array.isArray(raw.itinerary)) throw new Error('行程格式无效');
+  if (raw.expenses !== undefined && !Array.isArray(raw.expenses)) throw new Error('账单格式无效');
+  for (const key of ['theme', 'version', 'updatedAt']) {
+    if (Object.hasOwn(raw.meta, key)) throw new Error(`旅行包含旧字段 meta.${key}`);
+  }
+  for (const day of raw.itinerary || []) {
+    for (const item of day && day.items || []) {
+      if (item && Object.hasOwn(item, 'estimatedCost')) throw new Error('行程包含旧费用字段');
+    }
+  }
+  for (const expense of raw.expenses || []) {
+    if (!isRecord(expense) || typeof expense.title !== 'string' || !Array.isArray(expense.participants)) {
+      throw new Error('账单格式无效');
+    }
+    if (Object.hasOwn(expense, 'split')) throw new Error('账单包含旧分摊字段');
+    if (expense.receipt !== undefined && expense.receipt !== null) {
+      if (!isRecord(expense.receipt)) throw new Error('票据格式无效');
+      for (const key of Object.keys(expense.receipt)) {
+        if (!RECEIPT_FIELDS.has(key)) throw new Error(`票据包含无效字段 ${key}`);
+      }
+    }
+  }
   const t = defaultTrip();
-  const src = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : {};
+  const src = raw;
 
   t.id = typeof src.id === 'string' && src.id ? src.id : t.id;
   t.meta = Object.assign(t.meta, src.meta || {});
   t.meta.tripName = String(t.meta.tripName || '我们的旅行');
-  if (!Array.isArray(t.meta.members) || t.meta.members.length === 0) {
-    t.meta.members = ['我', '她'];
-  }
+  if (!Array.isArray(t.meta.members)) t.meta.members = [];
   // 头像必须与成员一一对应：缺的补默认，多的截掉
   const DEFAULT_AVATARS = ['😎', '🥰', '🐻', '🐱'];
   const av = Array.isArray(t.meta.avatars) ? t.meta.avatars : [];
@@ -288,127 +311,218 @@ function normalizeTrip(raw) {
 
   for (const k of TRIP_LISTS) t[k] = Array.isArray(src[k]) ? src[k] : [];
 
-  // 行程条目的 estimatedCost 改名为 amount，与记账同名，两边同步就不再是「翻译」。
-  // 一次性迁移，改完即删旧字段，前端永远只看到 amount。
-  for (const day of t.itinerary) {
-    for (const it of ((day && day.items) || [])) {
-      if (it && it.estimatedCost !== undefined) {
-        if (it.amount === undefined) it.amount = it.estimatedCost;
-        delete it.estimatedCost;
-      }
-    }
-  }
-
-  // 记账早先只有一个 note，它实际充当「名称」（列表拿它当标题）。
-  // 改名为 title 与行程条目同名，另留 note 作备注，两边同步变纯复制。
-  for (const ex of t.expenses) {
-    if (ex && ex.title === undefined && ex.note !== undefined) {
-      ex.title = ex.note;
-      ex.note = '';
-    }
-  }
-
   return Object.assign({}, src, t);
 }
 
-// 旧结构迁移：多旅行版之前数据是平铺在文档顶层的（meta.tripName + 顶层集合）。
-// 检测到旧结构就整体包成 trips[0]，一条数据都不丢。
-function isLegacyDoc(doc) {
-  return !Array.isArray(doc.trips) && (doc.meta && 'tripName' in doc.meta);
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function migrateLegacy(doc) {
-  const trip = normalizeTrip(Object.assign({}, doc, { id: undefined, meta: doc.meta || {} }));
-  return {
-    meta: {
-      version: Number(doc.meta && doc.meta.version) || 1,
-      updatedAt: (doc.meta && doc.meta.updatedAt) || new Date().toISOString(),
-    },
-    trips: [trip],
-  };
+function invalid(path, reason) {
+  throw new Error(`Invalid stored data at ${path}: ${reason}`);
 }
 
-// 归一化：保证已知字段符合结构，缺的补默认值。
-// 未知字段原样保留——白名单式归一化会静默丢数据（服务进程比前端旧、导入未来版本的
-// 备份都会中招），表现为「保存成功但没存上」。
-function normalize(doc) {
-  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return defaultDoc();
+function requireRecord(value, path) {
+  if (!isRecord(value)) invalid(path, 'expected an object');
+  return value;
+}
 
-  // 旧结构先迁移，再走新结构的归一化
-  const source = isLegacyDoc(doc) ? migrateLegacy(doc) : doc;
-  const d = defaultDoc();
+function requireArray(value, path) {
+  if (!Array.isArray(value)) invalid(path, 'expected an array');
+  return value;
+}
 
-  d.meta.version = Number(source.meta && source.meta.version) || 1;
-  d.meta.updatedAt = (source.meta && source.meta.updatedAt) || d.meta.updatedAt;
-  // 首页背景色是后加的字段，老数据里没有；没有就先落到纸色
-  d.meta.welcomeTheme = (typeof (source.meta && source.meta.welcomeTheme) === 'string' && source.meta.welcomeTheme)
-    || DEFAULT_WELCOME_THEME;
+function requireString(value, path, allowEmpty = false) {
+  if (typeof value !== 'string' || (!allowEmpty && !value)) invalid(path, 'expected a string');
+  return value;
+}
 
-  const rawTrips = Array.isArray(source.trips) ? source.trips : [];
-  d.trips = rawTrips.length ? rawTrips.map(normalizeTrip) : [defaultTrip()];
+function requireKeys(value, keys, path) {
+  requireRecord(value, path);
+  for (const key of keys) if (!Object.hasOwn(value, key)) invalid(`${path}.${key}`, 'missing field');
+  for (const key of Object.keys(value)) if (!keys.includes(key)) invalid(`${path}.${key}`, 'unknown field');
+}
 
-  // 备忘录是文档级的，不属于任何一趟旅行；tripId 只是可选关联
-  d.memos = Array.isArray(source.memos) ? source.memos.map(normalizeMemo) : [];
+// Persisted data must already use the current shape. Startup and writes never repair it.
+function validateStoredDoc(raw) {
+  requireKeys(raw, ['meta', 'trips', 'access', 'assets', 'profiles'], 'db');
+  requireKeys(raw.meta, ['version', 'updatedAt'], 'db.meta');
+  if (!Number.isSafeInteger(raw.meta.version) || raw.meta.version < 1) invalid('db.meta.version', 'expected a positive integer');
+  requireString(raw.meta.updatedAt, 'db.meta.updatedAt');
+  requireArray(raw.trips, 'db.trips');
+  requireRecord(raw.access, 'db.access');
+  requireRecord(raw.assets, 'db.assets');
+  requireRecord(raw.profiles, 'db.profiles');
 
-  // Access and asset ownership are server-only. Browser document updates must never
-  // pass these fields through to persistence.
-  d.access = {};
-  for (const [tripId, entry] of Object.entries(source.access || {})) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-    const ownerId = typeof entry.ownerId === 'string' ? entry.ownerId : '';
-    if (!ownerId) continue;
-    const members = {};
-    for (const [userId, role] of Object.entries(entry.members || {})) {
-      if (role === 'editor' || role === 'viewer') members[userId] = role;
+  const tripIds = new Set();
+  const tripMetaKeys = ['tripName', 'destination', 'startDate', 'endDate', 'currency', 'members', 'avatars', 'colors', 'archived', 'packingTypes'];
+  for (const [index, trip] of raw.trips.entries()) {
+    const path = `db.trips[${index}]`;
+    requireKeys(trip, ['id', 'meta', ...TRIP_LISTS], path);
+    requireString(trip.id, `${path}.id`);
+    if (tripIds.has(trip.id)) invalid(`${path}.id`, 'duplicate trip ID');
+    tripIds.add(trip.id);
+    requireKeys(trip.meta, tripMetaKeys, `${path}.meta`);
+    for (const key of ['tripName', 'destination', 'startDate', 'endDate', 'currency']) {
+      requireString(trip.meta[key], `${path}.meta.${key}`, key !== 'tripName' && key !== 'currency');
     }
-    d.access[tripId] = {
-      ownerId,
-      members,
-      invites: Array.isArray(entry.invites) ? entry.invites : [],
-      share: entry.share && typeof entry.share === 'object' ? entry.share : null,
-      people: Array.isArray(entry.people) ? entry.people : [],
-    };
-  }
-  for (const trip of d.trips) ensureRoster(trip, d.access[trip.id]);
-  d.assets = {};
-  for (const [name, entry] of Object.entries(source.assets || {})) {
-    if (!/^[a-zA-Z0-9_.-]+$/.test(name) || !entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-    const tripId = typeof entry.tripId === 'string' ? entry.tripId : null;
-    const ownerId = typeof entry.ownerId === 'string' ? entry.ownerId : null;
-    if (!tripId && !ownerId) continue;
-    d.assets[name] = { tripId, ownerId, createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : '' };
-  }
-  d.profiles = {};
-  for (const [userId, entry] of Object.entries(source.profiles || {})) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
-    d.profiles[userId] = {
-      welcomeTheme: typeof entry.welcomeTheme === 'string' ? entry.welcomeTheme : DEFAULT_WELCOME_THEME,
-      memos: Array.isArray(entry.memos) ? entry.memos.map(normalizeMemo) : [],
-      packingTemplates: Array.isArray(entry.packingTemplates)
-        ? entry.packingTemplates.map(normalizeTemplate).filter(Boolean) : [],
-    };
-  }
-
-  // 打包模板也是文档级的，跨旅行复用。老数据没有就补内置的，用户改过的一律保留。
-  d.packingTemplates = Array.isArray(source.packingTemplates) && source.packingTemplates.length
-    ? source.packingTemplates.map(normalizeTemplate).filter(Boolean)
-    : d.packingTemplates;
-
-  for (const k of Object.keys(source)) {
-    if (!(k in d) && !warnedUnknown.has(k)) {
-      warnedUnknown.add(k);
-      console.warn(`[schema] 未知字段「${k}」已原样保留；若这是新加的字段，服务端需要重启`);
+    if (typeof trip.meta.archived !== 'boolean') invalid(`${path}.meta.archived`, 'expected a boolean');
+    for (const key of ['members', 'avatars', 'colors', 'packingTypes']) {
+      requireArray(trip.meta[key], `${path}.meta.${key}`);
+      for (const [itemIndex, value] of trip.meta[key].entries()) requireString(value, `${path}.meta.${key}[${itemIndex}]`);
+    }
+    if (trip.meta.members.length !== trip.meta.avatars.length || trip.meta.members.length !== trip.meta.colors.length) {
+      invalid(`${path}.meta`, 'member names, avatars, and colors must align');
+    }
+    for (const key of TRIP_LISTS) requireArray(trip[key], `${path}.${key}`);
+    const grant = raw.access[trip.id];
+    requireKeys(grant, ['ownerId', 'members', 'invites', 'share', 'people'], `db.access.${trip.id}`);
+    requireString(grant.ownerId, `db.access.${trip.id}.ownerId`);
+    requireRecord(grant.members, `db.access.${trip.id}.members`);
+    for (const [userId, role] of Object.entries(grant.members)) {
+      if (!userId || !['editor', 'viewer'].includes(role)) invalid(`db.access.${trip.id}.members.${userId}`, 'invalid role');
+    }
+    requireArray(grant.invites, `db.access.${trip.id}.invites`);
+    for (const [inviteIndex, invite] of grant.invites.entries()) {
+      const invitePath = `db.access.${trip.id}.invites[${inviteIndex}]`;
+      requireKeys(invite, ['id', 'hash', 'role', 'expiresAt'], invitePath);
+      requireString(invite.id, `${invitePath}.id`);
+      requireString(invite.hash, `${invitePath}.hash`);
+      if (!['editor', 'viewer'].includes(invite.role)) invalid(`${invitePath}.role`, 'invalid role');
+      if (!Number.isFinite(invite.expiresAt)) invalid(`${invitePath}.expiresAt`, 'expected a timestamp');
+    }
+    if (grant.share !== null) {
+      requireKeys(grant.share, ['hash', 'createdAt'], `db.access.${trip.id}.share`);
+      requireString(grant.share.hash, `db.access.${trip.id}.share.hash`);
+      requireString(grant.share.createdAt, `db.access.${trip.id}.share.createdAt`);
+    }
+    requireArray(grant.people, `db.access.${trip.id}.people`);
+    if (!grant.people.length) invalid(`db.access.${trip.id}.people`, 'owner identity is missing');
+    const peopleIds = new Set();
+    const peopleNames = new Set();
+    for (const [personIndex, person] of grant.people.entries()) {
+      const personPath = `db.access.${trip.id}.people[${personIndex}]`;
+      requireRecord(person, personPath);
+      for (const key of Object.keys(person)) {
+        if (!['id', 'kind', 'userId', 'name', 'avatar', 'color', 'tokenHash', 'tripNickname', 'transferStates'].includes(key)) {
+          invalid(`${personPath}.${key}`, 'unknown field');
+        }
+      }
+      for (const key of ['id', 'name', 'avatar', 'color']) requireString(person[key], `${personPath}.${key}`);
+      if (!['formal', 'temporary', 'unlinked'].includes(person.kind)) invalid(`${personPath}.kind`, 'invalid identity type');
+      if (person.kind === 'formal') requireString(person.userId, `${personPath}.userId`);
+      if (person.kind === 'temporary') requireString(person.tokenHash, `${personPath}.tokenHash`);
+      if (person.kind === 'unlinked' && (person.userId || person.tokenHash)) invalid(personPath, 'unlinked identity still has credentials');
+      if (person.tripNickname !== undefined) requireString(person.tripNickname, `${personPath}.tripNickname`, true);
+      if (person.transferStates !== undefined) {
+        requireRecord(person.transferStates, `${personPath}.transferStates`);
+        for (const [key, value] of Object.entries(person.transferStates)) {
+          if (value !== true) invalid(`${personPath}.transferStates.${key}`, 'expected a confirmed transfer');
+        }
+      }
+      if (peopleIds.has(person.id) || peopleNames.has(person.name)) invalid(personPath, 'duplicate identity');
+      peopleIds.add(person.id);
+      peopleNames.add(person.name);
+    }
+    if (!grant.people.some(person => person.kind === 'formal' && person.userId === grant.ownerId)) {
+      invalid(`db.access.${trip.id}.people`, 'owner identity is missing');
+    }
+    for (const userId of Object.keys(grant.members)) {
+      if (!grant.people.some(person => person.kind === 'formal' && person.userId === userId)) {
+        invalid(`db.access.${trip.id}.members.${userId}`, 'member identity is missing');
+      }
+    }
+    for (const [personIndex, person] of grant.people.entries()) {
+      if (trip.meta.members[personIndex] !== person.name || trip.meta.avatars[personIndex] !== person.avatar || trip.meta.colors[personIndex] !== person.color) {
+        invalid(`${path}.meta.members`, 'trip roster differs from access roster');
+      }
+    }
+    for (const collection of TRIP_LISTS) {
+      const itemIds = new Set();
+      for (const [itemIndex, item] of trip[collection].entries()) {
+        const itemPath = `${path}.${collection}[${itemIndex}]`;
+        requireRecord(item, itemPath);
+        requireString(item.id, `${itemPath}.id`);
+        if (itemIds.has(item.id)) invalid(`${itemPath}.id`, 'duplicate record ID');
+        itemIds.add(item.id);
+        requireString(item.authorId, `${itemPath}.authorId`);
+        if (!peopleIds.has(item.authorId)) invalid(`${itemPath}.authorId`, 'unknown author');
+        if (collection === 'expenses') {
+          if (Object.hasOwn(item, 'split')) invalid(`${itemPath}.split`, 'obsolete field');
+          requireString(item.title, `${itemPath}.title`, true);
+          requireArray(item.participants, `${itemPath}.participants`);
+          if (typeof item.amount !== 'number' || !Number.isFinite(item.amount)) invalid(`${itemPath}.amount`, 'expected an amount');
+          requireString(item.payer, `${itemPath}.payer`, true);
+          for (const participant of item.participants) if (!peopleNames.has(participant)) invalid(`${itemPath}.participants`, 'unknown member');
+          if (item.receipt !== null && item.receipt !== undefined) {
+            requireRecord(item.receipt, `${itemPath}.receipt`);
+            for (const key of Object.keys(item.receipt)) {
+              if (!RECEIPT_FIELDS.has(key)) invalid(`${itemPath}.receipt.${key}`, 'unknown field');
+            }
+          }
+        }
+        if (collection === 'itinerary') {
+          requireArray(item.items, `${itemPath}.items`);
+          for (const [nestedIndex, nested] of item.items.entries()) {
+            const nestedPath = `${itemPath}.items[${nestedIndex}]`;
+            requireRecord(nested, nestedPath);
+            requireString(nested.id, `${nestedPath}.id`);
+            requireString(nested.authorId, `${nestedPath}.authorId`);
+            if (!peopleIds.has(nested.authorId)) invalid(`${nestedPath}.authorId`, 'unknown author');
+            if (Object.hasOwn(nested, 'estimatedCost')) invalid(`${nestedPath}.estimatedCost`, 'obsolete field');
+          }
+        }
+      }
     }
   }
+  for (const tripId of Object.keys(raw.access)) if (!tripIds.has(tripId)) invalid(`db.access.${tripId}`, 'unknown trip');
 
-  return Object.assign({}, source, d);
+  for (const [name, asset] of Object.entries(raw.assets)) {
+    const path = `db.assets.${name}`;
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name)) invalid(path, 'invalid asset name');
+    requireKeys(asset, ['tripId', 'ownerId', 'createdAt'], path);
+    if (asset.tripId !== null) requireString(asset.tripId, `${path}.tripId`);
+    if (asset.ownerId !== null) requireString(asset.ownerId, `${path}.ownerId`);
+    if (!asset.tripId && !asset.ownerId) invalid(path, 'asset has no owner');
+    requireString(asset.createdAt, `${path}.createdAt`, true);
+  }
+  for (const [userId, profile] of Object.entries(raw.profiles)) {
+    const path = `db.profiles.${userId}`;
+    if (!userId) invalid(path, 'invalid user ID');
+    requireKeys(profile, ['welcomeTheme', 'memos', 'packingTemplates'], path);
+    requireString(profile.welcomeTheme, `${path}.welcomeTheme`);
+    requireArray(profile.memos, `${path}.memos`);
+    requireArray(profile.packingTemplates, `${path}.packingTemplates`);
+    for (const [memoIndex, memo] of profile.memos.entries()) {
+      const memoPath = `${path}.memos[${memoIndex}]`;
+      requireKeys(memo, ['id', 'text', 'photos', 'tripId', 'createdAt'], memoPath);
+      requireString(memo.id, `${memoPath}.id`);
+      requireString(memo.text, `${memoPath}.text`, true);
+      requireString(memo.tripId, `${memoPath}.tripId`, true);
+      requireString(memo.createdAt, `${memoPath}.createdAt`);
+      requireArray(memo.photos, `${memoPath}.photos`);
+      for (const photo of memo.photos) requireString(photo, `${memoPath}.photos[]`);
+    }
+    for (const [templateIndex, template] of profile.packingTemplates.entries()) {
+      const templatePath = `${path}.packingTemplates[${templateIndex}]`;
+      requireKeys(template, ['id', 'name', 'icon', 'items'], templatePath);
+      for (const key of ['id', 'name', 'icon']) requireString(template[key], `${templatePath}.${key}`);
+      requireArray(template.items, `${templatePath}.items`);
+      for (const [itemIndex, item] of template.items.entries()) {
+        const itemPath = `${templatePath}.items[${itemIndex}]`;
+        requireKeys(item, ['name', 'category'], itemPath);
+        requireString(item.name, `${itemPath}.name`);
+        if (!CATEGORIES.checklist.includes(item.category)) invalid(`${itemPath}.category`, 'unknown category');
+      }
+    }
+  }
+  return raw;
 }
 
 module.exports = {
   CATEGORIES,
   SUB_CATEGORIES,
   ITEM_TO_EXPENSE_CATEGORY,
-  SPLIT_OPTIONS,
   PRIORITIES,
   WISH_STATUS,
   PLACE_CATEGORIES,
@@ -420,7 +534,9 @@ module.exports = {
   uid,
   defaultDoc,
   defaultTrip,
-  normalize,
+  defaultProfile,
+  defaultPackingTemplates,
+  validateStoredDoc,
   normalizeTrip,
   normalizeMemo,
   normalizeTemplate,

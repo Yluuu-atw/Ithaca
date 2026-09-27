@@ -5,19 +5,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createAuth } = require('../data/auth');
-const { defaultDoc } = require('../data/schema');
-const { claimLegacy, roleFor } = require('../data/access');
+const { roleFor } = require('../data/access');
 const { project } = require('../data/document-policy');
 const { createSharing } = require('../data/sharing');
+const { ownedDoc } = require('./fixtures');
 
 test('owner grants roles, redeems one-use invites and revokes anonymous access', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/sharing-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const owner = await auth.register('owner', 'owner private password');
     const editor = await auth.register('editor', 'editor private password');
     const viewer = await auth.register('viewer', 'viewer private password');
-    let db = claimLegacy(defaultDoc(), owner.id);
+    let db = ownedDoc(owner.id, owner.username);
     const tripId = db.trips[0].id;
     const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
 
@@ -55,16 +55,17 @@ test('owner grants roles, redeems one-use invites and revokes anonymous access',
 test('trip profiles inherit account names and reserve appearances per trip', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/trip-profile-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const owner = await auth.register('owner', 'owner private password');
     const viewer = await auth.register('viewer', 'viewer private password');
-    let db = claimLegacy(defaultDoc(), owner.id);
+    let db = ownedDoc(owner.id, owner.username);
     const tripId = db.trips[0].id;
     const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
     const originalName = db.access[tripId].people[0].name;
     const originalAvatar = db.access[tripId].people[0].avatar;
     const originalColor = db.access[tripId].people[0].color;
-    db.trips[0].expenses.push({ id: 'expense_1', payer: originalName, participants: [originalName] });
+    db.trips[0].expenses.push({ id: 'expense_1', title: 'Meal', amount: 10,
+      payer: originalName, participants: [originalName] });
 
     assert.equal(project(db, { userId: owner.id }, auth.store.get().users).rosters[tripId][0].displayName, 'owner');
     await auth.updateDisplayName(owner.id, 'Account Name');

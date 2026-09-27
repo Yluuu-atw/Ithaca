@@ -10,7 +10,7 @@ const { createPasskeys } = require('../data/passkeys');
 test('passkey challenges are bound to user, ceremony and one attempt', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/passkeys-'));
   try {
-    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const auth = createAuth(path.join(dir, 'auth.json'));
     const alice = await auth.register('alice', 'alice private password');
     const bob = await auth.register('bobby', 'bobby private password');
     const passkeys = createPasskeys(auth, 'https://ithaca.example.test:1145');

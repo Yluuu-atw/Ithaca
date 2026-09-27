@@ -1,6 +1,6 @@
 'use strict';
 
-const { defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate } = require('./schema');
+const { defaultProfile, normalizeTrip, normalizeMemo, normalizeTemplate } = require('./schema');
 const { roleFor, canReadAsset, uploadNames, publicTripRoles } = require('./access');
 const { COLLECTIONS, AVATAR_CHOICES, COLOR_CHOICES, formalPerson, personForUser, publicRoster } = require('./people');
 const { calculateTransfers, personalSettlement } = require('./settlement');
@@ -14,7 +14,7 @@ class AccessDeniedError extends Error {
 
 function profileFor(db, userId) {
   const stored = userId && db.profiles && db.profiles[userId];
-  return stored || { welcomeTheme: '#f2ece0', memos: [], packingTemplates: defaultDoc().packingTemplates };
+  return stored || defaultProfile();
 }
 
 function project(db, principal, users = []) {

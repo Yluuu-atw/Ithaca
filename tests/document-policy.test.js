@@ -2,15 +2,18 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { defaultDoc, defaultTrip } = require('../data/schema');
-const { claimLegacy } = require('../data/access');
+const { defaultTrip } = require('../data/schema');
 const { AccessDeniedError, project, updateDocument } = require('../data/document-policy');
+const { syncTripRoster } = require('../data/people');
+const { ownedDoc, addFormalMember } = require('./fixtures');
 
 function fixture() {
-  const db = claimLegacy(defaultDoc(), 'alice');
-  const second = defaultTrip();
+  const db = ownedDoc('alice');
+  const other = ownedDoc('bob');
+  const second = other.trips[0];
   db.trips.push(second);
-  db.access[second.id] = { ownerId: 'bob', members: {}, invites: [], share: null };
+  db.access[second.id] = other.access[second.id];
+  db.profiles.bob = other.profiles.bob;
   return db;
 }
 
@@ -52,7 +55,7 @@ test('document update preserves hidden trips and denies injected IDs', () => {
 test('viewers cannot change or delete a trip; editors cannot delete it', () => {
   const db = fixture();
   const tripId = db.trips[0].id;
-  db.access[tripId].members.bob = 'viewer';
+  addFormalMember(db, tripId, 'bob', 'bob', 'viewer');
   const bob = { userId: 'bob' };
   const visible = project(db, bob);
   visible.trips.find(trip => trip.id === tripId).meta.tripName = 'Tampered';
@@ -85,7 +88,8 @@ test('server owns trip roster and authorship', () => {
   view.trips[0].meta.members.push('imposter');
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
   view.trips[0].meta.members.pop();
-  view.trips[0].expenses.push({ id: 'expense_new', title: 'Coffee', amount: 10, authorId: 'someone_else' });
+  view.trips[0].expenses.push({ id: 'expense_new', title: 'Coffee', amount: 10,
+    payer: 'alice', participants: ['alice'], authorId: 'someone_else' });
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
   delete view.trips[0].expenses[0].authorId;
   const next = updateDocument(db, principal, view);
@@ -102,22 +106,19 @@ test('an editor cannot attach a photo owned by another trip', () => {
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
 });
 
-test('booking and expense images retain trip ownership on save', () => {
+test('expense and receipt images retain trip ownership on save', () => {
   const db = fixture();
   const principal = { userId: 'alice' };
   const tripId = db.trips[0].id;
   db.assets['own.jpg'] = { tripId, ownerId: null, createdAt: '' };
   db.assets['other.jpg'] = { tripId: db.trips[1].id, ownerId: null, createdAt: '' };
   const view = project(db, principal);
-  view.trips[0].bookings.push({ id: 'booking_1', images: ['/uploads/own.jpg'] });
-  view.trips[0].expenses.push({ id: 'expense_1', images: ['/uploads/own.jpg'], receipt: { images: ['/uploads/own.jpg'] } });
+  view.trips[0].expenses.push({ id: 'expense_1', title: 'Ticket', amount: 0,
+    payer: 'alice', participants: ['alice'], images: ['/uploads/own.jpg'],
+    receipt: { images: ['/uploads/own.jpg'] } });
   const saved = updateDocument(db, principal, view);
-  assert.deepEqual(saved.trips[0].bookings[0].images, ['/uploads/own.jpg']);
   assert.deepEqual(saved.trips[0].expenses[0].images, ['/uploads/own.jpg']);
   assert.deepEqual(saved.trips[0].expenses[0].receipt.images, ['/uploads/own.jpg']);
-  view.trips[0].bookings[0].images = ['/uploads/other.jpg'];
-  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
-  view.trips[0].bookings[0].images = ['/uploads/own.jpg'];
   view.trips[0].expenses[0].images = ['/uploads/other.jpg'];
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
   view.trips[0].expenses[0].images = ['/uploads/own.jpg'];
@@ -126,15 +127,17 @@ test('booking and expense images retain trip ownership on save', () => {
 });
 
 test('ticket details inherit expense authorship and temporary edit restrictions', () => {
-  const db = claimLegacy(defaultDoc(), 'alice');
+  const db = ownedDoc('alice');
   const trip = db.trips[0];
   const grant = db.access[trip.id];
   const ownerAuthorId = grant.people[0].id;
   const tempAuthorId = 'person_temp_guest';
   grant.people.push({ id: tempAuthorId, kind: 'temporary', name: 'Guest', avatar: '🐱', color: '#7d94a8' });
+  syncTripRoster(trip, grant);
   trip.expenses.push({
-    id: 'expense_paid', title: 'Rail fare', amount: 24, authorId: ownerAuthorId,
-    receipt: { legacyBookingId: 'booking_paid', refNo: 'A123' },
+    id: 'expense_paid', title: 'Rail fare', amount: 24, payer: 'alice', participants: ['alice'],
+    authorId: ownerAuthorId,
+    receipt: { refNo: 'A123' },
   });
   const guest = { tempTripId: trip.id, tempPersonId: tempAuthorId };
   const guestView = project(db, guest);
@@ -143,8 +146,8 @@ test('ticket details inherit expense authorship and temporary edit restrictions'
 
   guestView.trips[0].expenses[0].receipt.refNo = 'A123';
   guestView.trips[0].expenses.push({
-    id: 'expense_guest', amount: 0,
-    receipt: { legacyBookingId: 'booking_guest', status: '待订', price: 88 },
+    id: 'expense_guest', title: 'Train ticket', amount: 0, payer: 'Guest', participants: ['Guest'],
+    receipt: { status: '待订', price: 88 },
   });
   const saved = updateDocument(db, guest, guestView);
   assert.equal(saved.trips[0].expenses[1].authorId, tempAuthorId);

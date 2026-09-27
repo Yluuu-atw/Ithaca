@@ -1,8 +1,5 @@
 'use strict';
 
-const { normalize } = require('./schema');
-const { ensureRoster } = require('./people');
-
 const UPLOAD_NAME = /^\/uploads\/([a-zA-Z0-9_.-]+)$/;
 
 function roleFor(db, principal, tripId) {
@@ -49,32 +46,6 @@ function uploadNames(value, result = new Set()) {
   return result;
 }
 
-function claimLegacy(raw, ownerId) {
-  const db = normalize(raw);
-  if (!ownerId) throw new Error('Owner ID required');
-  if (!db.profiles[ownerId]) {
-    db.profiles[ownerId] = {
-      welcomeTheme: db.meta.welcomeTheme,
-      memos: db.memos,
-      packingTemplates: db.packingTemplates,
-    };
-  }
-  for (const trip of db.trips) {
-    if (db.access[trip.id]) continue;
-    db.access[trip.id] = { ownerId, members: {}, invites: [], share: null, people: [] };
-    ensureRoster(trip, db.access[trip.id]);
-    for (const name of uploadNames(trip)) {
-      if (!db.assets[name]) db.assets[name] = { tripId: trip.id, ownerId: null, createdAt: '' };
-    }
-  }
-  for (const memo of db.memos) {
-    for (const name of uploadNames(memo)) {
-      if (!db.assets[name]) db.assets[name] = { tripId: null, ownerId, createdAt: '' };
-    }
-  }
-  return db;
-}
-
 function publicTripRoles(db, principal) {
   const roles = {};
   for (const trip of db.trips) {
@@ -84,4 +55,4 @@ function publicTripRoles(db, principal) {
   return roles;
 }
 
-module.exports = { roleFor, canRead, canEdit, canManage, canReadAsset, uploadNames, claimLegacy, publicTripRoles };
+module.exports = { roleFor, canRead, canEdit, canManage, canReadAsset, uploadNames, publicTripRoles };
