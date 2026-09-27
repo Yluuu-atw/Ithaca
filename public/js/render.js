@@ -335,7 +335,7 @@ window.Render = (() => {
       case 'itinerary': return renderItinerary(state, opts.itineraryMode);
       case 'trips': return renderTrips(opts.showArchived);
       case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
-      case 'bookings': return renderExpenses(state, opts.ledgerFilter);
+      case 'bookings': return renderExpenses(state, opts.ledgerFilter, opts.settlementDetailsOpen);
       case 'map': return renderMap(state, opts.tileSource);
       case 'checklist': return renderChecklist(state);
       case 'wishlist': return renderWishlist(state);
@@ -937,7 +937,7 @@ window.Render = (() => {
     return !!(expense.receipt || (Array.isArray(expense.images) && expense.images.length));
   }
 
-  function renderExpenses(s, filter) {
+  function renderExpenses(s, filter, settlementDetailsOpen = false) {
     const exp = summarizeExpenses(s);
     const allExpenses = s.expenses || [];
     const receiptCount = allExpenses.filter(isReceiptExpense).length;
@@ -986,7 +986,7 @@ window.Render = (() => {
       <div class="settle-list">${settle}</div>
     </section>`;
     const mine = Store.getMySettlement(s.id);
-    const summary = mine ? renderPersonalSettlement(s, mine) : aggregate;
+    const summary = mine ? renderPersonalSettlement(s, mine, settlementDetailsOpen) : aggregate;
 
     // 每日支出与明细装进同一个大方框，中间用手账风剪刀线隔开，明细做成小票
     const matrix = renderExpenseMatrix(s, visibleExpenses, activeFilter);
@@ -1006,7 +1006,32 @@ window.Render = (() => {
     return scan + filters + (activeFilter === 'receipt' ? '<p class="ledger-filter-hint">结算按全部账单计算；这里仅筛选每日支出和账单。</p>' : '') + head + summary + (frame || empty);
   }
 
-  function renderPersonalSettlement(s, mine) {
+  function renderPersonalBillShares(s, mine) {
+    const currency = s.meta.currency;
+    const expenses = new Map((s.expenses || []).filter(expense => expense && expense.id)
+      .map(expense => [expense.id, expense]));
+    const shares = Array.isArray(mine.expenseShares) ? mine.expenseShares : [];
+    const rows = [...shares].sort((a, b) => {
+      const left = expenses.get(a.expenseId) || {};
+      const right = expenses.get(b.expenseId) || {};
+      return `${right.date || ''}T${right.time || ''}`.localeCompare(`${left.date || ''}T${left.time || ''}`);
+    }).map(share => {
+      const expense = expenses.get(share.expenseId);
+      const title = expense && (expense.title || expense.note || expense.category) || '旧账目';
+      const when = expense && [expense.date ? fmtDate(expense.date) : '', expense.time || ''].filter(Boolean).join(' · ');
+      const ratio = share.amountMinor ? Math.round(Math.abs(share.shareMinor / share.amountMinor) * 1000) / 10 : 0;
+      const percentage = `${ratio.toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%`;
+      const content = `<span class="settle-bill-top"><strong>${esc(title)}</strong><span>${money(share.amountMinor / 100, currency)}</span></span>
+        <span class="settle-bill-meta">${when ? `${esc(when)} · ` : ''}${expense && expense.category ? `${esc(expense.category)} · ` : ''}${expense && expense.payer ? `付款 ${memberChip(s.meta, expense.payer)}` : '多人垫付'}</span>
+        <span class="settle-bill-amounts"><span>我分摊 <strong>${money(share.shareMinor / 100, currency)}</strong> <small>${percentage}</small></span><span>我垫付 ${money(share.advancedMinor / 100, currency)}</span></span>`;
+      return expense
+        ? `<button type="button" class="settle-bill" data-action="expense-detail" data-id="${esc(expense.id)}" aria-label="查看账单 ${esc(title)} 的详情">${content}</button>`
+        : `<div class="settle-bill settle-bill-unlinked">${content}</div>`;
+    }).join('');
+    return rows || '<p class="settle-details-empty">还没有计入结算的账单。</p>';
+  }
+
+  function renderPersonalSettlement(s, mine, detailsOpen = false) {
     const currency = s.meta.currency;
     const net = mine.balanceMinor || 0;
     const netLabel = net > 0 ? `应收 ${money(net / 100, currency)}`
@@ -1032,6 +1057,11 @@ window.Render = (() => {
         <span>我垫付 ${money(mine.advancedMinor / 100, currency)} · 我应分摊 ${money(mine.owedMinor / 100, currency)}</span></div>
       ${rows || '<p class="settle-balanced">这趟旅行目前无需与其他成员转账。</p>'}
       ${rows ? '<p class="settle-personal-hint">转账标记只记录我的状态，不会自动转账，也不会改变对方的状态。</p>' : ''}
+      ${Array.isArray(mine.expenseShares) ? `<button type="button" class="btn btn-ghost settle-details-toggle" data-action="settlement-details-toggle" aria-controls="settlementDetails" aria-expanded="${detailsOpen}">${detailsOpen ? '收起分摊明细' : '查看分摊明细'}</button>
+      <div class="settle-details" id="settlementDetails" ${detailsOpen ? '' : 'hidden'}>
+        <p class="settle-details-note">这里列出整趟旅行中我参与分摊或垫付的账单。转账金额是互相垫付抵消后的净额。</p>
+        <div class="settle-bills">${renderPersonalBillShares(s, mine)}</div>
+      </div>` : ''}
     </section>`;
   }
 

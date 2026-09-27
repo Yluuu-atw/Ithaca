@@ -261,6 +261,44 @@ test('ledger shows only current identity transfer actions when a personal plan e
   assert.match(html, /不会自动转账/);
 });
 
+test('personal settlement shows exact bill shares across ledger filters and opens existing bill details', () => {
+  const context = {
+    window: {},
+    Store: {
+      getIdentity: () => null,
+      getRoster: () => [],
+      getMySettlement: () => ({ advancedMinor: 1001, owedMinor: 334, balanceMinor: 667,
+        transfers: [{ key: 'in:person_b:667', direction: 'in', otherName: 'Bob', amountMinor: 667, confirmed: false }],
+        expenseShares: [{ expenseId: 'meal', amountMinor: 1001, advancedMinor: 1001, shareMinor: 334 }],
+      }),
+      canEditRecord: () => false,
+      CONST: { currencySymbol: { CNY: '¥' } },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const state = {
+    id: 'trip_1',
+    meta: { members: ['Alice', 'Bob'], currency: 'CNY', startDate: '2026-10-01' },
+    expenses: [{ id: 'meal', title: '晚餐', date: '2026-10-01', time: '19:30', category: '餐饮', payer: 'Alice', amount: 10.01 }],
+    itinerary: [],
+  };
+  const closed = context.window.Render.renderPage(state, 'bookings');
+  assert.match(closed, /data-action="settlement-details-toggle"[^>]*aria-expanded="false"/);
+  assert.match(closed, /id="settlementDetails" hidden/);
+
+  const open = context.window.Render.renderPage(state, 'bookings', { ledgerFilter: 'receipt', settlementDetailsOpen: true });
+  assert.match(open, /我需要收取/);
+  assert.match(open, /data-action="settlement-details-toggle"[^>]*aria-expanded="true"/);
+  assert.match(open, /data-action="expense-detail" data-id="meal"/);
+  assert.match(open, /晚餐/);
+  assert.match(open, /我分摊 <strong>¥3\.34<\/strong> <small>33\.4%<\/small>/);
+  assert.match(open, /我垫付 ¥10\.01/);
+  assert.match(open, /互相垫付抵消后的净额/);
+  assert.match(open, /还没有带票据的账单/);
+  assert.match(context.window.Render.expenseDetail(state, 'meal'), /晚餐/);
+});
+
 test('aggregate settlement uses server cents so it agrees with personal transfers', () => {
   const context = {
     window: {},

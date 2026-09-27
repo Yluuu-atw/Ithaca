@@ -7,14 +7,14 @@
  */
 
 window.App = (() => {
-  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
+  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', settlementDetailsOpen: false, settlementDetailsTripId: '', placeFilter: { category: '全部', keyword: '' }, bookingFilter: { type: '全部', status: '全部' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
   let shareNotice = '';
   let sharePeople = [];
   const viewActions = new Set([
     'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
-    'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter',
+    'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter', 'settlement-details-toggle',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
@@ -450,6 +450,7 @@ window.App = (() => {
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
       itineraryMode: current.itineraryMode,
       ledgerFilter: current.ledgerFilter,
+      settlementDetailsOpen: current.settlementDetailsOpen && current.settlementDetailsTripId === data.id,
       placeFilter: current.placeFilter,
       bookingFilter: current.bookingFilter,
       guideFilter: current.guideFilter,
@@ -874,6 +875,17 @@ window.App = (() => {
           key: el.dataset.key, confirmed: el.dataset.confirmed !== '1',
         }).then(() => Store.load()).catch(error => { el.disabled = false; toast(error.message, 'error'); });
         break;
+      case 'settlement-details-toggle': {
+        const tripId = Store.getActiveTripId();
+        const open = !(current.settlementDetailsOpen && current.settlementDetailsTripId === tripId);
+        current.settlementDetailsOpen = open;
+        current.settlementDetailsTripId = tripId;
+        const panel = el.closest('.settle-personal')?.querySelector('#settlementDetails');
+        if (panel) panel.hidden = !open;
+        el.setAttribute('aria-expanded', String(open));
+        el.textContent = open ? '收起分摊明细' : '查看分摊明细';
+        break;
+      }
       case 'account-open': accountModal(); break;
       case 'account-logout':
         AuthUI.logout().catch(error => toast(error.message, 'error'));
