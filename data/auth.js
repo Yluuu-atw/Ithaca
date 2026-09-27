@@ -58,8 +58,8 @@ async function verifyPassword(password, record) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, displayName: user.displayName || user.username,
-    passkeys: (user.passkeys || []).map(({ id, label, createdAt }) => ({ id, label, createdAt })) };
+  return { id: user.id, username: user.username, displayName: user.displayName,
+    passkeys: user.passkeys.map(({ id, label, createdAt }) => ({ id, label, createdAt })) };
 }
 
 function createAuth(file) {
@@ -95,8 +95,7 @@ function createAuth(file) {
     await store.mutate(state => {
       const user = state.users.find(candidate => candidate.id === userId);
       if (!user) throw new Error('用户不存在');
-      if (name && name !== user.username) user.displayName = name;
-      else delete user.displayName;
+      user.displayName = name || user.username;
       updated = publicUser(user);
     });
     return updated;

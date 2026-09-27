@@ -34,10 +34,13 @@ test('viewer role cannot edit, while editor and owner can', () => {
 test('auth store serializes writes and rolls back failed mutations', async () => {
   const dir = fs.mkdtempSync(path.join(__dirname, '../.local/auth-test-'));
   try {
+    const user = id => ({ id, username: id, usernameKey: id, displayName: id,
+      password: { scheme: 'scrypt', salt: 'test-salt', hash: 'test-hash', N: 32768, r: 8, p: 3 },
+      passkeys: [], createdAt: new Date().toISOString() });
     const store = createAuthStore(path.join(dir, 'auth.json'));
     await Promise.all([
-      store.mutate(state => { state.users.push({ id: 'one' }); }),
-      store.mutate(state => { state.users.push({ id: 'two' }); }),
+      store.mutate(state => { state.users.push(user('one')); }),
+      store.mutate(state => { state.users.push(user('two')); }),
     ]);
     await assert.rejects(store.mutate(() => { throw new Error('reject'); }), /reject/);
     assert.deepEqual(store.get().users.map(user => user.id), ['one', 'two']);

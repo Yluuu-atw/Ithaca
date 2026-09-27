@@ -8,14 +8,47 @@ function emptyAuth() {
   return { users: [], sessions: [] };
 }
 
+function keysMatch(value, keys) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === keys.length
+    && keys.every(key => Object.hasOwn(value, key));
+}
+
+function nonempty(value) { return typeof value === 'string' && value.length > 0; }
+
 function validateAuth(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).length !== 2
-    || !Object.hasOwn(value, 'users') || !Object.hasOwn(value, 'sessions')
-    || !Array.isArray(value.users) || !Array.isArray(value.sessions)
-    || value.users.some(user => !user || typeof user !== 'object' || Array.isArray(user) || typeof user.id !== 'string')
-    || value.sessions.some(session => !session || typeof session !== 'object' || Array.isArray(session))) {
+  const userKeys = ['id', 'username', 'usernameKey', 'displayName', 'password', 'passkeys', 'createdAt'];
+  const passwordKeys = ['scheme', 'salt', 'hash', 'N', 'r', 'p'];
+  const passkeyKeys = ['id', 'publicKey', 'counter', 'transports', 'label', 'createdAt'];
+  const sessionKeys = ['userId', 'hash', 'csrf', 'expiresAt'];
+  if (!keysMatch(value, ['users', 'sessions']) || !Array.isArray(value.users) || !Array.isArray(value.sessions)) {
     throw new Error('Invalid auth store');
+  }
+  const users = new Set();
+  const names = new Set();
+  const passkeys = new Set();
+  for (const user of value.users) {
+    if (!keysMatch(user, userKeys) || !userKeys.filter(key => key !== 'password' && key !== 'passkeys').every(key => nonempty(user[key]))
+      || users.has(user.id) || names.has(user.usernameKey)
+      || !keysMatch(user.password, passwordKeys) || user.password.scheme !== 'scrypt'
+      || !nonempty(user.password.salt) || !nonempty(user.password.hash)
+      || !['N', 'r', 'p'].every(key => Number.isSafeInteger(user.password[key]) && user.password[key] > 0)
+      || !Array.isArray(user.passkeys)) throw new Error('Invalid auth store');
+    users.add(user.id);
+    names.add(user.usernameKey);
+    for (const key of user.passkeys) {
+      if (!keysMatch(key, passkeyKeys) || !nonempty(key.id) || !nonempty(key.publicKey)
+        || !nonempty(key.label) || !nonempty(key.createdAt)
+        || !Number.isSafeInteger(key.counter) || key.counter < 0
+        || !Array.isArray(key.transports) || key.transports.some(transport => !nonempty(transport))
+        || passkeys.has(key.id)) throw new Error('Invalid auth store');
+      passkeys.add(key.id);
+    }
+  }
+  for (const session of value.sessions) {
+    if (!keysMatch(session, sessionKeys) || !users.has(session.userId)
+      || !nonempty(session.hash) || !nonempty(session.csrf)
+      || !Number.isFinite(session.expiresAt)) throw new Error('Invalid auth store');
   }
 }
 

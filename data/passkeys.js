@@ -41,7 +41,7 @@ function createPasskeys(auth, origin) {
     const options = await generateRegistrationOptions({
       rpName: '九州 ITHACA', rpID, userName: user.username,
       userID: Buffer.from(user.id), attestationType: 'none',
-      excludeCredentials: (user.passkeys || []).map(key => ({ id: key.id, transports: key.transports })),
+      excludeCredentials: user.passkeys.map(key => ({ id: key.id, transports: key.transports })),
       authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
     });
     return { flowId: begin('register', userId, options.challenge), options };
@@ -59,10 +59,9 @@ function createPasskeys(auth, origin) {
     await auth.store.mutate(state => {
       const user = state.users.find(candidate => candidate.id === userId);
       if (!user) throw new Error('用户不存在');
-      if (state.users.some(candidate => (candidate.passkeys || []).some(key => key.id === credential.id))) {
+      if (state.users.some(candidate => candidate.passkeys.some(key => key.id === credential.id))) {
         throw new Error('通行密钥已登记');
       }
-      user.passkeys ||= [];
       user.passkeys.push({
         id: credential.id, publicKey: Buffer.from(credential.publicKey).toString('base64url'),
         counter: credential.counter, transports: response.response.transports || [],
@@ -76,7 +75,7 @@ function createPasskeys(auth, origin) {
 
   async function authenticationOptions(username) {
     const user = findUser(username);
-    if (!user || !(user.passkeys || []).length) throw new Error('账号没有通行密钥');
+    if (!user || !user.passkeys.length) throw new Error('账号没有通行密钥');
     const options = await generateAuthenticationOptions({
       rpID, userVerification: 'required',
       allowCredentials: user.passkeys.map(key => ({ id: key.id, transports: key.transports })),
@@ -88,7 +87,7 @@ function createPasskeys(auth, origin) {
     const user = findUser(username);
     if (!user) throw new Error('通行密钥验证失败');
     const expectedChallenge = consume(flowId, 'login', user.id);
-    const key = (user.passkeys || []).find(candidate => candidate.id === response.id);
+    const key = user.passkeys.find(candidate => candidate.id === response.id);
     if (!key) throw new Error('通行密钥验证失败');
     const result = await verifyAuthenticationResponse({
       response, expectedChallenge, expectedOrigin: origin, expectedRPID: rpID,
@@ -98,7 +97,7 @@ function createPasskeys(auth, origin) {
     if (!result.verified) throw new Error('通行密钥验证失败');
     await auth.store.mutate(state => {
       const stored = state.users.find(candidate => candidate.id === user.id);
-      const storedKey = stored && (stored.passkeys || []).find(candidate => candidate.id === key.id);
+      const storedKey = stored && stored.passkeys.find(candidate => candidate.id === key.id);
       if (!storedKey || storedKey.counter !== key.counter) throw new Error('通行密钥状态已更新，请重试');
       storedKey.counter = result.authenticationInfo.newCounter;
     });
@@ -109,8 +108,8 @@ function createPasskeys(auth, origin) {
     await auth.store.mutate(state => {
       const user = state.users.find(candidate => candidate.id === userId);
       if (!user) throw new Error('用户不存在');
-      const count = (user.passkeys || []).length;
-      user.passkeys = (user.passkeys || []).filter(key => key.id !== id);
+      const count = user.passkeys.length;
+      user.passkeys = user.passkeys.filter(key => key.id !== id);
       if (user.passkeys.length === count) throw new Error('通行密钥不存在');
     });
   }

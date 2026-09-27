@@ -40,7 +40,9 @@ test('auth store rejects legacy setup fields and malformed current state', () =>
       { users: {}, sessions: [] },
       { users: [], sessions: null },
       { users: [null], sessions: [] },
+      { users: [{ id: 'owner' }], sessions: [] },
       { users: [], sessions: [null] },
+      { users: [], sessions: [{ userId: 'missing', hash: 'h', csrf: 'c', expiresAt: Date.now() }] },
     ];
     for (const value of invalid) {
       fs.writeFileSync(file, JSON.stringify(value));
