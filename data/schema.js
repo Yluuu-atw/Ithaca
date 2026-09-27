@@ -17,7 +17,7 @@
  *     tracks    足迹：GPX 导入的轨迹
  *     photos    照片：旅行照片（手帐墙）
  *     places    攻略：要订的酒店/餐厅/景点
- *     bookings  票据：机票/火车票/酒店等预订凭证
+ *     bookings  Legacy reservation import input; emptied after ledger migration
  *     guides    攻略笔记：小红书等外部收藏
  */
 
@@ -194,13 +194,13 @@ function defaultTrip() {
       packingTypes: [],   // 本趟用到的打包模板 id，候选池取并集；空则只显示「通用」
     },
     itinerary: [], // Day records may set fromExpense when created by an expense. Item startDate/endDate do not affect order.
-    expenses: [],  // [{ id, date, time, title, amount, category, location, lat, lng, payer, participants, note, itemId }]  location/lat/lng use WGS84 and sync with the linked itinerary item
+    expenses: [],  // Ledger entries; optional receipt metadata and images share the same financial amount.
     checklist: [], // [{ id, name, category, checked, owner }]
     wishlist: [],  // [{ id, name, location, note, priority, status }]
     tracks: [],    // [{ id, name, date, color, points: [{ lat, lng, ele, time }] }]
     photos: [],    // [{ id, url, thumb, date, caption, location, lat, lng }]
     places: [],    // [{ id, name, category, location, lat, lng, date, note, status, cost, link }]
-    bookings: [],  // [{ id, type, title, status, date, time, endDate, endTime, from, to, carrier, seat, refNo, price, payer, link, note }]
+    bookings: [],  // Legacy import input; the receipt fields live on expenses after migration.
     guides: [],    // [{ id, title, link, cover, tags: [], note }] 攻略笔记（小红书等外部收藏）
   };
 }

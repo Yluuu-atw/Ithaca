@@ -110,13 +110,51 @@ test('booking and expense images retain trip ownership on save', () => {
   db.assets['other.jpg'] = { tripId: db.trips[1].id, ownerId: null, createdAt: '' };
   const view = project(db, principal);
   view.trips[0].bookings.push({ id: 'booking_1', images: ['/uploads/own.jpg'] });
-  view.trips[0].expenses.push({ id: 'expense_1', images: ['/uploads/own.jpg'] });
+  view.trips[0].expenses.push({ id: 'expense_1', images: ['/uploads/own.jpg'], receipt: { images: ['/uploads/own.jpg'] } });
   const saved = updateDocument(db, principal, view);
   assert.deepEqual(saved.trips[0].bookings[0].images, ['/uploads/own.jpg']);
   assert.deepEqual(saved.trips[0].expenses[0].images, ['/uploads/own.jpg']);
+  assert.deepEqual(saved.trips[0].expenses[0].receipt.images, ['/uploads/own.jpg']);
   view.trips[0].bookings[0].images = ['/uploads/other.jpg'];
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
   view.trips[0].bookings[0].images = ['/uploads/own.jpg'];
   view.trips[0].expenses[0].images = ['/uploads/other.jpg'];
   assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+  view.trips[0].expenses[0].images = ['/uploads/own.jpg'];
+  view.trips[0].expenses[0].receipt.images = ['/uploads/other.jpg'];
+  assert.throws(() => updateDocument(db, principal, view), AccessDeniedError);
+});
+
+test('ticket details inherit expense authorship and temporary edit restrictions', () => {
+  const db = claimLegacy(defaultDoc(), 'alice');
+  const trip = db.trips[0];
+  const grant = db.access[trip.id];
+  const ownerAuthorId = grant.people[0].id;
+  const tempAuthorId = 'person_temp_guest';
+  grant.people.push({ id: tempAuthorId, kind: 'temporary', name: 'Guest', avatar: '🐱', color: '#7d94a8' });
+  trip.expenses.push({
+    id: 'expense_paid', title: 'Rail fare', amount: 24, authorId: ownerAuthorId,
+    receipt: { legacyBookingId: 'booking_paid', refNo: 'A123' },
+  });
+  const guest = { tempTripId: trip.id, tempPersonId: tempAuthorId };
+  const guestView = project(db, guest);
+  guestView.trips[0].expenses[0].receipt.refNo = 'Hijacked';
+  assert.throws(() => updateDocument(db, guest, guestView), AccessDeniedError);
+
+  guestView.trips[0].expenses[0].receipt.refNo = 'A123';
+  guestView.trips[0].expenses.push({
+    id: 'expense_guest', amount: 0,
+    receipt: { legacyBookingId: 'booking_guest', status: '待订', price: 88 },
+  });
+  const saved = updateDocument(db, guest, guestView);
+  assert.equal(saved.trips[0].expenses[1].authorId, tempAuthorId);
+  assert.equal(saved.trips[0].expenses[0].authorId, ownerAuthorId);
+  assert.equal(saved.trips[0].expenses[1].receipt.price, 88);
+
+  const owner = { userId: 'alice' };
+  const ownerView = project(saved, owner);
+  ownerView.trips[0].expenses[1].receipt.refNo = 'Updated';
+  const updated = updateDocument(saved, owner, ownerView);
+  assert.equal(updated.trips[0].expenses[1].authorId, tempAuthorId);
+  assert.equal(updated.trips[0].expenses[1].receipt.refNo, 'Updated');
 });

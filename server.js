@@ -21,6 +21,7 @@ const os = require('os');
 const crypto = require('crypto');
 const sharp = require('sharp');
 const { normalize, defaultDoc, normalizeTrip, normalizeMemo, normalizeTemplate, uid } = require('./data/schema');
+const { migrateLegacyBookings } = require('./data/booking-migration');
 const { claimLegacy, canEdit, canReadAsset, uploadNames } = require('./data/access');
 const { createAuth, SESSION_DAYS } = require('./data/auth');
 const { createPasskeys } = require('./data/passkeys');
@@ -48,12 +49,27 @@ const TEMP_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_temporar
 
 function loadDb() {
   if (!fs.existsSync(DB_PATH)) return defaultDoc();
+  let loaded;
   try {
-    return normalize(JSON.parse(fs.readFileSync(DB_PATH, 'utf8')));
+    loaded = normalize(JSON.parse(fs.readFileSync(DB_PATH, 'utf8')));
   } catch (err) {
     console.error('[db] 数据文件损坏，已回退到默认值:', err.message);
     return defaultDoc();
   }
+  const migrated = migrateLegacyBookings(loaded);
+  if (!migrated.changed) return loaded;
+  migrated.doc.meta.version = loaded.meta.version + 1;
+  migrated.doc.meta.updatedAt = new Date().toISOString();
+  const temporary = `${DB_PATH}.${process.pid}.migration.tmp`;
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(migrated.doc, null, 2), 'utf8');
+    fs.chmodSync(temporary, 0o600);
+    fs.renameSync(temporary, DB_PATH);
+  } finally {
+    fs.rmSync(temporary, { force: true });
+  }
+  console.log(`[db] 已合并旧票据：关联 ${migrated.stats.linked} 条，零金额记录 ${migrated.stats.referenceOnly} 条`);
+  return migrated.doc;
 }
 
 let db = loadDb();
@@ -855,8 +871,9 @@ async function handleApi(req, res, pathname, principal) {
       // 乐观并发控制：校验版本、更新内存、落盘作为一个原子步骤串行执行
       const saved = await commit((cur) => {
         const next = updateDocument(cur, principal, payload.data);
-        next.meta.version = cur.meta.version + 1;
-        return next;
+        const merged = migrateLegacyBookings(next).doc;
+        merged.meta.version = cur.meta.version + 1;
+        return merged;
       }, baseVersion);
       return sendJSON(res, 200, { data: projectFor(saved, principal), version: saved.meta.version });
     } catch (err) {
@@ -887,9 +904,12 @@ async function handleApi(req, res, pathname, principal) {
       const trips = [];
       for (const source of incoming.trips) {
         const trip = normalizeTrip(source);
+        const person = formalPerson(principal.userId, principal.username || principal.userId);
+        assignAuthors(trip, person.id);
+        const migrated = migrateLegacyBookings({ trips: [trip] }).doc.trips[0];
         const nextId = uid('trip');
         tripIds.set(trip.id, nextId);
-        const result = await copyReferencedUploads(trip, principal);
+        const result = await copyReferencedUploads(migrated, principal);
         copied.push(...result.copies.map(copy => ({ ...copy, tripId: nextId })));
         result.value.id = nextId;
         trips.push(result.value);

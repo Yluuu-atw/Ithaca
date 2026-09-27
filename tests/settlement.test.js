@@ -66,3 +66,27 @@ test('a refund reverses the same per-member allocation', () => {
   assert.deepEqual(plan.transfers, []);
   assert.ok(Object.values(plan.balance).every(value => value === 0));
 });
+
+test('receipt metadata and legacy reservation prices never create another transfer', () => {
+  const db = claimLegacy(defaultDoc(), 'owner');
+  const trip = db.trips[0];
+  const grant = db.access[trip.id];
+  const [payer, companion] = trip.meta.members;
+  trip.expenses = [{
+    id: 'expense_paid', payer, participants: [payer, companion], amount: 20,
+    receipt: { legacyBookingId: 'booking_paid', price: 999, status: '已订' },
+  }, {
+    id: 'expense_pending', payer, participants: [payer, companion], amount: 0,
+    receipt: { legacyBookingId: 'booking_pending', price: 888, status: '待订' },
+  }];
+  trip.bookings = [
+    { id: 'booking_paid', payer, price: 20, status: '已订' },
+    { id: 'booking_pending', payer, price: 888, status: '待订' },
+  ];
+
+  const plan = calculateTransfers(trip, grant);
+  assert.equal(plan.advanced[grant.people[0].id], 2000);
+  assert.equal(plan.owed[grant.people[0].id], 1000);
+  assert.equal(plan.owed[grant.people[1].id], 1000);
+  assert.deepEqual(plan.transfers.map(transfer => transfer.amountMinor), [1000]);
+});
