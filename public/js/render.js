@@ -1053,7 +1053,7 @@ window.Render = (() => {
     const total = g.items.reduce((a, e) => a + (Number(e.amount) || 0), 0);
     const cur = s.meta.currency;
     const items = [...g.items].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    const rows = items.map(e => `<li class="exp-row" data-action="expense-edit" data-id="${esc(e.id)}">
+    const rows = items.map(e => `<li class="exp-row" data-action="expense-detail" data-id="${esc(e.id)}" role="button" tabindex="0" aria-label="查看 ${esc(e.title || e.note || e.category || '支出')}，${esc(e.date || '')} ${esc(e.time || '')}，${esc(e.category || '其他')}，${esc(money(e.amount, cur))}">
       <span class="exp-dot"></span>
       <span class="exp-t">${esc(e.time || '—')}</span>
       <span class="exp-what">
@@ -1067,10 +1067,8 @@ window.Render = (() => {
           ${memberChip(s.meta, e.payer || '')}
           ${participantAvatars(s.meta, e)}
         </span>
-        ${e.images && e.images.length ? `<span class="entry-images entry-images-inline">${imageThumbs(e.images)}</span>` : ''}
       </span>
       <span class="exp-amt">${money(e.amount, cur)}</span>
-      <button type="button" class="btn btn-ghost btn-sm exp-del" data-action="expense-del" data-id="${esc(e.id)}">删除</button>
     </li>`).join('');
     return `<div class="receipt">
       <div class="receipt-head">
@@ -1084,6 +1082,46 @@ window.Render = (() => {
         <span class="receipt-sum">${money(total, cur)}</span>
       </div>
     </div>`;
+  }
+
+  function expenseDetail(s, id) {
+    const expense = (s.expenses || []).find(entry => entry.id === id);
+    if (!expense) return '<p class="empty small">找不到这笔记账</p>';
+    const members = (s.meta && s.meta.members) || [];
+    const participants = expenseParticipants(expense, members);
+    const linkedItem = expense.itemId && (s.itinerary || []).flatMap(day => day.items || [])
+      .find(item => item.id === expense.itemId);
+    const canEdit = Store.canEditRecord(expense) && (!linkedItem || Store.canEditRecord(linkedItem));
+    const lat = Number(expense.lat);
+    const lng = Number(expense.lng);
+    const hasPoint = expense.lat != null && expense.lat !== '' && expense.lng != null && expense.lng !== ''
+      && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+    const mapUrl = hasPoint
+      ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}` : '';
+    const when = [expense.date ? expense.date.replace(/-/g, '.') : '', expense.time || ''].filter(Boolean).join(' · ');
+    const category = expense.category || '其他';
+    const facts = [
+      when ? `<div class="expense-detail-fact"><dt>时间</dt><dd>${esc(when)}</dd></div>` : '',
+      expense.payer ? `<div class="expense-detail-fact"><dt>付款人</dt><dd>${memberChip(s.meta, expense.payer)}</dd></div>` : '',
+      participants.length ? `<div class="expense-detail-fact expense-detail-fact-wide"><dt>参与分摊</dt><dd class="expense-detail-people">${participants.map(name => memberChip(s.meta, name)).join('')}</dd></div>` : '',
+      expense.refNo ? `<div class="expense-detail-fact"><dt>车次 / 航班号</dt><dd>${esc(expense.refNo)}</dd></div>` : '',
+    ].filter(Boolean).join('');
+    return `<article class="expense-detail">
+      <header class="expense-detail-hero">
+        <div class="expense-detail-tags"><span class="badge" data-cat="${esc(category)}">${esc(category)}</span>${expense.subCategory ? `<span>${esc(expense.subCategory)}</span>` : ''}</div>
+        <h3>${esc(expense.title || category)}</h3>
+        <strong class="expense-detail-amount">${money(expense.amount, s.meta.currency)}</strong>
+      </header>
+      ${facts ? `<dl class="expense-detail-facts">${facts}</dl>` : ''}
+      ${expense.location || hasPoint ? `<section class="expense-detail-location">
+        <span class="expense-detail-section-label">地点</span>
+        <div class="expense-detail-place">${emo('📍')} <span>${esc(expense.location || '已标记位置')}</span></div>
+        ${mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener noreferrer">在地图中查看</a>` : ''}
+      </section>` : ''}
+      ${expense.note ? `<section class="expense-detail-note"><span class="expense-detail-section-label">备注</span><p>${esc(expense.note)}</p></section>` : ''}
+      ${expense.images && expense.images.length ? `<section class="expense-detail-attachments"><span class="expense-detail-section-label">附件</span><div class="entry-images">${imageThumbs(expense.images)}</div></section>` : ''}
+      ${canEdit ? `<div class="expense-detail-actions"><button type="button" class="btn btn-primary" data-action="expense-edit" data-id="${esc(expense.id)}">编辑</button><button type="button" class="btn btn-ghost expense-detail-delete" data-action="expense-del" data-id="${esc(expense.id)}">删除</button></div>` : ''}
+    </article>`;
   }
 
   // ---------------- 打包清单 ----------------
@@ -1368,7 +1406,6 @@ window.Render = (() => {
       <label>备注<input name="note" placeholder="补充说明" value="${esc(v.note || '')}"></label>
       <div class="form-actions">
         <button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button>
-        ${item ? `<button type="button" class="btn btn-ghost" data-action="expense-del" data-id="${esc(item.id)}">删除这笔记账</button>` : ''}
       </div>
     </form>`;
   }
@@ -2284,7 +2321,7 @@ window.Render = (() => {
     TABS,
     esc, money, today, fmtDate, weekday,
     renderNav, renderTabbar, tabTitle, renderPage,
-    formDay, formItem, itemFields: itemFieldsHtml, formExpense, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace, formBooking,
+    formDay, formItem, itemFields: itemFieldsHtml, formExpense, expenseDetail, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace, formBooking,
     formTemplateManage, formTemplateEdit, formSaveTemplate,
     renderPlaces, placeDetail, dayDetail, renderBookings, bookingDetail, identityPicker, tripProfileEditor,
     formGuide,

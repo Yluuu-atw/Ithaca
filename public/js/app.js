@@ -14,7 +14,7 @@ window.App = (() => {
   const viewActions = new Set([
     'board-toggle', 'booking-detail', 'booking-filter-status', 'booking-filter-type',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
-    'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
+    'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
@@ -34,7 +34,7 @@ window.App = (() => {
     if (lists[action]) {
       const record = (trip[lists[action]] || []).find(item => item.id === el.dataset.id);
       if (!record || !Store.canEditRecord(record)) return false;
-      if (action === 'expense-del' && record.itemId) {
+      if ((action === 'expense-edit' || action === 'expense-del') && record.itemId) {
         const item = (trip.itinerary || []).flatMap(day => day.items || []).find(entry => entry.id === record.itemId);
         if (item && !Store.canEditRecord(item)) return false;
       }
@@ -82,9 +82,7 @@ window.App = (() => {
   function applyPermissions(root = document) {
     root.querySelectorAll('[data-action]').forEach(el => {
       const allowed = actionAllowed(el.dataset.action, el);
-      const recordRow = el.matches('li.exp-row[data-action="expense-edit"]');
-      el.classList.toggle('permission-hidden', !allowed && !recordRow);
-      el.classList.toggle('record-readonly', !allowed && recordRow);
+      el.classList.toggle('permission-hidden', !allowed);
       if ('disabled' in el) el.disabled = !allowed;
     });
   }
@@ -470,6 +468,7 @@ window.App = (() => {
     modalTaskProgress().hidden = true;
     modalTitle().textContent = title;
     modalBody().innerHTML = formHTML;
+    modalBody().scrollTop = 0;
     modal().hidden = false;
     configureImageEntry(modalBody().querySelector('form'));
     applyPermissions(modal());
@@ -830,7 +829,7 @@ window.App = (() => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
-    if (!actionAllowed(action, el)) { e.preventDefault(); if (el.matches('li.exp-row')) return; toast('没有修改这条内容的权限', 'error'); return; }
+    if (!actionAllowed(action, el)) { e.preventDefault(); toast('没有修改这条内容的权限', 'error'); return; }
 
     switch (action) {
       case 'settle-confirm':
@@ -1231,6 +1230,12 @@ window.App = (() => {
           ? '删除这笔记账及其关联行程？所附图片也会从旅行中移除。'
           : '删除这笔记账？所附图片会从旅行中移除；关联行程保留，金额清零。',
         trip => removeExpenseRecord(trip, id));
+        break;
+      }
+
+      case 'expense-detail': {
+        const expense = (Store.getState().expenses || []).find(entry => entry.id === el.dataset.id);
+        if (expense) openModal('记账详情', Render.expenseDetail(Store.getState(), expense.id));
         break;
       }
 
@@ -2532,7 +2537,13 @@ window.App = (() => {
         if (box) box.innerHTML = Render.expFields(e.target.value, {});
       }
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closeModal(); return; }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('li.exp-row[data-action="expense-detail"]')) {
+        e.preventDefault();
+        e.target.click();
+      }
+    });
     window.addEventListener('beforeunload', (e) => {
       const form = !modal().hidden && modalBody().querySelector('form');
       if (!form || !form._entryTask) return;

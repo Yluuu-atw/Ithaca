@@ -122,7 +122,6 @@
 .access-row, .access-form { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
 .access-row { justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .access-row-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.record-readonly { cursor: default !important; }
 body[data-access-role="temporary"] .dt-grip { display: none; }
 .access-form { flex-wrap: wrap; }
 .access-form input { flex: 1 1 150px; }
@@ -781,7 +780,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
 .exp-row {
   position: relative;
   display: grid;
-  grid-template-columns: 52px 14px 1fr auto auto;
+  grid-template-columns: 52px 14px minmax(0, 1fr) auto;
   align-items: center;
   gap: 0 10px;
   padding: 9px 8px 9px 0;
@@ -789,6 +788,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   cursor: pointer;
 }
 .exp-row:hover { background: var(--surface-2); }
+.exp-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .exp-dot {
   grid-column: 2;
   width: 9px; height: 9px;
@@ -817,7 +817,34 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   text-align: right;
   min-width: 92px;
 }
-.exp-del { grid-column: 5; min-width: 58px; }
+
+.expense-detail { display: grid; gap: 14px; color: var(--text); }
+.expense-detail-hero {
+  display: grid;
+  gap: 7px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.expense-detail-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px; }
+.expense-detail-hero h3 { margin: 0; font-size: 21px; line-height: 1.3; overflow-wrap: anywhere; }
+.expense-detail-amount { color: var(--accent); font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.expense-detail-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin: 0; }
+.expense-detail-fact { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.expense-detail-fact-wide { grid-column: 1 / -1; }
+.expense-detail-fact dt, .expense-detail-section-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+.expense-detail-fact dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.expense-detail-people { display: flex; flex-wrap: wrap; gap: 5px; }
+.expense-detail-location, .expense-detail-note, .expense-detail-attachments { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--border); }
+.expense-detail-place { display: flex; align-items: flex-start; gap: 5px; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
+.expense-detail-place .emo { flex: 0 0 auto; width: 19px; height: 19px; }
+.expense-detail-location a { justify-self: start; color: var(--primary-600); font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
+.expense-detail-note p { margin: 0; font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.expense-detail-actions { display: flex; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.expense-detail-actions .btn { min-width: 92px; }
+.expense-detail-delete { color: var(--danger); }
+.expense-detail-delete:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 
 /* ---------------- 打包清单 ---------------- */
 .progress-wrap { margin-bottom: 18px; }
@@ -2657,24 +2684,35 @@ body:not(.is-welcome) .welcome { display: none; }
   .receipt-date { font-size: 14.5px; }
   .exp-row {
     position: relative;
-    grid-template-columns: 12px 42px 1fr;
+    grid-template-columns: 12px 42px minmax(0, 1fr) auto;
     gap: 2px 7px;
-    min-height: 70px;
-    padding: 8px 4px 36px 0;
+    min-height: 58px;
+    padding: 8px 4px 8px 0;
   }
-  .exp-flow::before { left: 61px; }
-  .exp-dot { grid-column: 1; grid-row: 1 / span 2; align-self: start; margin-top: 6px; }
-  .exp-t { grid-column: 2; grid-row: 1 / span 2; font-size: 12.5px; align-self: start; padding-top: 2px; }
-  .exp-what { grid-column: 3; grid-row: 1 / span 2; display: grid; gap: 3px; align-content: start; }
-  .exp-n { white-space: normal; overflow: visible; text-overflow: clip; padding-right: 62px; }
-  .exp-amt { position: absolute; top: 8px; right: 4px; font-size: 15.5px; min-width: 0; text-align: right; }
-  .exp-del { display: inline-flex; position: absolute; right: 0; bottom: 4px; min-height: 32px; }
+  .exp-flow::before { left: 5px; }
+  .exp-dot { grid-column: 1; grid-row: 1; align-self: start; margin-top: 6px; }
+  .exp-t { grid-column: 2; grid-row: 1; font-size: 12.5px; align-self: start; padding-top: 2px; }
+  .exp-what { grid-column: 3; grid-row: 1; display: grid; gap: 3px; align-content: start; }
+  .exp-n { white-space: normal; overflow: visible; text-overflow: clip; }
+  .exp-amt { grid-column: 4; grid-row: 1; align-self: start; font-size: 15.5px; min-width: 0; text-align: right; white-space: nowrap; }
+  .exp-parts { display: none; }
+  .expense-detail { gap: 12px; }
+  .expense-detail-hero { padding: 14px; }
+  .expense-detail-hero h3 { font-size: 19px; }
+  .expense-detail-amount { font-size: 27px; }
+  .expense-detail-actions .btn { flex: 1; min-height: 44px; }
 }
 
 /* Dark backgrounds use the same derived tokens as the logo. */
 :root[data-theme-mode="dark"] .notebook {
   --nb-paper: var(--surface);
   --nb-rule: var(--border);
+}
+:root[data-theme-mode="dark"] .expense-detail-delete,
+:root[data-theme-mode="dark"] .expense-detail-delete:hover { color: color-mix(in srgb, var(--danger) 68%, white); }
+:root[data-theme-mode="dark"] .expense-detail-delete:hover {
+  border-color: color-mix(in srgb, var(--danger) 68%, white);
+  background: color-mix(in srgb, var(--danger) 16%, var(--surface));
 }
 :root[data-theme-mode="dark"] .welcome-bg img,
 :root[data-theme-mode="dark"] .welcome-bg svg { filter: brightness(.52) saturate(.72); }

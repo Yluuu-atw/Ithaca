@@ -28,8 +28,7 @@ test('new expense uses local current minute and edits preserve stored time', () 
   assert.match(existing, /data-action="expense-location-gps"/);
   assert.match(existing, /data-action="expense-location-map"/);
   assert.match(existing, /data-action="expense-location-search"/);
-  assert.match(existing, /data-action="expense-del" data-id="e3">删除这笔记账/);
-  assert.doesNotMatch(context.window.Render.formExpense([], null), /data-action="expense-del"/);
+  assert.doesNotMatch(existing, /data-action="expense-del"/);
 });
 
 test('booking and expense entries remain reachable from the ledger with one image flow', () => {
@@ -41,6 +40,7 @@ test('booking and expense entries remain reachable from the ledger with one imag
       getRoster: () => [],
       getMySettlement: () => null,
       getGroupSettlement: () => null,
+      canEditRecord: () => false,
       CONST: {
         expenseCategories: ['餐饮', '交通', '住宿', '门票', '购物', '娱乐', '其他'],
         bookingTypes: [{ id: 'train', label: '火车票', icon: '🚄' }],
@@ -66,6 +66,22 @@ test('booking and expense entries remain reachable from the ledger with one imag
   assert.match(context.window.Render.bookingDetail({ meta: state.meta, bookings: [savedBooking] }, 'ticket_1'), /data-action="booking-del" data-id="ticket_1">删除票据/);
   assert.doesNotMatch(context.window.Render.formBooking([], null), /data-action="booking-del"/);
   assert.doesNotMatch(context.window.Render.formBooking([], null), /<option[^>]*>🚄/);
+
+  const expense = { id: 'expense_1', title: '北京丰台', date: '2026-09-27', time: '12:34', amount: 42, category: '交通', itemId: 'linked_item' };
+  const expenseState = { ...state, expenses: [expense], itinerary: [{ date: expense.date, items: [{ id: 'linked_item' }] }] };
+  const ledger = context.window.Render.renderPage(expenseState, 'bookings');
+  assert.match(ledger, /data-action="expense-detail" data-id="expense_1"/);
+  assert.doesNotMatch(ledger, /data-action="expense-del"/);
+  const readOnly = context.window.Render.expenseDetail(expenseState, 'expense_1');
+  assert.match(readOnly, /北京丰台/);
+  assert.match(readOnly, /2026\.09\.27 · 12:34/);
+  assert.doesNotMatch(readOnly, /<input|data-action="expense-edit"|data-action="expense-del"/);
+  context.Store.canEditRecord = () => true;
+  const editable = context.window.Render.expenseDetail(expenseState, 'expense_1');
+  assert.match(editable, /data-action="expense-edit"/);
+  assert.match(editable, /data-action="expense-del"/);
+  context.Store.canEditRecord = record => record.id !== 'linked_item';
+  assert.doesNotMatch(context.window.Render.expenseDetail(expenseState, 'expense_1'), /data-action="expense-edit"|data-action="expense-del"/);
 });
 
 test('overview daily spending agrees with the ledger when an order also has a receipt', () => {
