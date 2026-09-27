@@ -33,7 +33,12 @@ window.App = (() => {
     };
     if (lists[action]) {
       const record = (trip[lists[action]] || []).find(item => item.id === el.dataset.id);
-      return !!record && Store.canEditRecord(record);
+      if (!record || !Store.canEditRecord(record)) return false;
+      if (action === 'expense-del' && record.itemId) {
+        const item = (trip.itinerary || []).flatMap(day => day.items || []).find(entry => entry.id === record.itemId);
+        if (item && !Store.canEditRecord(item)) return false;
+      }
+      return true;
     }
     if (action === 'itinerary-edit-item' || action === 'itinerary-del-item') {
       const day = (trip.itinerary || []).find(item => item.id === el.dataset.day);
@@ -361,6 +366,46 @@ window.App = (() => {
       if (Array.isArray(ex.participants)) it.participants = ex.participants.slice();
       return;
     }
+  }
+
+  function removeExpenseRecord(trip, id) {
+    const expense = (trip.expenses || []).find(entry => entry.id === id);
+    if (!expense) return;
+    trip.expenses = trip.expenses.filter(entry => entry.id !== id);
+    if (!expense.itemId) return;
+    for (const day of (trip.itinerary || [])) {
+      const item = (day.items || []).find(entry => entry.id === expense.itemId);
+      if (!item) continue;
+      if (item.expenseId === id) {
+        day.items = day.items.filter(entry => entry.id !== item.id);
+        if (Array.isArray(day.order)) day.order = day.order.filter(itemId => itemId !== item.id);
+        if (day.fromExpense && day.items.length === 0 && Store.canEditRecord(day)) {
+          trip.itinerary = trip.itinerary.filter(entry => entry.id !== day.id);
+        }
+      } else {
+        item.amount = 0;
+      }
+      return;
+    }
+  }
+
+  function deleteEntry(el, question, mutate) {
+    const form = el.closest('form');
+    if (form && form._entryTask) {
+      imageEntryStatus(form, '先取消当前操作，再删除记录');
+      return;
+    }
+    if (!confirm(question)) return;
+    const inModal = modal().contains(el);
+    const modalContent = inModal ? modalBody().firstElementChild : null;
+    el.disabled = true;
+    Store.mutate(mutate).then(() => {
+      toast('已删除', 'success');
+      if (inModal && modalBody().firstElementChild === modalContent) closeModal(true);
+    }).catch(error => {
+      if (el.isConnected) el.disabled = false;
+      toast(error.message || '删除失败', 'error');
+    });
   }
 
   // ---------------- 渲染 ----------------
@@ -1154,18 +1199,15 @@ window.App = (() => {
       }
 
       case 'expense-del': {
-        if (!confirm('删除这笔支出？')) return;
         const id = el.dataset.id;
-        const ex = (Store.getState().expenses || []).find(x => x.id === id);
-        doMutate(d => {
-          d.expenses = d.expenses.filter(x => x.id !== id);
-          if (ex && ex.itemId) {
-            for (const day of (d.itinerary || [])) {
-              const it = (day.items || []).find(i => i.id === ex.itemId);
-              if (it) { it.amount = 0; break; }
-            }
-          }
-        }, '已删除');
+        const expense = (Store.getState().expenses || []).find(entry => entry.id === id);
+        if (!expense) return;
+        const item = (Store.getState().itinerary || []).flatMap(day => day.items || []).find(entry => entry.id === expense.itemId);
+        const linked = item && item.expenseId === id;
+        deleteEntry(el, linked
+          ? '删除这笔记账及其关联行程？所附图片也会从旅行中移除。'
+          : '删除这笔记账？所附图片会从旅行中移除；关联行程保留，金额清零。',
+        trip => removeExpenseRecord(trip, id));
         break;
       }
 
@@ -1443,10 +1485,13 @@ window.App = (() => {
         break;
       }
 
-      case 'booking-del':
-        if (!confirm('删除这张票据？')) return;
-        doMutate(d => { d.bookings = (d.bookings || []).filter(x => x.id !== el.dataset.id); }, '已删除');
+      case 'booking-del': {
+        const id = el.dataset.id;
+        deleteEntry(el, '删除这张票据？所附图片也会从旅行中移除。', trip => {
+          trip.bookings = (trip.bookings || []).filter(entry => entry.id !== id);
+        });
         break;
+      }
 
       case 'booking-filter-type':
         current.bookingFilter.type = el.dataset.type;
@@ -1802,7 +1847,7 @@ window.App = (() => {
             d.itinerary = d.itinerary || [];
             let day = d.itinerary.find(x => x.date === ex.date);
             if (!day) {
-              day = { id: Store.uid('day'), date: ex.date, items: [] };
+              day = { id: Store.uid('day'), date: ex.date, items: [], fromExpense: true };
               d.itinerary.push(day);
               if (Store.getRole() !== 'temporary') d.itinerary.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
             }

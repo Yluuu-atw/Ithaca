@@ -795,8 +795,7 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   text-align: right;
   min-width: 92px;
 }
-.exp-del { grid-column: 5; opacity: 0; transition: opacity .12s; }
-.exp-row:hover .exp-del { opacity: 1; }
+.exp-del { grid-column: 5; min-width: 58px; }
 
 /* ---------------- 打包清单 ---------------- */
 .progress-wrap { margin-bottom: 18px; }
@@ -2630,7 +2629,8 @@ body:not(.is-welcome) .welcome { display: none; }
     position: relative;
     grid-template-columns: 12px 42px 1fr;
     gap: 2px 7px;
-    padding: 8px 4px 8px 0;
+    min-height: 70px;
+    padding: 8px 4px 36px 0;
   }
   .exp-flow::before { left: 61px; }
   .exp-dot { grid-column: 1; grid-row: 1 / span 2; align-self: start; margin-top: 6px; }
@@ -2638,7 +2638,7 @@ body:not(.is-welcome) .welcome { display: none; }
   .exp-what { grid-column: 3; grid-row: 1 / span 2; display: grid; gap: 3px; align-content: start; }
   .exp-n { white-space: normal; overflow: visible; text-overflow: clip; padding-right: 62px; }
   .exp-amt { position: absolute; top: 8px; right: 4px; font-size: 15.5px; min-width: 0; text-align: right; }
-  .exp-del { display: none; }
+  .exp-del { display: inline-flex; position: absolute; right: 0; bottom: 4px; min-height: 32px; }
 }
 
 /* Dark backgrounds use the same derived tokens as the logo. */

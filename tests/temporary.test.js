@@ -35,6 +35,8 @@ test('temporary identity sees one trip and can only change own records', async (
     assert.equal(JSON.stringify(view).includes('tokenHash'), false);
     view.trips[0].expenses.push({ id: 'temporary_expense', title: 'Mine' });
     view.trips[0].itinerary[0].items.push({ id: 'temporary_item', title: 'Mine' });
+    view.trips[0].expenses.push({ id: 'temporary_receipt_to_remove', title: 'Remove', itemId: 'temporary_entry_to_remove' });
+    view.trips[0].itinerary[0].items.push({ id: 'temporary_entry_to_remove', title: 'Remove', expenseId: 'temporary_receipt_to_remove' });
     db = updateDocument(db, principal, view);
     assert.equal(db.trips[0].expenses[1].authorId, principal.tempPersonId);
     assert.equal(db.trips[0].itinerary[0].items[1].authorId, principal.tempPersonId);
@@ -63,9 +65,11 @@ test('temporary identity sees one trip and can only change own records', async (
     changed.trips.push(hidden);
     assert.throws(() => updateDocument(db, principal, changed), AccessDeniedError);
     changed.trips.pop();
-    changed.trips[0].expenses = changed.trips[0].expenses.filter(item => item.id !== 'temporary_expense');
+    changed.trips[0].expenses = changed.trips[0].expenses.filter(item => item.id !== 'temporary_receipt_to_remove');
+    changed.trips[0].itinerary[0].items = changed.trips[0].itinerary[0].items.filter(item => item.id !== 'temporary_entry_to_remove');
     db = updateDocument(db, principal, changed);
-    assert.equal(db.trips[0].expenses.length, 1);
+    assert.equal(db.trips[0].expenses.length, 2);
+    assert.equal(db.trips[0].itinerary[0].items.length, 2);
 
     const editor = await auth.register('editor', 'editor private password');
     await sharing.setMember(tripId, owner.id, editor.username, 'editor');
@@ -78,6 +82,50 @@ test('temporary identity sees one trip and can only change own records', async (
     db.access[tripId].people = db.access[tripId].people.filter(person => person.id !== principal.tempPersonId);
     assert.equal(sharing.resolveTemporary(created.token), null);
     assert.equal(roleFor(db, principal, tripId), null);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('temporary member can remove the last own expense from another member’s generated day', async () => {
+  const dir = fs.mkdtempSync(path.join(__dirname, '../.local/temporary-generated-day-'));
+  try {
+    const auth = createAuth(path.join(dir, 'auth.json'), path.join(dir, 'setup-token'));
+    const owner = await auth.register('owner', 'owner private password');
+    let db = claimLegacy(defaultDoc(), owner.id);
+    const tripId = db.trips[0].id;
+    const ownerPersonId = db.access[tripId].people[0].id;
+    db.trips[0].itinerary.push({
+      id: 'owner_generated_day', date: '2026-09-25', fromExpense: true,
+      authorId: ownerPersonId, items: [],
+    });
+
+    const sharing = createSharing(auth, () => db, async fn => { db = fn(db); });
+    const created = await sharing.createTemporary(tripId, owner.id, '访客');
+    const principal = sharing.resolveTemporary(created.token);
+    const added = project(db, principal);
+    added.trips[0].expenses.push({
+      id: 'temporary_expense', title: 'Mine', itemId: 'temporary_item',
+    });
+    added.trips[0].itinerary[0].items.push({
+      id: 'temporary_item', title: 'Mine', expenseId: 'temporary_expense',
+    });
+    db = updateDocument(db, principal, added);
+
+    const removingDay = project(db, principal);
+    removingDay.trips[0].expenses = [];
+    removingDay.trips[0].itinerary = [];
+    assert.throws(() => updateDocument(db, principal, removingDay), AccessDeniedError);
+
+    const removed = project(db, principal);
+    removed.trips[0].expenses = [];
+    removed.trips[0].itinerary[0].items = [];
+    db = updateDocument(db, principal, removed);
+    assert.equal(db.trips[0].expenses.length, 0);
+    assert.equal(db.trips[0].itinerary.length, 1);
+    assert.equal(db.trips[0].itinerary[0].id, 'owner_generated_day');
+    assert.equal(db.trips[0].itinerary[0].authorId, ownerPersonId);
+    assert.deepEqual(db.trips[0].itinerary[0].items, []);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

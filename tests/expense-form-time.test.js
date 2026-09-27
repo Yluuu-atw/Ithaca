@@ -28,6 +28,8 @@ test('new expense uses local current minute and edits preserve stored time', () 
   assert.match(existing, /data-action="expense-location-gps"/);
   assert.match(existing, /data-action="expense-location-map"/);
   assert.match(existing, /data-action="expense-location-search"/);
+  assert.match(existing, /data-action="expense-del" data-id="e3">删除这笔记账/);
+  assert.doesNotMatch(context.window.Render.formExpense([], null), /data-action="expense-del"/);
 });
 
 test('booking and expense entries remain reachable from the ledger with one image flow', () => {
@@ -58,6 +60,10 @@ test('booking and expense entries remain reachable from the ledger with one imag
     assert.match(form, /vendor\/fluent-emoji\/1f4f7\.png/);
     assert.match(form, /name="imageFiles"/);
   }
+  const savedBooking = { id: 'ticket_1', title: 'Train ticket', type: 'train' };
+  assert.match(context.window.Render.formBooking([], savedBooking), /data-action="booking-del" data-id="ticket_1">删除这张票据/);
+  assert.match(context.window.Render.bookingDetail({ meta: state.meta, bookings: [savedBooking] }, 'ticket_1'), /data-action="booking-del" data-id="ticket_1">删除票据/);
+  assert.doesNotMatch(context.window.Render.formBooking([], null), /data-action="booking-del"/);
   assert.doesNotMatch(context.window.Render.formBooking([], null), /<option[^>]*>🚄/);
 });
 

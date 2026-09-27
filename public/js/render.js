@@ -1071,7 +1071,7 @@ window.Render = (() => {
         ${e.images && e.images.length ? `<span class="entry-images entry-images-inline">${imageThumbs(e.images)}</span>` : ''}
       </span>
       <span class="exp-amt">${money(e.amount, cur)}</span>
-      <button class="icon-btn danger exp-del" data-action="expense-del" data-id="${esc(e.id)}" title="删除">✕</button>
+      <button type="button" class="btn btn-ghost btn-sm exp-del" data-action="expense-del" data-id="${esc(e.id)}">删除</button>
     </li>`).join('');
     return `<div class="receipt">
       <div class="receipt-head">
@@ -1367,7 +1367,10 @@ window.Render = (() => {
       <div id="expFields">${item ? expFieldsHtml(curCat, v) : ''}</div>
       <label>涉及谁<span class="field-hint">在这几个人之间平摊</span>${memberMultiPicker(members, item ? v.participants : undefined, Store.getState().meta, 'participants')}</label>
       <label>备注<input name="note" placeholder="补充说明" value="${esc(v.note || '')}"></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">${item ? '保存' : '记下'}</button>
+        ${item ? `<button type="button" class="btn btn-ghost" data-action="expense-del" data-id="${esc(item.id)}">删除这笔记账</button>` : ''}
+      </div>
     </form>`;
   }
 
@@ -1826,7 +1829,7 @@ window.Render = (() => {
         <h3>${emo(t.icon)} ${esc(b.title || t.label)}</h3>
         <div>
           <button class="icon-btn" data-action="booking-edit" data-id="${esc(b.id)}" title="编辑">✎</button>
-          <button class="icon-btn danger" data-action="booking-del" data-id="${esc(b.id)}" title="删除">✕</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="booking-del" data-id="${esc(b.id)}">删除票据</button>
         </div>
       </div>
       <div class="detail-tags">
@@ -1882,7 +1885,10 @@ window.Render = (() => {
         <label>链接<input name="link" placeholder="电子票链接（可选）" value="${esc(v.link || '')}"></label>
       </div>
       <label>备注<textarea name="note" rows="2" placeholder="取票码、行李、退改规则等">${esc(v.note || '')}</textarea></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '保存票据'}</button></div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">${item ? '保存' : '保存票据'}</button>
+        ${item ? `<button type="button" class="btn btn-ghost" data-action="booking-del" data-id="${esc(item.id)}">删除这张票据</button>` : ''}
+      </div>
     </form>`;
   }
 
