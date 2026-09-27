@@ -53,6 +53,7 @@ test('booking and expense entries remain reachable from the ledger with one imag
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
   const state = { id: 'trip_1', meta: { members: [], currency: 'CNY' }, expenses: [], bookings: [], itinerary: [] };
   const page = context.window.Render.renderPage(state, 'bookings');
+  assert.match(page, /data-action="expense-image-start"/);
   assert.match(page, /data-action="expense-add"/);
   assert.match(page, /data-action="booking-add"/);
   for (const form of [context.window.Render.formExpense([], null), context.window.Render.formBooking([], null)]) {

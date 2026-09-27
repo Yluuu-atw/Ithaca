@@ -936,6 +936,10 @@ window.Render = (() => {
     const exp = summarizeExpenses(s);
     const grouped = groupByDate(s.expenses);
     const members = s.meta.members || [];
+    const scan = `<button type="button" class="ledger-scan" data-action="expense-image-start">
+      <img src="vendor/fluent-emoji/1f4f7.png" alt="">
+      <span><strong>让我看看</strong><small>选一张消费截图，帮你填写记账</small></span>
+    </button>`;
     const head = `<div class="list-head">
       <span>共 ${s.expenses.length} 笔 · 支出 ${money(exp.total, s.meta.currency)}</span>
       <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
@@ -983,7 +987,7 @@ window.Render = (() => {
 
     const empty = `<div class="empty"><p>还没有记账</p><p class="empty-hint">点击「记一笔」开始记录花费 ${emo('💸')}</p></div>`;
 
-    return head + summary + (frame || empty);
+    return scan + head + summary + (frame || empty);
   }
 
   function renderPersonalSettlement(s, mine) {
@@ -1823,7 +1827,7 @@ window.Render = (() => {
       <div class="detail-head">
         <h3>${emo(t.icon)} ${esc(b.title || t.label)}</h3>
         <div>
-          <button class="icon-btn" data-action="booking-edit" data-id="${esc(b.id)}" title="编辑">✎</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="booking-edit" data-id="${esc(b.id)}">编辑票据</button>
           <button type="button" class="btn btn-ghost btn-sm" data-action="booking-del" data-id="${esc(b.id)}">删除票据</button>
         </div>
       </div>
@@ -2002,11 +2006,14 @@ window.Render = (() => {
 
         ${recent ? `<section class="welcome-journey" aria-label="旅行快捷入口">
           <div class="welcome-journey-head"><span>${trips.length === 1 ? '我的旅行' : '最近打开'}</span>${trips.length > 1 ? `<span>共 ${trips.length} 趟旅行</span>` : ''}</div>
-          <button type="button" class="welcome-trip-primary" data-action="trip-open" data-id="${esc(recent.id)}">
+          <div class="welcome-trip-primary">
             <span class="welcome-trip-icon"><img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""></span>
             <span class="welcome-trip-copy"><strong>${esc(recent.meta.tripName || '未命名旅行')}</strong><span>${esc(tripInfo || '开始规划这趟旅行')}</span></span>
-            <span class="welcome-trip-go">继续旅行</span>
-          </button>
+          </div>
+          <div class="welcome-trip-actions">
+            <button type="button" class="welcome-trip-go" data-action="trip-open" data-id="${esc(recent.id)}">继续旅行</button>
+            ${Store.canEditTrip(recent.id) ? `<button type="button" class="welcome-trip-expense" data-action="welcome-expense-add" data-id="${esc(recent.id)}">记一笔</button>` : ''}
+          </div>
           ${otherTrips.length ? `<div class="welcome-other-trips"><span>快速切换</span><div>${otherTrips.slice(0, 2).map(trip => `<button type="button" data-action="trip-open" data-id="${esc(trip.id)}">${esc(trip.meta.tripName || '未命名旅行')}</button>`).join('')}</div></div>` : ''}
         </section>` : `<section class="welcome-journey welcome-journey-empty" aria-label="创建旅行">
           <span class="welcome-empty-mark"><img class="emo" src="vendor/fluent-emoji/1f9ed.png" alt=""></span>

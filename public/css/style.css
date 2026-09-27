@@ -409,6 +409,28 @@ input, select, textarea { font-family: inherit; font-size: 19px; color: var(--te
   color: var(--muted);
   font-size: 17.5px;
 }
+.ledger-scan {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 14px 17px;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+  background: var(--primary-soft);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.ledger-scan:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.ledger-scan:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.ledger-scan img { flex: none; width: 48px; height: 48px; object-fit: contain; }
+.ledger-scan > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.ledger-scan strong { font-size: 20px; line-height: 1.25; }
+.ledger-scan small { color: var(--muted); font-size: 13px; line-height: 1.4; }
 .trip-list-actions, .overview-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .overview-tools { margin: -4px 0 18px; }
 
@@ -2141,22 +2163,22 @@ body:not(.is-welcome) .welcome { display: none; }
   width: 100%;
   min-height: 92px;
   padding: 14px 16px;
-  border: 2px solid var(--primary);
-  border-radius: 15px;
+  border-radius: 15px 15px 0 0;
   background: var(--primary-soft);
   color: var(--text);
   text-align: left;
-  cursor: pointer;
-  transition: transform .16s ease, box-shadow .16s ease;
 }
-.welcome-trip-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
-.welcome-trip-primary:active { transform: translateY(1px); box-shadow: none; }
+.welcome-trip-actions { display: flex; gap: 8px; padding: 0 12px 12px; background: var(--primary-soft); border-radius: 0 0 15px 15px; }
+.welcome-trip-actions button { flex: 1; min-width: 0; min-height: 43px; padding: 8px 12px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }
+.welcome-trip-actions button:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.welcome-trip-actions button:active { transform: translateY(1px); box-shadow: none; }
 .welcome-trip-icon { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 14px; background: var(--surface); }
 .welcome-trip-icon .emo { width: 35px; height: 35px; }
 .welcome-trip-copy { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .welcome-trip-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 21px; line-height: 1.35; }
 .welcome-trip-copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px; }
-.welcome-trip-go { flex: none; padding: 8px 12px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 14px; font-weight: 700; }
+.welcome-trip-go { border: 1px solid var(--primary-600); background: var(--primary); color: #fff; }
+.welcome-trip-expense { border: 1px solid var(--primary); background: var(--surface); color: var(--primary-600); }
 .welcome-other-trips { display: flex; align-items: center; gap: 10px; margin: 11px 5px 1px; color: var(--muted); font-size: 13px; }
 .welcome-other-trips > span { flex: none; }
 .welcome-other-trips > div { display: flex; gap: 8px; min-width: 0; overflow: auto; scrollbar-width: none; }
@@ -2169,7 +2191,7 @@ body:not(.is-welcome) .welcome { display: none; }
 .welcome-journey-empty h1 { margin: 0; font-size: 25px; line-height: 1.35; }
 .welcome-journey-empty p { margin: 0 0 7px; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .welcome-journey-empty .welcome-main { max-width: 380px; }
-.welcome-trip-primary:focus-visible, .welcome-other-trips button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.welcome-trip-actions button:focus-visible, .welcome-other-trips button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 
 /* 方格纹信息卡：手账方格本的底纹，与语录便签的纯色底区分开。
    底色压到半透明并加模糊，能透出后面的插画 */
@@ -2487,12 +2509,13 @@ body:not(.is-welcome) .welcome { display: none; }
   .welcome-inner { gap: 13px; }
   .welcome-brand img { width: min(230px, 70vw); }
   .welcome-journey { padding: 12px; }
-  .welcome-trip-primary { min-height: 84px; gap: 10px; padding: 11px; }
+  .welcome-trip-primary { min-height: 78px; gap: 10px; padding: 11px; }
   .welcome-trip-icon { width: 44px; height: 44px; }
   .welcome-trip-icon .emo { width: 30px; height: 30px; }
   .welcome-trip-copy strong { font-size: 18px; }
   .welcome-trip-copy > span { font-size: 12px; }
-  .welcome-trip-go { padding: 7px 9px; font-size: 12px; }
+  .welcome-trip-actions { padding: 0 10px 10px; }
+  .welcome-trip-actions button { min-height: 42px; }
   .welcome-other-trips { margin-top: 9px; }
   .meta-card { padding: 12px 13px 13px; background-size: 13px 13px; }
   .meta-card > .tape { width: 58px; height: 18px; }

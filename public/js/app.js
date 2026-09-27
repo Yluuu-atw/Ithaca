@@ -1165,6 +1165,18 @@ window.App = (() => {
         openModal('记一笔', Render.formExpense(members()));
         break;
 
+      case 'expense-image-start':
+        openModal('记一笔', Render.formExpense(members()));
+        modalBody().querySelector('form[data-form="expense"] [name="imageFiles"]')?.click();
+        break;
+
+      case 'welcome-expense-add':
+        Store.setActiveTrip(el.dataset.id);
+        current.tab = 'bookings';
+        setView('app');
+        openModal('记一笔', Render.formExpense(members()));
+        break;
+
       case 'expense-location-search': {
         const form = el.closest('form[data-form="expense"]');
         if (!form) break;
