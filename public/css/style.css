@@ -1072,11 +1072,14 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 }
 .modal-backdrop[hidden] { display: none; }
 .modal-card {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 480px;
   max-height: 88vh;
+  max-height: 88dvh;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: none;
   touch-action: pan-y;
   background: var(--surface);
@@ -1086,13 +1089,16 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 }
 .modal-head {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
 .modal-head h2 { margin: 0; font-size: 21.5px; font-weight: 700; }
+.modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .modal-body, .modal-body form, .modal-body .form-row, .modal-body form label { min-width: 0; }
 .modal-body form { display: flex; flex-direction: column; gap: 13px; }
+.modal-body form[data-form="expense"] > label:has(input[name="time"]) { align-self: flex-start; width: min(100%, 260px); }
 
 .expense-location { display: grid; gap: 8px; min-width: 0; }
 .expense-location-actions { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -1129,6 +1135,7 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .image-entry-status { min-height: 1.3em; margin: 0; color: var(--primary-600); font-size: 14px; }
 .image-entry-status:empty { min-height: 0; }
 .image-entry-progress { display: grid; gap: 8px; padding: 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.modal-task-progress { flex: 0 0 auto; margin-top: 12px; box-shadow: 0 -4px 14px rgba(0, 0, 0, .06); }
 .image-entry-progress[hidden], .image-entry-retry[hidden], .image-entry-cancel[hidden] { display: none; }
 .image-entry-progress-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text); }
 .image-entry-percent { color: var(--muted); font-variant-numeric: tabular-nums; }

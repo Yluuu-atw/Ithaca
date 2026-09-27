@@ -78,6 +78,11 @@
         <button class="icon-btn" data-action="modal-close" aria-label="关闭">✕</button>
       </div>
       <div class="modal-body" id="modalBody"></div>
+      <div class="image-entry-progress modal-task-progress" id="modalTaskProgress" role="status" aria-live="polite" hidden>
+        <div class="image-entry-progress-head"><span class="image-entry-stage"></span><span class="image-entry-percent"></span></div>
+        <div class="image-entry-meter" role="progressbar" aria-label="图片处理进度" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+        <button type="button" class="btn btn-ghost btn-sm image-entry-cancel" data-action="image-entry-cancel">取消识别</button>
+      </div>
     </div>
   </div>
 

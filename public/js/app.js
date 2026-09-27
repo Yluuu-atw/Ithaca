@@ -99,6 +99,7 @@ window.App = (() => {
   const modal = () => $('#modal');
   const modalBody = () => $('#modalBody');
   const modalTitle = () => $('#modalTitle');
+  const modalTaskProgress = () => $('#modalTaskProgress');
 
   // datetime-local 的值是 YYYY-MM-DDTHH:MM，拆回日期与时分两段存
   function splitDT(v) {
@@ -466,6 +467,7 @@ window.App = (() => {
   // ---------------- 弹窗 ----------------
   function openModal(title, formHTML) {
     if (!modal().hidden && !closeModal()) return;
+    modalTaskProgress().hidden = true;
     modalTitle().textContent = title;
     modalBody().innerHTML = formHTML;
     modal().hidden = false;
@@ -486,6 +488,7 @@ window.App = (() => {
     releaseEntryFiles(form);
     modal().hidden = true;
     modalBody().innerHTML = '';
+    modalTaskProgress().hidden = true;
     return true;
   }
 
@@ -521,14 +524,19 @@ window.App = (() => {
   }
 
   function imageEntryProgress(form, stage, percent = null, cancellable = true) {
-    const box = form.querySelector('.image-entry-progress');
-    if (!box) return;
+    if (!modalBody().contains(form)) return;
+    const box = modalTaskProgress();
     box.hidden = false;
     box.querySelector('.image-entry-stage').textContent = stage;
     box.querySelector('.image-entry-percent').textContent = percent == null ? '' : `${Math.round(percent)}%`;
     const meter = box.querySelector('.image-entry-meter');
     meter.classList.toggle('is-waiting', percent == null);
-    if (percent != null) meter.querySelector('span').style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    if (percent == null) meter.removeAttribute('aria-valuenow');
+    else {
+      const value = Math.max(0, Math.min(100, percent));
+      meter.setAttribute('aria-valuenow', String(Math.round(value)));
+      meter.querySelector('span').style.width = `${value}%`;
+    }
     const cancel = box.querySelector('.image-entry-cancel');
     cancel.hidden = !cancellable;
     if (cancellable) cancel.textContent = form._entryTask && form._entryTask.kind === 'recognition' ? '取消识别' : '取消上传';
@@ -536,8 +544,11 @@ window.App = (() => {
 
   function clearImageTask(form) {
     form._entryTask = null;
-    const box = form.querySelector('.image-entry-progress');
-    if (box) box.hidden = true;
+    if (modalBody().contains(form)) {
+      const box = modalTaskProgress();
+      box.hidden = true;
+      box.querySelector('.image-entry-cancel').disabled = false;
+    }
     const submit = form.querySelector('[type="submit"]');
     if (submit) submit.disabled = false;
     const picker = form.querySelector('[name="imageFiles"]');
@@ -1372,7 +1383,7 @@ window.App = (() => {
         break;
 
       case 'image-entry-cancel': {
-        const form = el.closest('form');
+        const form = modalBody().querySelector('form[data-form="expense"], form[data-form="booking"]');
         const task = form && form._entryTask;
         if (task && task.kind !== 'commit') {
           el.disabled = true;
