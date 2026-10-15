@@ -2320,7 +2320,7 @@ window.App = (() => {
         attribution: '© OpenStreetMap contributors',
       }).addTo(map);
     }
-    mapLayer = L.layerGroup().addTo(map);
+    mapLayer = L.featureGroup().addTo(map);
   }
 
   function drawMapLayers(data) {
@@ -2388,7 +2388,7 @@ window.App = (() => {
     }
     let bounds = layers[0].getBounds();
     for (const l of layers.slice(1)) bounds = bounds.extend(l.getBounds());
-    map.fitBounds(bounds, { padding: [30, 30] });
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
   }
 
   function renderMapLegend(data, colorByDate) {
