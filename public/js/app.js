@@ -928,6 +928,34 @@ window.App = (() => {
     }
   }
 
+  // 途径地点标签重绘：走 DOM 构造，地点名是用户输入，不能拼进 innerHTML
+  function renderStopTags(form, list) {
+    const wrap = form.querySelector('.stops-tags');
+    if (!wrap) return;
+    wrap.textContent = '';
+    if (!list.length) {
+      const empty = document.createElement('span');
+      empty.className = 'stops-empty';
+      empty.textContent = '留空会自动取自行程';
+      wrap.appendChild(empty);
+      return;
+    }
+    list.forEach((name, i) => {
+      const tag = document.createElement('span');
+      tag.className = 'stop-tag';
+      tag.textContent = name;
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'stop-tag-x';
+      x.dataset.action = 'stop-del';
+      x.dataset.idx = String(i);
+      x.setAttribute('aria-label', '移除');
+      x.textContent = '✕';
+      tag.appendChild(x);
+      wrap.appendChild(tag);
+    });
+  }
+
   // 模板是文档级的，改它要走 mutateDoc 而不是 mutate（后者只给旅行对象）
   async function doMutateDoc(fn) {
     try {
@@ -1261,6 +1289,35 @@ window.App = (() => {
         current.editMeta = true;
         render();
         break;
+
+      // 途径地点标签：点添加或回车都进列表，隐藏域存 JSON 数组
+      case 'stop-add': {
+        const form = el.closest('form');
+        const input = form && form.querySelector('.stops-input');
+        const hidden = form && form.querySelector('[name="stops"]');
+        if (!input || !hidden) return;
+        const val = (input.value || '').trim();
+        if (!val) { input.focus(); return; }
+        const list = parseList(hidden.value);
+        if (list.includes(val)) { toast('这个地点已经在列表里了', 'error'); input.select(); return; }
+        list.push(val);
+        hidden.value = JSON.stringify(list);
+        input.value = '';
+        renderStopTags(form, list);
+        input.focus();
+        break;
+      }
+
+      case 'stop-del': {
+        const form = el.closest('form');
+        const hidden = form && form.querySelector('[name="stops"]');
+        if (!hidden) return;
+        const list = parseList(hidden.value);
+        list.splice(Number(el.dataset.idx), 1);
+        hidden.value = JSON.stringify(list);
+        renderStopTags(form, list);
+        break;
+      }
 
       case 'meta-cancel':
         current.editMeta = false;
@@ -1841,6 +1898,8 @@ window.App = (() => {
       doMutate(d => {
         d.meta.tripName = (fd.get('tripName') || '').trim() || '我们的旅行';
         d.meta.destination = (fd.get('destination') || '').trim();
+        // 途径地点是标签数组；留空表示走自动推导
+        d.meta.stops = parseList(fd.get('stops'));
       }, '行程信息已保存');
       current.editMeta = false;
       render();
@@ -2664,6 +2723,13 @@ window.App = (() => {
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeModal(); return; }
+      // 途径地点输入框里回车是「加这个地点」，不能让表单直接提交
+      if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('stops-input')) {
+        if (e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        e.target.closest('form').querySelector('[data-action="stop-add"]').click();
+        return;
+      }
       if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('li.exp-row[data-action="expense-detail"]')) {
         e.preventDefault();
         e.target.click();

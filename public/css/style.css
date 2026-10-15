@@ -1601,6 +1601,33 @@ input::placeholder, textarea::placeholder { color: #c4c0b6; }
 .stop { white-space: nowrap; }
 .stop-arrow { margin: 0 7px; color: var(--muted); }
 
+/* 途径地点来源标注 + 标签编辑器 */
+.trip-stops-wrap { display: flex; flex-direction: column; gap: 2px; }
+.trip-stops-src { font-size: 12.5px; color: var(--muted); font-style: italic; }
+.grid-form .full { grid-column: 1 / -1; }
+.stops-edit { display: grid; gap: 8px; margin-top: 6px; }
+.stops-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; align-items: center; }
+.stops-empty { font-size: 13.5px; color: var(--muted); font-style: italic; }
+.stop-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  font-size: 14.5px; color: var(--primary-600);
+}
+.stop-tag-x {
+  width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 50%;
+  background: transparent; cursor: pointer;
+  font-size: 11px; line-height: 1; color: var(--primary-600);
+  transition: background .15s ease, color .15s ease;
+}
+.stop-tag-x:hover { background: var(--primary); color: #fff; }
+.stops-add { display: flex; gap: 8px; }
+.stops-input { flex: 1; min-width: 0; padding: 8px 12px; }
+
 /* ---------------- 成员面板 ---------------- */
 .member-tiles { display: flex; flex-wrap: wrap; gap: 10px; }
 .member-tile { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 8px; border: 1px solid var(--border); border-left: 4px solid var(--mc, var(--border)); border-radius: 999px; background: var(--surface-2); }

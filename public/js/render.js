@@ -460,7 +460,12 @@ window.Render = (() => {
   }
 
   // 只取每天的起点，末站再补终点。中间经过的地点不展示，免得链路太长。
+  // 途径地点：手动填的优先（城市/站点级概括），没填才从行程条目推导。
+  // 自动推导给的是酒店名/机场名这类点位，粒度太细，只能当兜底。
   function tripStops(s) {
+    const manual = ((s.meta && s.meta.stops) || []).map(x => String(x).trim()).filter(Boolean);
+    if (manual.length) return manual;
+
     const days = [...(s.itinerary || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const stops = [];
     const push = (loc) => {
@@ -560,11 +565,28 @@ window.Render = (() => {
     </div>`;
   }
 
+  // 途径地点标签编辑器：隐藏域存 JSON 数组，FormData 原样读得到
+  function stopsEditor(stops) {
+    const list = (Array.isArray(stops) ? stops : []).map(x => String(x).trim()).filter(Boolean);
+    const tags = list.map((x, i) => `
+      <span class="stop-tag">${esc(x)}<button type="button" class="stop-tag-x" data-action="stop-del" data-idx="${i}" aria-label="移除">✕</button></span>`).join('');
+    return `<input type="hidden" name="stops" value="${esc(JSON.stringify(list))}">
+      <div class="stops-edit">
+        <div class="stops-tags">${tags || '<span class="stops-empty">留空会自动取自行程</span>'}</div>
+        <div class="stops-add">
+          <input class="stops-input" placeholder="如：珠海" maxlength="20">
+          <button type="button" class="btn btn-ghost btn-sm" data-action="stop-add">＋ 添加</button>
+        </div>
+      </div>`;
+  }
+
   // 填完就该像「已完成」，不该一直挂着表单框
   function metaSummary(s) {
     const m = s.meta;
     const d = tripDates(s);
     const stops = tripStops(s);
+    // 手填的才算「我的途径」，没填时那串是自动推导的点位，得说清楚免得以为是填错
+    const auto = !(Array.isArray(m.stops) && m.stops.length);
     const days = (d.start && d.end) ? diffDays(d.start, d.end) + 1 : 0;
     const dateTxt = d.start
       ? `${fmtDate(d.start)} – ${fmtDate(d.end)}${days > 0 ? ` · ${days} 天` : ''}`
@@ -574,13 +596,16 @@ window.Render = (() => {
     return `<div class="trip-summary">
       ${stops.length ? `<div class="trip-field">
         <span class="trip-field-label">${emo('📍')} 途径地点</span>
-        <div class="trip-stops">${chain}</div>
+        <div class="trip-stops-wrap">
+          <div class="trip-stops">${chain}</div>
+          ${auto ? '<span class="trip-stops-src">取自行程 · 点编辑可手填</span>' : ''}
+        </div>
       </div>` : ''}
       ${dateTxt ? `<div class="trip-field">
         <span class="trip-field-label">${emo('🗓')} 旅行日期</span>
         <span class="trip-field-value">${esc(dateTxt)}</span>
       </div>` : ''}
-      ${(!stops.length && !dateTxt) ? '<p class="trip-summary-hint">去「行程」页排几天，日期和途经地会自动带出来</p>' : ''}
+      ${(!stops.length && !dateTxt) ? '<p class="trip-summary-hint">点「编辑」填一下旅行名称和途径地点</p>' : ''}
     </div>`;
   }
 
@@ -657,6 +682,7 @@ window.Render = (() => {
           <form class="grid-form" data-form="meta">
             <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
             <label>目的地<input name="destination" value="${esc(m.destination || '')}" placeholder="如：京都·大阪 或 Paris" autocomplete="off"></label>
+            <label class="full">途径地点<span class="field-hint">城市或站点级概括，留空则自动取自行程条目的地点</span>${stopsEditor(m.stops)}</label>
             <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
           </form>` : metaSummary(s)}
         </section>

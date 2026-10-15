@@ -188,6 +188,7 @@ function defaultTrip() {
       colors: [],   // 与 members 一一对应，用于按付款人区分
       archived: false,
       packingTypes: [],   // 本趟用到的打包模板 id，候选池取并集；空则只显示「通用」
+      stops: [],   // 途径地点，手动维护的城市/站点级概括；空数组则回退到从行程条目自动推导
     },
     itinerary: [], // Day membership follows the item's start date; order only controls items within a day.
     expenses: [],  // Ledger entries; optional receipt metadata and images share the same financial amount.
@@ -307,6 +308,10 @@ function normalizeTrip(raw) {
   // 本趟用到的打包模板 id：只留字符串，模板本身存不存在由前端兜底
   t.meta.packingTypes = Array.isArray(t.meta.packingTypes)
     ? t.meta.packingTypes.filter(x => typeof x === 'string' && x)
+    : [];
+  // 途径地点：只留非空字符串。留空表示回退到从行程条目自动推导
+  t.meta.stops = Array.isArray(t.meta.stops)
+    ? t.meta.stops.map(x => typeof x === 'string' ? x.trim() : '').filter(Boolean)
     : [];
 
   for (const k of TRIP_LISTS) t[k] = Array.isArray(src[k]) ? src[k] : [];
