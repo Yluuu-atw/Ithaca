@@ -528,6 +528,10 @@ window.App = (() => {
 
   function closeModal(force = false) {
     const form = modalBody().querySelector('form');
+    if (!force && form && form._saving) {
+      toast('正在保存，请稍等', 'info');
+      return false;
+    }
     if (!force && form && form._entryTask) {
       imageEntryStatus(form, form._entryTask.kind === 'commit' ? '正在保存，请稍等' : '先取消当前操作，再关闭页面');
       return false;
@@ -1138,6 +1142,7 @@ window.App = (() => {
         break;
 
       case 'itinerary-add-item':
+        current.editItemFrom = modal().hidden ? '' : el.dataset.day;
         openModal('添加安排', Render.formItem(el.dataset.day));
         break;
 
@@ -1854,10 +1859,23 @@ window.App = (() => {
 
     if (kind === 'day') {
       const date = fd.get('date');
-      doMutate(d => {
-        d.itinerary.push({ id: Store.uid('day'), date, items: [] });
-      }, '已创建');
-      closeModal();
+      if (!date) { toast('请先选择日期', 'error'); return; }
+      if (form._saving) return;
+      form._saving = true;
+      const submit = form.querySelector('[type="submit"]');
+      submit.disabled = true;
+      let dayId;
+      const saved = await doMutate(d => {
+        let day = d.itinerary.find(entry => entry.date === date);
+        if (!day) {
+          day = { id: Store.uid('day'), date, items: [] };
+          d.itinerary.push(day);
+        }
+        dayId = day.id;
+      });
+      form._saving = false;
+      submit.disabled = false;
+      if (saved) openModal('行程详情', Render.dayDetail(Store.getState(), dayId));
       return;
     }
 
@@ -1868,6 +1886,12 @@ window.App = (() => {
       // datetime-local 提交的是 YYYY-MM-DDTHH:MM，拆成日期 + 时分两段存
       const [startDate, time] = splitDT(fd.get('time'));
       const [endDate, endTime] = splitDT(fd.get('endTime'));
+      if (!fd.get('category')) { toast('请先选择类别', 'error'); return; }
+      if (!String(fd.get('title') || '').trim()) { toast('请先填写安排内容', 'error'); return; }
+      if (startDate && endDate && `${endDate}T${endTime}` < `${startDate}T${time}`) {
+        toast('结束时间不能早于开始时间', 'error');
+        return;
+      }
       const fields = {
         time,
         startDate,
