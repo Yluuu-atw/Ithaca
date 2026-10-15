@@ -943,7 +943,10 @@ window.Render = (() => {
     </button>`;
     const head = `<div class="list-head">
       <span>共 ${visibleExpenses.length} 笔 · 支出 ${money(visibleTotal, s.meta.currency)}</span>
-      <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
+      <div class="ledger-export-actions">
+        <button type="button" class="btn btn-ghost" data-action="voucher-open" data-empty="${visibleExpenses.length === 0}" ${visibleExpenses.length ? '' : 'disabled title="当前筛选没有账单可导出"'}>导出凭证</button>
+        <button class="btn btn-primary" data-action="expense-add">＋ 记一笔</button>
+      </div>
     </div>`;
     const filters = `<div class="ledger-filters" role="group" aria-label="记账筛选">
       <button type="button" class="ledger-filter ${activeFilter === 'all' ? 'active' : ''}" data-action="ledger-filter" data-filter="all" aria-pressed="${activeFilter === 'all'}">全部 <span>${allExpenses.length}</span></button>

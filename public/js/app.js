@@ -59,6 +59,7 @@ window.App = (() => {
   }
 
   function actionAllowed(action, el) {
+    if (action === 'voucher-open') return Store.getIdentity() != null;
     if (action === 'settle-confirm') return Store.getIdentity() != null;
     if (viewActions.has(action) || action === 'account-open' || action === 'account-logout') return true;
     if (action.startsWith('passkey-')) return !!AuthUI.user;
@@ -82,7 +83,7 @@ window.App = (() => {
     root.querySelectorAll('[data-action]').forEach(el => {
       const allowed = actionAllowed(el.dataset.action, el);
       el.classList.toggle('permission-hidden', !allowed);
-      if ('disabled' in el) el.disabled = !allowed;
+      if ('disabled' in el) el.disabled = !allowed || el.dataset.empty === 'true';
     });
   }
 
@@ -1152,6 +1153,15 @@ window.App = (() => {
 
       case 'export':
         exportData();
+        break;
+      case 'voucher-open':
+        if (!modal().hidden && !closeModal()) return;
+        Vouchers.open({
+          trip: Store.getState(), filter: current.ledgerFilter,
+          themeBase: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          csrf: Store.getCsrf(),
+        });
         break;
 
       case 'import':
