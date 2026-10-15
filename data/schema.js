@@ -189,7 +189,7 @@ function defaultTrip() {
       archived: false,
       packingTypes: [],   // 本趟用到的打包模板 id，候选池取并集；空则只显示「通用」
     },
-    itinerary: [], // Day records may set fromExpense when created by an expense. Item startDate/endDate do not affect order.
+    itinerary: [], // Day membership follows the item's start date; order only controls items within a day.
     expenses: [],  // Ledger entries; optional receipt metadata and images share the same financial amount.
     checklist: [], // [{ id, name, category, checked, owner }]
     wishlist: [],  // [{ id, name, location, note, priority, status }]

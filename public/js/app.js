@@ -313,6 +313,45 @@ window.App = (() => {
     }
   }
 
+  // Keep date membership and manual ordering consistent when an item changes day.
+  function moveItemToDate(trip, source, item, date) {
+    const targetDate = date || source.date;
+    item.startDate = targetDate;
+    if (targetDate === source.date) return source;
+    let target = trip.itinerary.find(day => day.date === targetDate);
+    if (!target) {
+      target = { id: Store.uid('day'), date: targetDate, items: [], fromExpense: !!item.expenseId };
+      trip.itinerary.push(target);
+    }
+    source.items = source.items.filter(entry => entry.id !== item.id);
+    target.items.push(item);
+    for (const day of [source, target]) {
+      if (Array.isArray(day.order) && Store.canEditRecord(day)) {
+        day.order = day.order.filter(id => id !== item.id);
+        if (day === target) day.order.push(item.id);
+      }
+    }
+    if (source.fromExpense && !source.items.length && Store.canEditRecord(source)) {
+      trip.itinerary = trip.itinerary.filter(day => day.id !== source.id);
+    }
+    return target;
+  }
+
+  function saveItineraryItem(trip, dayId, itemId, fields) {
+    const source = trip.itinerary.find(day => day.id === dayId);
+    if (!source) throw new Error('这一天已被删除，请刷新后重试');
+    let item = itemId && source.items.find(entry => entry.id === itemId);
+    if (itemId && !item) throw new Error('这条安排已被移动或删除，请刷新后重试');
+    if (!item) {
+      item = { id: Store.uid('itm'), ...fields };
+      source.items.push(item);
+      if (Array.isArray(source.order) && Store.canEditRecord(source)) source.order.push(item.id);
+    } else Object.assign(item, fields);
+    const target = moveItemToDate(trip, source, item, fields.startDate);
+    syncExpenseFromItem(trip, item, target.date);
+    return target.id;
+  }
+
   // 行程条目 → 记账：填了花费就自动建一条支出记录，用 itemId 双向关联。
   // 落库的字段与记账页手建的完全一致，之后改哪边都同步。
   function syncExpenseFromItem(trip, item, date) {
@@ -363,6 +402,8 @@ window.App = (() => {
       it.amount = Number(ex.amount) || 0;
       if (ex.payer) it.payer = ex.payer;
       if (Array.isArray(ex.participants)) it.participants = ex.participants.slice();
+      it.time = ex.time || '';
+      moveItemToDate(trip, day, it, ex.date);
       return;
     }
   }
@@ -833,8 +874,10 @@ window.App = (() => {
     try {
       await Store.mutate(fn);
       if (successMsg) toast(successMsg, 'success');
+      return true;
     } catch (e) {
       toast(e.message || '操作失败', 'error');
+      return false;
     }
   }
 
@@ -1818,28 +1861,20 @@ window.App = (() => {
         participants: parseList(fd.get('participants')),
       };
       const inline = !!form.closest('.dt-item');
-      if (itemId) {
-        await doMutate(d => {
-          const day = d.itinerary.find(x => x.id === dayId);
-          const it = day && (day.items || []).find(x => x.id === itemId);
-          if (it) { Object.assign(it, fields); syncExpenseFromItem(d, it, day && day.date); }
-        }, '已保存');
-      } else {
-        await doMutate(d => {
-          const day = d.itinerary.find(x => x.id === dayId);
-          if (day) {
-            day.items = day.items || [];
-            const it = { id: Store.uid('itm'), ...fields };
-            day.items.push(it);
-            // 手动排过序的日子，新条目接在末尾；没排过的继续按时间排
-            if (Array.isArray(day.order) && Store.getRole() !== 'temporary') day.order.push(it.id);
-            syncExpenseFromItem(d, it, day.date);
-          }
-        }, '已添加');
-      }
+      if (form._saving) return;
+      form._saving = true;
+      const submit = form.querySelector('[type="submit"]');
+      submit.disabled = true;
+      let targetDayId;
+      const saved = await doMutate(d => {
+        targetDayId = saveItineraryItem(d, dayId, itemId, fields);
+      }, itemId ? '已保存' : '已添加');
+      form._saving = false;
+      submit.disabled = false;
+      if (!saved) return;
       // 内嵌表单：重渲染行程详情，保持这条展开并回到只读态
       if (inline) {
-        document.getElementById('modalBody').innerHTML = Render.dayDetail(Store.getState(), dayId);
+        document.getElementById('modalBody').innerHTML = Render.dayDetail(Store.getState(), targetDayId);
         applyPermissions(modal());
         const li = document.querySelector(`.dt-item[data-item="${itemId}"]`);
         if (li) {
@@ -1850,7 +1885,7 @@ window.App = (() => {
       }
       // 从行程详情弹窗点进来的编辑，保存后回到那个弹窗
       if (current.editItemFrom) {
-        openModal('行程详情', Render.dayDetail(Store.getState(), current.editItemFrom));
+        openModal('行程详情', Render.dayDetail(Store.getState(), targetDayId));
         current.editItemFrom = '';
         return;
       }

@@ -784,7 +784,7 @@ window.Render = (() => {
     const cur = s.meta.currency;
     const dayObj = (s.itinerary || []).find(x => x.id === dayId);
     const dayDate = dayObj ? dayObj.date : '';
-    // 日期只是记录，不参与排序；老数据没有 startDate 就当是这天
+    // The containing day supplies the start date when only a time was recorded.
     const sd = i.startDate || dayDate;
     const ed = i.endDate || i.startDate || dayDate;
     const crossDay = !!(sd && ed && sd !== ed);

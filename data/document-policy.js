@@ -56,6 +56,8 @@ function checkTripAssets(db, trip) {
 }
 
 function preserveAuthors(before, after, authorId) {
+  const oldItineraryItems = new Map((before && before.itinerary || []).flatMap(day => day.items || []).map(item => [item.id, item]));
+  const itineraryIds = new Set();
   for (const collection of COLLECTIONS) {
     const oldItems = new Map((before && before[collection] || []).map(item => [item.id, item]));
     const seen = new Set();
@@ -70,12 +72,10 @@ function preserveAuthors(before, after, authorId) {
       }
       item.authorId = old ? old.authorId : authorId;
       if (collection !== 'itinerary') continue;
-      const oldNested = new Map((old && old.items || []).map(nested => [nested.id, nested]));
-      const nestedSeen = new Set();
       for (const nested of item.items || []) {
-        if (!nested || typeof nested.id !== 'string' || !nested.id || nestedSeen.has(nested.id)) throw new Error('行程记录 ID 无效或重复');
-        nestedSeen.add(nested.id);
-        const original = oldNested.get(nested.id);
+        if (!nested || typeof nested.id !== 'string' || !nested.id || itineraryIds.has(nested.id)) throw new Error('行程记录 ID 无效或重复');
+        itineraryIds.add(nested.id);
+        const original = oldItineraryItems.get(nested.id);
         if (original && nested.authorId !== original.authorId) throw new AccessDeniedError('不能修改记录作者');
         if (!original && nested.authorId && nested.authorId !== authorId) throw new AccessDeniedError('不能指定其他记录作者');
         nested.authorId = original ? original.authorId : authorId;
