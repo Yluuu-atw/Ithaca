@@ -426,7 +426,7 @@ window.App = (() => {
       if (!item) continue;
       if (item.expenseId === id) {
         day.items = day.items.filter(entry => entry.id !== item.id);
-        if (Array.isArray(day.order)) day.order = day.order.filter(itemId => itemId !== item.id);
+        if (Array.isArray(day.order) && Store.canEditRecord(day)) day.order = day.order.filter(itemId => itemId !== item.id);
         if (day.fromExpense && day.items.length === 0 && Store.canEditRecord(day)) {
           trip.itinerary = trip.itinerary.filter(entry => entry.id !== day.id);
         }

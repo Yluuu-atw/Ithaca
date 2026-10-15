@@ -11,7 +11,7 @@ const { ownedDoc, addFormalMember } = require('./fixtures');
 
 function itineraryHelpers(canEditRecord = () => true) {
   const source = fs.readFileSync(path.join(__dirname, '../public/js/app.js'), 'utf8')
-    .replace('return { init };', 'return { saveItineraryItem, moveItemToDate, syncExpenseFromItem, syncItemFromExpense };')
+    .replace('return { init };', 'return { saveItineraryItem, moveItemToDate, syncExpenseFromItem, syncItemFromExpense, removeExpenseRecord };')
     .replace("document.addEventListener('DOMContentLoaded', App.init);", '');
   let sequence = 0;
   const context = {
@@ -203,4 +203,25 @@ test('temporary members move their items across shared days while other content 
   const duplicate = project(savedAgain, principal);
   duplicate.trips[0].itinerary[0].items.push(structuredClone(createdDay.items[0]));
   assert.throws(() => updateDocument(savedAgain, principal, duplicate), /行程记录 ID 重复/);
+});
+
+test('removing an owned linked expense preserves another author’s manual day order', () => {
+  const db = ownedDoc('alice');
+  const trip = db.trips[0];
+  const grant = db.access[trip.id];
+  const guestId = 'person_temp_guest';
+  grant.people.push({ id: guestId, kind: 'temporary', name: 'Guest', ...unusedAppearance(grant.people) });
+  syncTripRoster(trip, grant);
+  trip.itinerary = sampleDays(grant.people[0].id, guestId);
+  trip.itinerary[0].items[0].expenseId = 'expense_guest';
+  trip.expenses.push({ id: 'expense_guest', authorId: guestId, itemId: 'item_move', amount: 30,
+    title: 'Train', payer: 'Guest', participants: ['Guest'] });
+  const principal = { tempTripId: trip.id, tempPersonId: guestId };
+  const visible = project(db, principal);
+  itineraryHelpers(record => record.authorId === guestId).removeExpenseRecord(visible.trips[0], 'expense_guest');
+  const saved = updateDocument(db, principal, visible).trips[0];
+  assert.equal(saved.expenses.length, 0);
+  assert.equal(saved.itinerary[0].items.length, 1);
+  assert.equal(saved.itinerary[0].items[0].id, 'item_stay');
+  assert.deepEqual(saved.itinerary[0].order, trip.itinerary[0].order);
 });
