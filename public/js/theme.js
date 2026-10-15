@@ -1,6 +1,9 @@
 'use strict';
 
-window.Theme = (() => {
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Theme = factory();
+})(typeof window !== 'undefined' ? window : globalThis, () => {
   const DEFAULT_BG = '#f2ece0';
   const DARK_BG = '#283440';
   const BRAND_KEYS = [
@@ -143,4 +146,4 @@ window.Theme = (() => {
   }
 
   return { BRAND_KEYS, DARK_BG, derive, apply, mix };
-})();
+});
