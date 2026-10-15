@@ -7,4 +7,7 @@ data/setup-token
 data/uploads
 data/thumbs
 data/backups
+data/vouchers
+data/voucher-keys
+data/voucher-font-cache
 *.pem

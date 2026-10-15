@@ -9,8 +9,7 @@
  *   3. SSE（/api/events）多设备实时同步
  *   4. JSON 文件原子持久化（写临时文件 + rename，防写坏）
  *
- * 数据与呈现分离：数据只存在 data/db.json，服务端只做读写与广播，
- * 不关心界面长什么样；界面逻辑全在 public/ 里。
+ * Interactive views live in public/. Signed vouchers are rendered from server snapshots.
  */
 
 const http = require('http');
@@ -29,6 +28,8 @@ const { AccessDeniedError, project, updateDocument } = require('./data/document-
 const { formalPerson, assignAuthors, syncTripRoster } = require('./data/people');
 const { extractImageDraft, RecognitionError, MAX_IMAGE_BYTES } = require('./data/ai-recognition');
 const { createPlaceSearch, PlaceSearchError } = require('./data/place-search');
+const { createVoucherService } = require('./data/vouchers');
+const { renderVoucher } = require('./data/voucher-renderer');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -55,6 +56,10 @@ const auth = createAuth(AUTH_PATH);
 const passkeys = createPasskeys(auth, ORIGIN);
 const sharing = createSharing(auth, () => db, commit);
 const placeSearch = createPlaceSearch();
+const vouchers = createVoucherService({
+  dataDir: DATA_DIR, origin: ORIGIN, getDb: () => db,
+  getUsers: () => auth.store.get().users, render: renderVoucher,
+});
 
 function projectFor(source, principal) {
   return project(source, principal, auth.store.get().users);
@@ -174,7 +179,7 @@ const MIME = {
 };
 
 function serveStatic(req, res, pathname) {
-  const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  const rel = pathname === '/' ? 'index.html' : pathname === '/verify-voucher' ? 'verify-voucher.html' : pathname.replace(/^\/+/, '');
   const isUpload = rel.startsWith('uploads/');
   if (isUpload) {
     const name = rel.slice('uploads/'.length);
@@ -275,6 +280,62 @@ async function handleThumbnail(req, res, pathname, principal) {
     sendJSON(res, error.code === 'ENOENT' ? 404 : 422, { error: '无法生成照片缩略图' });
   }
   return true;
+}
+
+// ---------------- Voucher API ----------------
+
+async function handleVoucherApi(req, res, pathname, principal) {
+  try {
+    let match;
+    if ((match = /^\/api\/voucher-keys\/([a-zA-Z0-9_-]+)$/.exec(pathname)) && req.method === 'GET') {
+      if (limited(req, 'voucher-public', 180, 60_000)) return sendJSON(res, 429, { error: '核验请求过于频繁，请稍后重试' });
+      return sendJSON(res, 200, await vouchers.publicKey(match[1]));
+    }
+    if ((match = /^\/api\/vouchers\/([a-zA-Z0-9_-]+)\/verification$/.exec(pathname)) && req.method === 'GET') {
+      if (limited(req, 'voucher-public', 180, 60_000)) return sendJSON(res, 429, { error: '核验请求过于频繁，请稍后重试' });
+      return sendJSON(res, 200, await vouchers.verification(match[1]));
+    }
+    if (!principal) return sendJSON(res, 401, { error: '请先登录' });
+    if (pathname === '/api/voucher-jobs' && req.method === 'POST') {
+      if (limited(req, 'voucher-create', 20, 60_000)) return sendJSON(res, 429, { error: '生成过于频繁，请稍后重试' });
+      const options = JSON.parse((await readBody(req, 4096)).toString('utf8'));
+      return sendJSON(res, 202, await vouchers.createJob(principal, options));
+    }
+    if ((match = /^\/api\/voucher-jobs\/([a-zA-Z0-9_-]+)$/.exec(pathname))) {
+      if (req.method === 'GET') return sendJSON(res, 200, await vouchers.getJob(principal, match[1]));
+      if (req.method === 'DELETE') return sendJSON(res, 200, await vouchers.cancelJob(principal, match[1]));
+    }
+    if (pathname === '/api/vouchers' && req.method === 'GET') {
+      const tripId = new URL(req.url, ORIGIN).searchParams.get('tripId');
+      return sendJSON(res, 200, { vouchers: await vouchers.list(principal, tripId) });
+    }
+    if ((match = /^\/api\/vouchers\/([a-zA-Z0-9_-]+)\/(images|previews)\/([1-9][0-9]*)$/.exec(pathname)) && req.method === 'GET') {
+      const file = await vouchers.getImage(principal, match[1], Number(match[3]), { preview: match[2] === 'previews' });
+      const stream = fs.createReadStream(file.path);
+      stream.on('error', () => {
+        if (!res.headersSent) sendJSON(res, 404, { error: '凭证文件不存在' });
+        else res.destroy();
+      });
+      stream.once('open', () => {
+        const attachment = new URL(req.url, ORIGIN).searchParams.get('download') === '1';
+        res.writeHead(200, {
+          'Content-Type': file.contentType, 'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+          'Content-Disposition': `${attachment ? 'attachment' : 'inline'}; filename="${file.filename}"`,
+        });
+        stream.pipe(res);
+      });
+      return;
+    }
+    if ((match = /^\/api\/vouchers\/([a-zA-Z0-9_-]+)$/.exec(pathname)) && req.method === 'DELETE') {
+      return sendJSON(res, 200, await vouchers.revoke(principal, match[1]));
+    }
+    return sendJSON(res, 404, { error: '凭证接口不存在' });
+  } catch (error) {
+    const status = error.statusCode || (error instanceof SyntaxError ? 400 : 500);
+    if (status >= 500) console.error('[voucher]', error.message);
+    return sendJSON(res, status, { error: status >= 500 ? '凭证处理失败，请稍后重试' : error.message });
+  }
 }
 
 // ---------------- REST API ----------------
@@ -948,6 +1009,10 @@ const server = http.createServer((req, res) => {
 
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname);
   if (pathname.startsWith('/api/passkeys/')) return handlePasskeys(req, res, pathname);
+  if (req.method === 'GET' && (/^\/api\/vouchers\/[a-zA-Z0-9_-]+\/verification$/.test(pathname)
+    || /^\/api\/voucher-keys\/[a-zA-Z0-9_-]+$/.test(pathname))) {
+    return handleVoucherApi(req, res, pathname, null);
+  }
   if (pathname.startsWith('/api/share/') || pathname.startsWith('/api/temporary/') || pathname.startsWith('/api/invites/') || /^\/api\/trips\//.test(pathname)) {
     return handleSharing(req, res, pathname);
   }
@@ -962,6 +1027,7 @@ const server = http.createServer((req, res) => {
       return sendJSON(res, 403, { error: '安全令牌无效' });
     }
     if (pathname === '/api/events' && req.method === 'GET') return handleSSE(req, res, principal);
+    if (/^\/api\/(?:voucher-jobs|vouchers|voucher-keys)(?:\/|$)/.test(pathname)) return handleVoucherApi(req, res, pathname, principal);
     return handleApi(req, res, pathname, principal);
   }
   return serveStatic(req, res, pathname);
