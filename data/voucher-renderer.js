@@ -14,9 +14,11 @@ const MARGIN = 48;
 const CONTENT_WIDTH = WIDTH - MARGIN * 2;
 const PAD = 32;
 const INNER_WIDTH = CONTENT_WIDTH - PAD * 2;
-const FOOTER_HEIGHT = 330;
+const FOOTER_HEIGHT = 272;
+const QR_SIZE = 240;
 const FONT = path.join(__dirname, '../public/vendor/fonts/noto-sans-cjk/NotoSansCJKsc-Regular.otf');
 const LOGO = path.join(__dirname, '../public/brand/logo-header.svg');
+const ICON = path.join(__dirname, '../public/brand/icon.svg');
 const RECEIPT_TYPES = { flight: '机票', train: '火车票', bus: '汽车票', hotel: '住宿预订', other: '其他票据' };
 const FONT_CACHE = path.resolve(process.env.ITHACA_DATA_DIR || __dirname, 'voucher-font-cache');
 
@@ -120,7 +122,7 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
   const summary = [
     await row(scope, { size: 28, color: muted }),
     await row(money(snapshot.totalMinor, currency), { size: 62, color: accent, bold: true }),
-    await row(`${snapshot.count} 笔账单  ·  ${snapshot.includeReceipts ? '附带票据预览' : '不含票据图片'}`, { size: 28, color: muted }),
+    await row(`${snapshot.count} 笔账单`, { size: 28, color: muted }),
     ...await fieldRows('生成于', `${issued}（${snapshot.timeZone}）`, { size: 24, color: muted }),
   ];
   groups.push({ kind: 'summary', title: '账单汇总', rows: summary });
@@ -186,7 +188,7 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
       if (attachmentBytes > 64 * 1024 * 1024) fail('票据预览内容过大，请取消附带预览或缩小导出范围');
       measuredHeight += rendered.info.height + 26;
       if (measuredHeight > MAX_PAGES * (MAX_HEIGHT - FOOTER_HEIGHT - MARGIN * 2)) fail(`凭证超过 ${MAX_PAGES} 张长图，请缩小导出范围`);
-      rows.push(await row(`票据预览 ${attachment + 1}/${expense.images.length} · 完整比例`, { size: 24, color: muted }));
+      rows.push(await row(`票据 ${attachment + 1}/${expense.images.length}`, { size: 24, color: muted }));
       rows.push({ height: rendered.info.height + 26, layers: [{ input: rendered.data, left: Math.floor((INNER_WIDTH - rendered.info.width) / 2), top: 0 }] });
       imagesDone++;
       onProgress({ stage: 'attachments', completed: imagesDone, total: imageCount });
@@ -240,12 +242,16 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
   if (current.groups.length) pages.push(current);
   if (pages.length > MAX_PAGES) fail(`凭证超过 ${MAX_PAGES} 张长图，请缩小导出范围`);
 
-  const qr = await QRCode.toBuffer(verificationUrl, { type: 'png', errorCorrectionLevel: 'M', width: 220, margin: 3, color: { dark: '#202020ff', light: '#ffffffff' } });
-  const footerLines = [
-    await textImage('扫描找到凭证，再选择原图核验', { size: 25, color: ink, width: 690, bold: true }),
-    await textImage('二维码与淡水印只标识来源，完整性以原始 PNG 校验结果为准。', { size: 23, color: muted, width: 690 }),
-    await textImage('记账数据快照，不等同于商户发票或银行回单。', { size: 23, color: muted, width: 690 }),
-  ];
+  const qrBase = await QRCode.toBuffer(verificationUrl, { type: 'png', errorCorrectionLevel: 'H', width: QR_SIZE, margin: 4, color: { dark: '#202020ff', light: '#ffffffff' } });
+  const badgeSize = 48;
+  const badge = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${badgeSize}" height="${badgeSize}"><rect width="100%" height="100%" rx="8" fill="#fff"/></svg>`);
+  const icon = await sharp(Buffer.from(recolorLogo(await fs.readFile(ICON, 'utf8'), brand))).resize(badgeSize, badgeSize).png().toBuffer();
+  const badgeOffset = (QR_SIZE - badgeSize) / 2;
+  const qr = await sharp(qrBase).composite([
+    { input: badge, left: badgeOffset, top: badgeOffset },
+    { input: icon, left: badgeOffset, top: badgeOffset },
+  ]).png().toBuffer();
+  const verificationLabel = await textImage('扫码核验', { size: 28, color: ink, width: 690, bold: true });
   const results = [];
   await fs.mkdir(outputDir, { recursive: true });
   for (let index = 0; index < pages.length; index++) {
@@ -276,15 +282,11 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
       }
     }
     const background = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}"><rect width="100%" height="100%" fill="${css['--bg']}"/>${cards.join('')}${watermark.join('')}</svg>`);
-    const footY = height - MARGIN - FOOTER_HEIGHT + 32;
-    let footTextY = footY;
-    for (const line of footerLines) {
-      layers.push({ input: line.input, left: MARGIN, top: footTextY });
-      footTextY += line.height + 16;
-    }
+    const footY = height - MARGIN - FOOTER_HEIGHT + 16;
+    layers.push({ input: verificationLabel.input, left: MARGIN, top: footY + 76 });
     const pageLabel = await textImage(`凭证 ${shortId}  ·  第 ${index + 1} / ${pages.length} 张`, { size: 25, color: ink, width: 690 });
-    layers.push({ input: pageLabel.input, left: MARGIN, top: footTextY + 4 });
-    layers.push({ input: qr, left: WIDTH - MARGIN - 220, top: footY });
+    layers.push({ input: pageLabel.input, left: MARGIN, top: footY + 126 });
+    layers.push({ input: qr, left: WIDTH - MARGIN - QR_SIZE, top: footY });
     const filename = `page-${index + 1}.png`;
     const previewFilename = `page-${index + 1}.webp`;
     await sharp(background).composite(layers).png({ compressionLevel: 8 }).toFile(path.join(outputDir, filename));
