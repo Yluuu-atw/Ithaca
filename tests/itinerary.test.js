@@ -113,6 +113,27 @@ test('moving the last linked item removes only an editable automatically created
   }
 });
 
+test('expense time edits preserve the duration of linked itinerary items across dates', () => {
+  const { syncItemFromExpense } = itineraryHelpers();
+  const trip = { itinerary: sampleDays('person_alice'), expenses: [] };
+  const item = trip.itinerary[0].items[0];
+  Object.assign(item, { endDate: '2026-10-15', endTime: '11:00' });
+  const expense = { itemId: item.id, date: '2026-10-16', time: '23:30', amount: 30 };
+  syncItemFromExpense(trip, expense);
+  assert.equal(item.startDate, '2026-10-16');
+  assert.equal(item.time, '23:30');
+  assert.equal(item.endDate, '2026-10-17');
+  assert.equal(item.endTime, '01:30');
+  syncItemFromExpense(trip, expense);
+  assert.equal(item.endDate, '2026-10-17');
+  assert.equal(item.endTime, '01:30');
+  expense.date = '2026-10-14';
+  expense.time = '08:00';
+  syncItemFromExpense(trip, expense);
+  assert.equal(item.endDate, '2026-10-14');
+  assert.equal(item.endTime, '10:00');
+});
+
 test('shared itinerary and expense fields survive edits and location changes invalidate coordinates', () => {
   const { saveItineraryItem, syncExpenseFromItem, syncItemFromExpense } = itineraryHelpers();
   const trip = { itinerary: sampleDays('person_alice'), expenses: [] };

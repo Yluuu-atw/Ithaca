@@ -410,6 +410,18 @@ window.App = (() => {
       it.amount = Number(ex.amount) || 0;
       if (ex.payer) it.payer = ex.payer;
       if (Array.isArray(ex.participants)) it.participants = ex.participants.slice();
+      if (it.endTime) {
+        // Shift wall-clock times together; the trip does not store a timezone.
+        const stamp = (date, time) => Date.parse(`${date}T${time || '00:00'}:00Z`);
+        const previousStart = stamp(it.startDate || day.date, it.time);
+        const previousEnd = stamp(it.endDate || it.startDate || day.date, it.endTime);
+        const nextStart = stamp(ex.date || day.date, ex.time);
+        if ([previousStart, previousEnd, nextStart].every(Number.isFinite) && previousEnd >= previousStart) {
+          const nextEnd = new Date(nextStart + previousEnd - previousStart).toISOString();
+          it.endDate = nextEnd.slice(0, 10);
+          it.endTime = nextEnd.slice(11, 16);
+        }
+      }
       it.time = ex.time || '';
       moveItemToDate(trip, day, it, ex.date);
       return;
