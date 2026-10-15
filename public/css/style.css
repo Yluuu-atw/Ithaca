@@ -122,7 +122,8 @@
 .access-row, .access-form { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
 .access-row { justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .access-row-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-body[data-access-role="temporary"] .dt-grip { display: none; }
+body[data-access-role="temporary"] .dt-grip,
+body[data-access-role="viewer"] .dt-grip { display: none; }
 .access-form { flex-wrap: wrap; }
 .access-form input { flex: 1 1 150px; }
 .access-form select { flex: 0 1 120px; }

@@ -2532,9 +2532,10 @@ window.App = (() => {
   // 用 Pointer Events 一套代码同时覆盖鼠标与触摸；不用 HTML5 draggable，触屏不支持。
   // 拖动只改 day.order（展示顺序），不动 time——用户填的时间是事实，顺序是偏好。
   function commitDayOrder(dayId, orderIds) {
-    doMutate(d => {
+    if (!Store.canEditTrip() || Store.getRole() === 'temporary') return;
+    return doMutate(d => {
       const day = (d.itinerary || []).find(x => x.id === dayId);
-      if (!day) return;
+      if (!day) throw new Error('这一天已被删除，请刷新后重试');
       const have = new Set((day.items || []).map(i => i.id));
       // 只留还存在的条目，删掉的要从 order 里摘出去，否则会留下悬空 id
       day.order = orderIds.filter(id => have.has(id));
@@ -2550,7 +2551,7 @@ window.App = (() => {
     let drag = null;
 
     document.addEventListener('pointerdown', (e) => {
-      if (Store.getRole() === 'temporary') return;
+      if (!Store.canEditTrip() || Store.getRole() === 'temporary') return;
       const grip = e.target.closest && e.target.closest('.dt-grip');
       if (!grip) return;
       const li = grip.closest('.dt-item');
@@ -2583,6 +2584,13 @@ window.App = (() => {
       drag = null;
       li.classList.remove('is-dragging');
       if (!moved) return;
+      if (e.type === 'pointercancel') {
+        if (!modal().hidden) {
+          modalBody().innerHTML = Render.dayDetail(Store.getState(), list.dataset.day);
+          applyPermissions(modal());
+        }
+        return;
+      }
       commitDayOrder(list.dataset.day, [...list.querySelectorAll('.dt-item')].map(x => x.dataset.item));
     };
     document.addEventListener('pointerup', finish);
