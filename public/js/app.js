@@ -895,6 +895,15 @@ window.App = (() => {
     return draft;
   }
 
+  function itemLocation(fd, existing, draft = {}) {
+    if (fd.has('location')) return String(fd.get('location') || '').trim();
+    const title = String(fd.get('title') || '');
+    const location = draft.location ?? existing?.location ?? title;
+    const pinned = existing && existing.lat != null && existing.lng != null;
+    if (existing && !pinned && location === existing.title) return title;
+    return location;
+  }
+
   async function doMutate(fn, successMsg) {
     try {
       await Store.mutate(fn);
@@ -1899,8 +1908,7 @@ window.App = (() => {
         endDate,
         title: fd.get('title') || '',
         // Categories without an address input must preserve an existing geocoded location.
-        location: fd.has('location') ? String(fd.get('location') || '').trim()
-          : form._itemDraft?.location ?? existing?.location ?? fd.get('title') ?? '',
+        location: itemLocation(fd, existing, form._itemDraft),
         category: fd.get('category') || '其他',
         refNo: (fd.get('refNo') || '').trim(),
         note: fd.get('note') || '',
