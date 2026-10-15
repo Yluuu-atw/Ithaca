@@ -44,6 +44,22 @@ test('stored data rejects obsolete document and trip fields', () => {
   }
 });
 
+test('optional trip stops are validated without modifying stored metadata', () => {
+  for (const stops of [undefined, [], ['Tokyo', 'Kyoto']]) {
+    const db = withExpense();
+    if (stops === undefined) delete db.trips[0].meta.stops;
+    else db.trips[0].meta.stops = stops;
+    const before = structuredClone(db);
+    assert.strictEqual(validateStoredDoc(db), db);
+    assert.deepEqual(db, before);
+  }
+  for (const stops of ['Tokyo', [null], ['']]) {
+    const db = withExpense();
+    db.trips[0].meta.stops = stops;
+    assert.throws(() => validateStoredDoc(db), /meta\.stops/);
+  }
+});
+
 test('stored data rejects missing ownership and record authors instead of repairing them', () => {
   const base = withExpense();
   for (const [change, pattern] of [

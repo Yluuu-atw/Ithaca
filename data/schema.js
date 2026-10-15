@@ -337,10 +337,10 @@ function requireString(value, path, allowEmpty = false) {
   return value;
 }
 
-function requireKeys(value, keys, path) {
+function requireKeys(value, keys, path, optional = []) {
   requireRecord(value, path);
   for (const key of keys) if (!Object.hasOwn(value, key)) invalid(`${path}.${key}`, 'missing field');
-  for (const key of Object.keys(value)) if (!keys.includes(key)) invalid(`${path}.${key}`, 'unknown field');
+  for (const key of Object.keys(value)) if (!keys.includes(key) && !optional.includes(key)) invalid(`${path}.${key}`, 'unknown field');
 }
 
 // Persisted data must already use the current shape. Startup and writes never repair it.
@@ -362,7 +362,11 @@ function validateStoredDoc(raw) {
     requireString(trip.id, `${path}.id`);
     if (tripIds.has(trip.id)) invalid(`${path}.id`, 'duplicate trip ID');
     tripIds.add(trip.id);
-    requireKeys(trip.meta, tripMetaKeys, `${path}.meta`);
+    requireKeys(trip.meta, tripMetaKeys, `${path}.meta`, ['stops']);
+    if (Object.hasOwn(trip.meta, 'stops')) {
+      requireArray(trip.meta.stops, `${path}.meta.stops`);
+      for (const [stopIndex, stop] of trip.meta.stops.entries()) requireString(stop, `${path}.meta.stops[${stopIndex}]`);
+    }
     for (const key of ['tripName', 'destination', 'startDate', 'endDate', 'currency']) {
       requireString(trip.meta[key], `${path}.meta.${key}`, key !== 'tripName' && key !== 'currency');
     }
