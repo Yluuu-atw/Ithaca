@@ -6,6 +6,7 @@ const path = require('node:path');
 const sharp = require('sharp');
 const QRCode = require('qrcode');
 const Theme = require('../public/js/theme');
+const { embedWatermark } = require('./voucher-watermark');
 
 const WIDTH = 1080;
 const MAX_HEIGHT = 12000;
@@ -258,7 +259,7 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
     checkAbort(signal);
     onProgress({ stage: 'rendering', completed: index, total: pages.length });
     const page = pages[index];
-    const height = MARGIN * 2 + headerHeight + page.used + FOOTER_HEIGHT;
+    const height = Math.max(1080, MARGIN * 2 + headerHeight + page.used + FOOTER_HEIGHT);
     const layers = [
       { input: logo.data, left: MARGIN, top: MARGIN },
       { input: heading.input, left: WIDTH - MARGIN - heading.width, top: MARGIN + 22 },
@@ -275,13 +276,7 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
       }
       y += group.height;
     }
-    const watermark = [];
-    for (let wy = 200; wy < height; wy += 330) {
-      for (let wx = -120; wx < WIDTH; wx += 520) {
-        watermark.push(`<text x="${wx}" y="${wy}" transform="rotate(-20 ${wx} ${wy})" font-family="Noto Sans CJK SC" font-size="25" fill="${ink}" opacity="0.045">ITHACA · ${esc(shortId)}</text>`);
-      }
-    }
-    const background = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}"><rect width="100%" height="100%" fill="${css['--bg']}"/>${cards.join('')}${watermark.join('')}</svg>`);
+    const background = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}"><rect width="100%" height="100%" fill="${css['--bg']}"/>${cards.join('')}</svg>`);
     const footY = height - MARGIN - FOOTER_HEIGHT + 16;
     layers.push({ input: verificationLabel.input, left: MARGIN, top: footY + 76 });
     const pageLabel = await textImage(`凭证 ${shortId}  ·  第 ${index + 1} / ${pages.length} 张`, { size: 25, color: ink, width: 690 });
@@ -289,12 +284,17 @@ async function renderVoucher({ snapshot, id, verificationUrl, outputDir, signal,
     layers.push({ input: qr, left: WIDTH - MARGIN - QR_SIZE, top: footY });
     const filename = `page-${index + 1}.png`;
     const previewFilename = `page-${index + 1}.webp`;
-    await sharp(background).composite(layers).png({ compressionLevel: 8 }).toFile(path.join(outputDir, filename));
+    const composed = await sharp(background).composite(layers).png().toBuffer();
     checkAbort(signal);
-    await sharp(path.join(outputDir, filename)).resize({ width: 540 }).webp({ quality: 80 }).toFile(path.join(outputDir, previewFilename));
+    onProgress({ stage: 'watermark', completed: index, total: pages.length });
+    const marked = await embedWatermark(composed, { id, page: index + 1 });
     checkAbort(signal);
-    results.push({ filename, previewFilename, width: WIDTH, height });
-    onProgress({ stage: 'rendering', completed: index + 1, total: pages.length });
+    await fs.writeFile(path.join(outputDir, filename), marked);
+    checkAbort(signal);
+    await sharp(marked).resize({ width: 540 }).webp({ quality: 80 }).toFile(path.join(outputDir, previewFilename));
+    checkAbort(signal);
+    results.push({ filename, previewFilename, width: WIDTH, height, watermark: 'ithaca-dct-v1' });
+    onProgress({ stage: 'watermark', completed: index + 1, total: pages.length });
   }
   return { pages: results };
 }
