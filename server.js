@@ -30,6 +30,7 @@ const { extractImageDraft, RecognitionError, MAX_IMAGE_BYTES } = require('./data
 const { createPlaceSearch, PlaceSearchError } = require('./data/place-search');
 const { createVoucherService } = require('./data/vouchers');
 const { renderVoucher } = require('./data/voucher-renderer');
+const { MAX_IMAGE_BYTES: MAX_VOUCHER_IMAGE_BYTES } = require('./data/voucher-image-check');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -283,6 +284,44 @@ async function handleThumbnail(req, res, pathname, principal) {
 }
 
 // ---------------- Voucher API ----------------
+
+let voucherCheckActive = false;
+
+async function handleVoucherCheck(req, res) {
+  if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+  if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
+  if (limited(req, 'voucher-check', 60, 60_000) || voucherCheckActive) return sendJSON(res, 429, { error: '核验繁忙，请稍后重试' });
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(req.headers['content-type'] || '').split(';')[0])) {
+    return sendJSON(res, 415, { error: '请选择 PNG、JPEG 或 WebP 图片' });
+  }
+  if (Number(req.headers['content-length']) > MAX_VOUCHER_IMAGE_BYTES) return sendJSON(res, 413, { error: '图片不能超过 32 MB' });
+  const expectedId = req.headers['x-voucher-id'] || '';
+  if (typeof expectedId !== 'string' || expectedId && !/^[A-Za-z0-9_-]{32}$/.test(expectedId)) return sendJSON(res, 400, { error: '凭证编号无效' });
+  voucherCheckActive = true;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  const close = () => { if (!res.writableEnded) abort(); };
+  req.once('aborted', abort);
+  res.once('close', close);
+  const timeout = setTimeout(() => { abort(); req.destroy(); }, 30000);
+  try {
+    // This public check ignores identity cookies and never persists the upload.
+    const bytes = await readBody(req, MAX_VOUCHER_IMAGE_BYTES);
+    controller.signal.throwIfAborted();
+    const result = await vouchers.checkImage(bytes, { expectedId, signal: controller.signal });
+    if (!controller.signal.aborted && !res.destroyed) sendJSON(res, 200, result);
+  } catch (error) {
+    if (!controller.signal.aborted && !res.destroyed) {
+      const status = error.statusCode || 503;
+      sendJSON(res, status, { error: status >= 500 ? '暂时无法核验，请重试' : error.message });
+    }
+  } finally {
+    clearTimeout(timeout);
+    req.removeListener('aborted', abort);
+    res.removeListener('close', close);
+    voucherCheckActive = false;
+  }
+}
 
 async function handleVoucherApi(req, res, pathname, principal) {
   try {
@@ -593,6 +632,12 @@ function readBody(req, limit) {
     const chunks = [];
     let size = 0;
     let done = false;
+    const interrupted = error => {
+      if (done) return;
+      done = true;
+      chunks.length = 0;
+      reject(error);
+    };
     req.on('data', (c) => {
       if (done) return;
       size += c.length;
@@ -609,7 +654,9 @@ function readBody(req, limit) {
       done = true;
       resolve(Buffer.concat(chunks));
     });
-    req.on('error', (err) => { if (!done) { done = true; reject(err); } });
+    req.on('error', interrupted);
+    req.once('aborted', () => interrupted(new Error('请求已中断')));
+    req.once('close', () => interrupted(new Error('请求连接已关闭')));
   });
 }
 
@@ -1009,6 +1056,7 @@ const server = http.createServer((req, res) => {
 
   if (pathname.startsWith('/api/auth/')) return handleAuth(req, res, pathname);
   if (pathname.startsWith('/api/passkeys/')) return handlePasskeys(req, res, pathname);
+  if (pathname === '/api/voucher-check') return handleVoucherCheck(req, res);
   if (req.method === 'GET' && (/^\/api\/vouchers\/[a-zA-Z0-9_-]+\/verification$/.test(pathname)
     || /^\/api\/voucher-keys\/[a-zA-Z0-9_-]+$/.test(pathname))) {
     return handleVoucherApi(req, res, pathname, null);

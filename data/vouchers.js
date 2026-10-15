@@ -6,6 +6,7 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 const { calculateTransfers } = require('./settlement');
 const { publicRoster } = require('./people');
+const { runImageCheck } = require('./voucher-image-check');
 
 const ID = /^[A-Za-z0-9_-]{32}$/;
 const FILE = /^page-[1-9][0-9]*\.(png|webp)$/;
@@ -325,7 +326,7 @@ function createVoucherService({ dataDir, origin, getDb, render, getUsers = () =>
       const result = await render({ snapshot: rendering, id: job.id, verificationUrl: `${issuer}/verify-voucher#${job.id}`,
         outputDir, signal, onProgress: progress => {
           check();
-          if (!progress || !['attachments', 'layout', 'rendering'].includes(progress.stage)) return;
+          if (!progress || !['attachments', 'layout', 'rendering', 'watermark'].includes(progress.stage)) return;
           job.progress = { stage: progress.stage, completed: Math.max(0, Number(progress.completed) || 0), total: Math.max(0, Number(progress.total) || 0) };
         } });
       check();
@@ -342,7 +343,8 @@ function createVoucherService({ dataDir, origin, getDb, render, getUsers = () =>
           || !FILE.test(page.previewFilename) || !page.previewFilename.endsWith('.webp')
           || used.has(page.filename) || used.has(page.previewFilename)
           || !Number.isInteger(page.width) || page.width < 1 || page.width > 4096
-          || !Number.isInteger(page.height) || page.height < 1 || page.height > 12000) fail('凭证图片格式无效');
+          || !Number.isInteger(page.height) || page.height < 1 || page.height > 12000
+          || page.watermark !== 'ithaca-dct-v1') fail('凭证图片格式无效');
         used.add(page.filename); used.add(page.previewFilename);
         for (const filename of [page.filename, page.previewFilename]) {
           const info = await fsp.lstat(path.join(outputDir, filename));
@@ -353,7 +355,7 @@ function createVoucherService({ dataDir, origin, getDb, render, getUsers = () =>
         }
         const bytes = await fsp.readFile(path.join(outputDir, page.filename));
         if (!bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) fail('凭证图片格式无效');
-        manifestPages.push({ page: index + 1, width: page.width, height: page.height, sha256: sha256(bytes) });
+        manifestPages.push({ page: index + 1, width: page.width, height: page.height, sha256: sha256(bytes), watermark: page.watermark });
         savedPages.push({ filename: page.filename, previewFilename: page.previewFilename, width: page.width, height: page.height });
         job.progress.completed = index + 1;
       }
@@ -462,6 +464,43 @@ function createVoucherService({ dataDir, origin, getDb, render, getUsers = () =>
     return { keyId, algorithm: 'Ed25519', format: 'spki', publicKey: value.publicKey };
   }
 
+  async function checkImage(bytes, { expectedId = '', signal } = {}) {
+    await available();
+    if (expectedId && !ID.test(expectedId)) fail('凭证编号无效');
+    const locator = await runImageCheck('extract', bytes, { signal });
+    if (!locator || !ID.test(locator.id) || !records.has(locator.id)) return { result: 'inconclusive', reason: 'watermark' };
+    if (expectedId && locator.id !== expectedId) return { result: 'different', reason: 'identity', id: expectedId };
+    const record = known(locator.id);
+    const published = await publicKey(record.keyId);
+    const publicObject = crypto.createPublicKey({ key: Buffer.from(published.publicKey, 'base64'), format: 'der', type: 'spki' });
+    const payload = Buffer.from(record.payload, 'base64');
+    if (!crypto.verify(null, payload, publicObject, Buffer.from(record.signature, 'base64'))) fail('凭证签名无效', 503);
+    const manifest = JSON.parse(payload.toString('utf8'));
+    if (manifest.version !== 1 || manifest.algorithm !== 'Ed25519' || manifest.id !== record.id
+      || manifest.issuer !== issuer || manifest.keyId !== record.keyId || manifest.issuedAt !== record.issuedAt
+      || !Array.isArray(manifest.pages) || manifest.pages.length !== record.pages.length) fail('凭证签名清单无效', 503);
+    const page = manifest.pages[locator.page - 1];
+    const saved = record.pages[locator.page - 1];
+    if (!page || !saved || page.page !== locator.page || page.width !== 1080 || page.height !== locator.height
+      || page.watermark !== 'ithaca-dct-v1' || !/^[a-f0-9]{64}$/.test(page.sha256)) return { result: 'inconclusive', reason: 'watermark' };
+    const describeCheck = async result => {
+      const proof = await verification(record.id);
+      return { result: proof.status === 'revoked' ? 'revoked' : result.result, reason: result.reason,
+        id: record.id, page: page.page, pageCount: manifest.pages.length, issuedAt: record.issuedAt, verification: proof };
+    };
+    if ((await state(record)).revokedAt) return describeCheck({ result: 'revoked', reason: 'revoked' });
+    if (!FILE.test(saved.filename) || !saved.filename.endsWith('.png')) fail('凭证存档无效', 503);
+    const filename = path.join(directory, record.id, saved.filename);
+    const info = await fsp.lstat(filename).catch(() => null);
+    if (!info || !info.isFile() || info.isSymbolicLink() || info.size > 50 * 1024 * 1024) fail('凭证存档不可用', 503);
+    const reference = await fsp.readFile(filename);
+    if (sha256(reference) !== page.sha256) fail('凭证存档校验失败', 503);
+    const compared = await runImageCheck('compare', bytes, { reference, signal });
+    if (!['matched', 'different', 'inconclusive'].includes(compared?.state)) fail('图片核验暂不可用', 503);
+    signal?.throwIfAborted();
+    return describeCheck({ result: compared.state, reason: compared.reason || 'content' });
+  }
+
   async function revokeDeletedTrips() {
     await available();
     for (const record of records.values()) if (!getDb().trips.some(trip => trip.id === record.tripId)) await state(record);
@@ -472,7 +511,7 @@ function createVoucherService({ dataDir, origin, getDb, render, getUsers = () =>
     }
   }
 
-  return { ready, createJob, getJob, cancelJob, list, getImage, revoke, verification, publicKey, revokeDeletedTrips };
+  return { ready, createJob, getJob, cancelJob, list, getImage, revoke, verification, publicKey, checkImage, revokeDeletedTrips };
 }
 
 module.exports = { createVoucherService, VoucherError };

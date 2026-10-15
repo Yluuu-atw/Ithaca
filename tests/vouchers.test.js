@@ -19,7 +19,7 @@ async function renderFixture({ outputDir, signal, onProgress }) {
   onProgress({ stage: 'rendering', completed: 0, total: 1 });
   await fs.writeFile(path.join(outputDir, 'page-1.png'), PNG);
   await fs.writeFile(path.join(outputDir, 'page-1.webp'), 'fixture preview');
-  return { pages: [{ filename: 'page-1.png', previewFilename: 'page-1.webp', width: 1, height: 1 }] };
+  return { pages: [{ filename: 'page-1.png', previewFilename: 'page-1.webp', width: 1, height: 1, watermark: 'ithaca-dct-v1' }] };
 }
 
 async function setup(t, render = renderFixture) {

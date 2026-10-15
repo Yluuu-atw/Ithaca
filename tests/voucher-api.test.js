@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
+const http = require('node:http');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
@@ -90,15 +91,73 @@ test('voucher HTTP boundary signs server data and keeps original images private'
     const publicKey = crypto.createPublicKey({ key: Buffer.from(key.publicKey, 'base64'), format: 'der', type: 'spki' });
     assert.equal(crypto.verify(null, payload, publicKey, Buffer.from(proof.signature, 'base64')), true);
     assert.equal(manifest.pages[0].sha256, crypto.createHash('sha256').update(bytes).digest('hex'));
+    assert.equal(manifest.pages[0].watermark, 'ithaca-dct-v1');
     assert.equal(proof.status, 'valid');
     for (const secret of ['私人旅行名称', '私人晚餐', 'voucher_owner', '12345', trip.id]) {
       assert.equal(payload.toString().includes(secret), false);
       assert.equal(JSON.stringify(proof).includes(secret), false);
     }
+    const checkImage = async (image, { type = 'image/png', expectedId = '', from = origin } = {}) => {
+      const result = await fetch(origin + '/api/voucher-check', { method: 'POST',
+        headers: { Origin: from, 'Content-Type': type, ...(expectedId ? { 'X-Voucher-Id': expectedId } : {}) }, body: image });
+      return { status: result.status, value: await result.json() };
+    };
+    const filesBeforeCheck = fs.readdirSync(dir, { recursive: true }).sort();
+    for (const [image, type] of [[bytes, 'image/png'],
+      [await sharp(bytes).jpeg({ quality: 85 }).toBuffer(), 'image/jpeg'],
+      [await sharp(bytes).resize({ width: 810 }).jpeg({ quality: 85 }).toBuffer(), 'image/jpeg'],
+      [await sharp(bytes).resize({ width: 810 }).webp({ lossless: true }).toBuffer(), 'image/webp']]) {
+      const checked = await checkImage(image, { type });
+      assert.equal(checked.status, 200, JSON.stringify(checked));
+      assert.equal(checked.value.result, 'matched', `${type} ${JSON.stringify(checked)}`);
+      assert.equal(checked.value.id, job.id);
+      assert.equal(checked.value.page, 1);
+      assert.equal(checked.value.verification.payload, proof.payload);
+      for (const field of ['amount', 'snapshot', 'original', 'regions', 'pixels', 'tripId']) assert.equal(field in checked.value, false);
+    }
+    const changedImage = await sharp(bytes).composite([{ input: Buffer.from('<svg width="40" height="40"><rect width="40" height="40" fill="#f03000"/></svg>'), left: 230, top: 340 }]).png().toBuffer();
+    const changedCheck = await checkImage(changedImage);
+    assert.equal(changedCheck.status, 200);
+    assert.equal(changedCheck.value.result, 'different');
+    assert.equal(changedCheck.value.id, job.id, 'A readable watermark alone must not validate edited content');
+    const smallCheck = await checkImage(await sharp(bytes).resize({ width: 540 }).jpeg({ quality: 85 }).toBuffer(), { type: 'image/jpeg' });
+    assert.equal(smallCheck.value.result, 'inconclusive');
+    const wrongId = crypto.randomBytes(24).toString('base64url');
+    assert.deepEqual((await checkImage(bytes, { expectedId: wrongId })).value, { result: 'different', reason: 'identity', id: wrongId });
+    assert.equal((await checkImage(bytes, { from: 'https://other.example' })).status, 403);
+    assert.equal((await checkImage(bytes, { expectedId: 'invalid' })).status, 400);
+    assert.equal((await checkImage(Buffer.from('<svg/>'))).status, 422);
+    const plain = await sharp({ create: { width: 1080, height: 1500, channels: 3, background: '#eee' } }).png().toBuffer();
+    assert.deepEqual((await checkImage(plain)).value, { result: 'inconclusive', reason: 'watermark' });
+    // Closing an unfinished upload must release the single verification slot.
+    const unfinished = http.request(origin + '/api/voucher-check', { method: 'POST',
+      headers: { Origin: origin, 'Content-Type': 'image/png', 'Content-Length': bytes.length } });
+    unfinished.on('error', () => {});
+    await new Promise(resolve => unfinished.write(bytes.subarray(0, 12), resolve));
+    let occupied = false;
+    for (let attempt = 0; attempt < 10 && !occupied; attempt++) {
+      await wait(20);
+      occupied = (await checkImage(plain)).status === 429;
+    }
+    assert.equal(occupied, true);
+    unfinished.destroy();
+    let resumed;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await wait(20);
+      resumed = await checkImage(plain);
+      if (resumed.status !== 429) break;
+    }
+    assert.equal(resumed.status, 200, 'An interrupted upload must not permanently block verification');
+    assert.deepEqual(fs.readdirSync(dir, { recursive: true }).sort(), filesBeforeCheck, 'Public image verification must not persist uploads');
+    const archived = path.join(dir, 'vouchers', job.id, 'page-1.png');
+    fs.writeFileSync(archived, changedImage);
+    assert.equal((await checkImage(bytes)).status, 503, 'An altered issuer archive must never validate a candidate');
+    fs.writeFileSync(archived, bytes);
     assert.equal((await request('/verify-voucher')).status, 200);
     assert.equal((await request(`/api/vouchers/${job.id}`, { method: 'DELETE', identity: stranger })).status, 403);
     assert.equal((await request(`/api/vouchers/${job.id}`, { method: 'DELETE', identity: owner })).status, 200);
     assert.equal((await (await request(`/api/vouchers/${job.id}/verification`)).json()).status, 'revoked');
+    assert.equal((await checkImage(bytes)).value.result, 'revoked');
   } finally {
     if (child.exitCode === null) { const exited = once(child, 'exit'); child.kill(); await exited; }
     fs.rmSync(dir, { recursive: true, force: true });
