@@ -870,6 +870,19 @@ window.App = (() => {
   // ---------------- 数据操作 ----------------
   function members() { return Store.getState().meta.members || []; }
 
+  function readItemDraft(form, original = {}) {
+    const fd = new FormData(form);
+    const draft = { ...original, ...form._itemDraft };
+    for (const field of ['title', 'location', 'refNo', 'note', 'payer']) {
+      if (fd.has(field)) draft[field] = String(fd.get(field) || '');
+    }
+    if (fd.has('amount')) draft.amount = Number(fd.get('amount')) || 0;
+    if (fd.has('participants')) draft.participants = parseList(fd.get('participants'));
+    if (fd.has('time')) [draft.startDate, draft.time] = splitDT(fd.get('time'));
+    if (fd.has('endTime')) [draft.endDate, draft.endTime] = splitDT(fd.get('endTime'));
+    return draft;
+  }
+
   async function doMutate(fn, successMsg) {
     try {
       await Store.mutate(fn);
@@ -1152,7 +1165,8 @@ window.App = (() => {
         const itemIdEl = form.querySelector('[name="itemId"]');
         const day = (data.itinerary || []).find(x => x.id === form.querySelector('[name="dayId"]').value);
         const item = itemIdEl && day && (day.items || []).find(x => x.id === itemIdEl.value);
-        form.querySelector('#itemFields').innerHTML = Render.itemFields(cat, item || {}, data.meta || {}, day && day.date);
+        form._itemDraft = readItemDraft(form, item || {});
+        form.querySelector('#itemFields').innerHTML = Render.itemFields(cat, form._itemDraft, data.meta || {}, day && day.date);
         break;
       }
 
