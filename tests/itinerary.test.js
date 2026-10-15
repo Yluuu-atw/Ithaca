@@ -113,6 +113,29 @@ test('moving the last linked item removes only an editable automatically created
   }
 });
 
+test('shared itinerary and expense fields survive edits and location changes invalidate coordinates', () => {
+  const { saveItineraryItem, syncExpenseFromItem, syncItemFromExpense } = itineraryHelpers();
+  const trip = { itinerary: sampleDays('person_alice'), expenses: [] };
+  const item = trip.itinerary[0].items[0];
+  Object.assign(item, { refNo: 'G123', subCategory: '高铁', location: 'Beijing', lat: 39.9, lng: 116.4 });
+  syncExpenseFromItem(trip, item, trip.itinerary[0].date);
+  const expense = trip.expenses[0];
+  expense.note = 'Updated note';
+  syncItemFromExpense(trip, expense);
+  assert.equal(item.refNo, 'G123');
+  assert.equal(item.subCategory, '高铁');
+  assert.equal(item.location, 'Beijing');
+  assert.equal(item.lat, 39.9);
+  saveItineraryItem(trip, 'day_source', item.id, { title: 'Renamed train', location: 'Beijing' });
+  assert.equal(item.lat, 39.9);
+  saveItineraryItem(trip, 'day_source', item.id, { location: 'Shanghai' });
+  assert.equal(item.lat, null);
+  assert.equal(item.lng, null);
+  assert.equal(expense.location, 'Shanghai');
+  assert.equal(expense.lat, null);
+  assert.equal(expense.lng, null);
+});
+
 test('formal editors can move another author’s item without changing authorship or duplicating IDs', () => {
   const db = ownedDoc('alice');
   const trip = db.trips[0];

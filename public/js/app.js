@@ -346,7 +346,13 @@ window.App = (() => {
       item = { id: Store.uid('itm'), ...fields };
       source.items.push(item);
       if (Array.isArray(source.order) && Store.canEditRecord(source)) source.order.push(item.id);
-    } else Object.assign(item, fields);
+    } else {
+      if (Object.hasOwn(fields, 'location') && fields.location !== (item.location || '')) {
+        item.lat = null;
+        item.lng = null;
+      }
+      Object.assign(item, fields);
+    }
     const target = moveItemToDate(trip, source, item, fields.startDate);
     syncExpenseFromItem(trip, item, target.date);
     return target.id;
@@ -365,6 +371,8 @@ window.App = (() => {
       title: item.title || '',
       amount: cost,
       category: (Store.CONST.itemToExpenseCategory || {})[item.category] || '其他',
+      subCategory: item.subCategory || '',
+      refNo: item.refNo || '',
       payer: item.payer || '',
       participants: (item.participants || []).slice(),
       note: item.note || '',
@@ -1856,6 +1864,7 @@ window.App = (() => {
     if (kind === 'item') {
       const dayId = fd.get('dayId');
       const itemId = fd.get('itemId');
+      const existing = Store.getState().itinerary.find(day => day.id === dayId)?.items.find(item => item.id === itemId);
       // datetime-local 提交的是 YYYY-MM-DDTHH:MM，拆成日期 + 时分两段存
       const [startDate, time] = splitDT(fd.get('time'));
       const [endDate, endTime] = splitDT(fd.get('endTime'));
@@ -1865,8 +1874,9 @@ window.App = (() => {
         endTime,
         endDate,
         title: fd.get('title') || '',
-        // 餐饮/住宿/景点不填地点了，时间轴的 📍 路线读的是这个字段，用标题兜底
-        location: fd.get('location') || fd.get('title') || '',
+        // Categories without an address input must preserve an existing geocoded location.
+        location: fd.has('location') ? String(fd.get('location') || '').trim()
+          : form._itemDraft?.location ?? existing?.location ?? fd.get('title') ?? '',
         category: fd.get('category') || '其他',
         refNo: (fd.get('refNo') || '').trim(),
         note: fd.get('note') || '',
