@@ -2394,7 +2394,7 @@ window.App = (() => {
       });
       const popup = `<b>${Render.esc(item.title || '')}</b>` +
         (item.location ? `<br>📍 ${Render.esc(item.location)}` : '') +
-        `<br><span style="color:#999">${day.date} ${item.time || ''}</span>`;
+        `<br><span style="color:#999">${Render.esc(day.date || '')} ${Render.esc(item.time || '')}</span>`;
       L.marker(project(item.lat, item.lng), { icon }).addTo(mapLayer).bindPopup(popup);
     }
 
