@@ -3,7 +3,7 @@
 window.Vouchers = (() => {
   const stages = {
     queued: '等待生成', preparing: '正在整理账单', attachments: '正在处理票据图片',
-    layout: '正在排版账单', rendering: '正在生成长图', signing: '正在签发凭证', ready: '凭证已生成',
+    layout: '正在排版账单', rendering: '正在生成长图', watermark: '正在嵌入隐水印', signing: '正在签发凭证', ready: '凭证已生成',
     cancelled: '已取消生成', failed: '生成失败', unavailable: '无法继续查询任务',
   };
   let session = null;

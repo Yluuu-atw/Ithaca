@@ -19,25 +19,28 @@
   <main class="verify-main">
     <img class="verify-brand" src="/brand/logo-horizontal.svg" data-brand-asset="horizontal" alt="九州 ITHACA">
     <section class="verify-card" aria-labelledby="verifyTitle">
-      <h1 id="verifyTitle">核验账单凭证</h1>
-      <p class="verify-lead">二维码用于找到签发记录。选择收到的原始 PNG 图片，才能核对它是否与签发时完全一致。</p>
+      <h1 id="verifyTitle">核验凭证</h1>
       <div class="verify-result" id="verifyResult" role="status" aria-live="polite">
-        <strong id="verifyStateTitle">正在读取签发记录</strong>
-        <span id="verifyStateDetail">核验不会公开旅行、金额和成员信息。</span>
+        <strong id="verifyStateTitle">待核验</strong>
+        <span id="verifyStateDetail">选择账单凭证图片</span>
       </div>
       <dl class="verify-details" id="verifyDetails" hidden></dl>
-      <section id="verifyFilesSection" hidden aria-labelledby="verifyFilesTitle">
-        <h2 id="verifyFilesTitle">选择原图</h2>
+      <section id="verifyFilesSection" aria-labelledby="verifyFilesTitle">
+        <h2 id="verifyFilesTitle">选择图片</h2>
         <label class="verify-picker">
-          <strong>在此设备上核对图片</strong>
-          <small>可以分次选择多张。图片仅在浏览器中计算摘要，不上传。</small>
-          <input id="verifyFiles" type="file" accept="image/png,.png" multiple disabled aria-label="选择凭证原始 PNG 图片">
+          <strong>PNG / JPEG / WebP</strong>
+          <small>上传至本站核验，图片不保存。</small>
+          <input id="verifyFiles" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple aria-label="选择凭证图片">
         </label>
+        <div class="verify-activity" id="verifyActivity" hidden>
+          <div class="voucher-status" role="status" aria-live="polite"><span id="verifyActivityTitle">正在核验</span><span id="verifyActivityCount"></span></div>
+          <progress class="voucher-progress" id="verifyProgress" max="100" aria-label="图片核验进度"></progress>
+          <button class="btn btn-ghost" id="verifyCancel" type="button">取消核验</button>
+        </div>
         <ul class="verify-pages" id="verifyPages" aria-label="每张图片的核验状态"></ul>
         <p class="verify-unmatched" id="verifyUnmatched" role="alert" hidden></p>
       </section>
       <button class="btn btn-ghost" id="verifyRetry" type="button" hidden>重新查询</button>
-      <p class="voucher-note">请保存和发送原始文件。聊天软件压缩、截图、裁剪或转格式都会改变文件，届时无法确认完整性。有效签名证明本站曾签发这份记账快照，不证明实际付款，也不替代发票或银行回单。</p>
     </section>
     <footer class="verify-footer"><a href="/">返回九州 ITHACA</a></footer>
   </main>

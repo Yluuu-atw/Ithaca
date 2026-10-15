@@ -53,12 +53,12 @@ body.voucher-verifier { min-height: 100dvh; margin: 0; display: block; backgroun
 .verify-card { border: 1px solid var(--border); border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); padding: 28px; }
 .verify-card h1 { margin: 0 0 12px; font-size: 26px; }
 .verify-card h2 { margin: 26px 0 10px; font-size: 19px; }
-.verify-lead { color: var(--muted); line-height: 1.8; margin: 0 0 20px; }
 .verify-result { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); line-height: 1.7; }
 .verify-result[data-state="success"] { border-color: var(--chart-2); }
 .verify-result[data-state="error"], .verify-result[data-state="revoked"] { border-color: var(--danger); }
 .verify-result strong, .verify-result span { display: block; }
 .verify-result span { margin-top: 5px; font-size: 14px; color: var(--muted); }
+.verify-result span[hidden], .verify-activity[hidden], .verify-details[hidden] { display: none; }
 .verify-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 14px; font-size: 14px; margin: 20px 0; }
 .verify-details dt { color: var(--muted); }
 .verify-details dd { margin: 0; overflow-wrap: anywhere; }
@@ -67,9 +67,12 @@ body.voucher-verifier { min-height: 100dvh; margin: 0; display: block; backgroun
 .verify-picker small { font-size: 13px; color: var(--muted); margin: 5px 0 12px; }
 .verify-picker input { width: 100%; font: inherit; font-size: 13px; color: var(--text); }
 .verify-picker:has(input:disabled) { opacity: .6; cursor: wait; }
+.verify-activity { position: sticky; bottom: 12px; z-index: 1; display: grid; gap: 12px; margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.verify-activity .btn { justify-self: start; }
 .verify-pages { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 8px; }
 .verify-pages li { display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; padding: 12px; background: var(--surface-2); border-radius: 8px; font-size: 14px; line-height: 1.6; }
 .verify-pages li[data-matched="true"] { border-left: 3px solid var(--chart-2); }
+.verify-pages li[data-result="different"], .verify-pages li[data-result="inconclusive"], .verify-pages li[data-result="revoked"] { border-left: 3px solid var(--danger); }
 .verify-pages span { overflow-wrap: anywhere; }
 .verify-unmatched { margin: 12px 0; color: var(--danger); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .verify-footer { text-align: center; margin-top: 24px; }
