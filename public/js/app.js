@@ -2392,6 +2392,8 @@ window.App = (() => {
   }
 
   function renderMapLegend(data, colorByDate) {
+    const hint = $('#mapHint');
+    if (hint) hint.innerHTML = Render.mapHint(data);
     const el = $('#mapLegend');
     if (!el) return;
     const dates = data.itinerary.map(d => d.date).filter(d => d);

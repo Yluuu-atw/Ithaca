@@ -1589,9 +1589,14 @@ window.Render = (() => {
   }
 
   // ---------------- 地图 ----------------
-  function renderMap(s, tileSource) {
+  function mapHint(s) {
     const pointCount = s.itinerary.reduce((a, d) => a + (d.items || []).filter(i => i.lat != null && i.lng != null).length, 0);
     const trackCount = (s.tracks || []).length;
+    return `已标注 ${pointCount} 个行程点 · ${trackCount} 条足迹轨迹
+      · 高德为国内底图(已纠偏)，OSM 为全球底图(港澳更精确)`;
+  }
+
+  function renderMap(s, tileSource) {
     const ts = tileSource || 'amap';
     const tileBtn = (val, label) => `<button class="btn btn-sm ${ts === val ? 'btn-primary' : 'btn-ghost'}" data-action="tile-source" data-tile="${val}">${label}</button>`;
     return `
@@ -1606,10 +1611,7 @@ window.Render = (() => {
           </div>
         </div>
         <div id="map" class="map-container"></div>
-        <div class="map-hint">
-          已标注 ${pointCount} 个行程点 · ${trackCount} 条足迹轨迹
-          · 高德为国内底图(已纠偏)，OSM 为全球底图(港澳更精确)
-        </div>
+        <div class="map-hint" id="mapHint">${mapHint(s)}</div>
       </div>
       <input type="file" id="gpxFile" accept=".gpx,.xml" hidden>`;
   }
@@ -2266,7 +2268,7 @@ window.Render = (() => {
   return {
     TABS,
     esc, money, today, fmtDate, weekday,
-    renderNav, renderTabbar, tabTitle, renderPage,
+    renderNav, renderTabbar, tabTitle, renderPage, mapHint,
     formDay, formItem, itemFields: itemFieldsHtml, formExpense, expenseDetail, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace,
     formTemplateManage, formTemplateEdit, formSaveTemplate,
     renderPlaces, placeDetail, dayDetail, identityPicker, tripProfileEditor,
