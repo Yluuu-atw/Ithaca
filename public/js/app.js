@@ -9,6 +9,8 @@
 window.App = (() => {
   const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', settlementDetailsOpen: false, settlementDetailsTripId: '', placeFilter: { category: '全部', keyword: '' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
   let dockKick = null;
+  let welcomeSceneSource = '';
+  let welcomeSceneSrc = '';
   let shareNotice = '';
   let sharePeople = [];
   const viewActions = new Set([
@@ -91,6 +93,9 @@ window.App = (() => {
     const theme = Theme.apply(base);
     Brand.apply(theme.brand);
     document.querySelectorAll('.theme-dot').forEach(d => { d.style.background = theme.base; });
+    // Repaint the inline scene as soon as the background theme changes. The
+    // source is cached so picking several colors in the modal stays instant.
+    if (current.view === 'welcome' && document.getElementById('welcomeBg')) paintWelcomeBg();
     if (dockKick) dockKick();
   }
   const $ = (sel) => document.querySelector(sel);
@@ -161,9 +166,13 @@ window.App = (() => {
     const src = host.dataset.src;
     if (!src) return;
     try {
-      const res = await fetch(src);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      host.innerHTML = await res.text();
+      if (!welcomeSceneSource || welcomeSceneSrc !== src) {
+        const res = await fetch(src);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        welcomeSceneSource = await res.text();
+        welcomeSceneSrc = src;
+      }
+      host.innerHTML = Theme.recolorSvg(welcomeSceneSource, Store.getWelcomeTheme());
       // slice 让 SVG 像 object-fit:cover 一样铺满并裁边，缩放窗口不再移位
       const root = host.querySelector('svg');
       if (root) root.setAttribute('preserveAspectRatio', 'xMidYMid slice');
@@ -485,7 +494,7 @@ window.App = (() => {
     $('#nav').innerHTML = Render.renderNav(current.tab);
     if (!$('#tabItems').children.length) $('#tabItems').innerHTML = Render.renderTabbar(current.tab);
     else $('#tabItems').querySelectorAll('.tab-item').forEach((b) => {
-      b.classList.toggle('active', b.dataset.tab === current.tab);
+      b.classList.toggle('active', Render.isPrimaryTabActive(b.dataset.tab, current.tab));
     });
     if (dockKick) dockKick();
     $('#pageTitle').textContent = Render.tabTitle(current.tab);
@@ -2441,6 +2450,11 @@ window.App = (() => {
     mapTrackLayers.forEach(l => map.removeLayer(l));
     mapTrackLayers = [];
 
+    const themeTrackColors = ['--primary', '--accent', '--primary-600', '--border']
+      .map(name => getComputedStyle(document.documentElement).getPropertyValue(name).trim())
+      .filter(Boolean);
+    const trackColors = themeTrackColors.length ? themeTrackColors : Store.CONST.trackColors;
+
     const points = [];
     for (const day of data.itinerary) {
       for (const item of (day.items || [])) {
@@ -2451,11 +2465,11 @@ window.App = (() => {
     const dayDates = data.itinerary.map(d => d.date);
     const colorByDate = {};
     dayDates.forEach((d, i) => {
-      colorByDate[d] = Store.CONST.trackColors[i % Store.CONST.trackColors.length];
+      colorByDate[d] = trackColors[i % trackColors.length];
     });
 
     for (const { day, item } of points) {
-      const color = colorByDate[day.date] || '#c4714b';
+      const color = colorByDate[day.date] || trackColors[0];
       const icon = L.divIcon({
         className: 'journey-marker',
         html: `<span class="jm-dot" style="background:${color}"></span>`,
@@ -2468,7 +2482,7 @@ window.App = (() => {
     }
 
     for (const [i, track] of (data.tracks || []).entries()) {
-      const color = track.color || Store.CONST.trackColors[i % Store.CONST.trackColors.length];
+      const color = track.color || trackColors[i % trackColors.length];
       const coords = (track.points || []).filter(p => p.lat != null && p.lng != null).map(p => project(p.lat, p.lng));
       if (coords.length >= 2) {
         const line = L.polyline(coords, { color, weight: 3, opacity: 0.8 }).addTo(map);

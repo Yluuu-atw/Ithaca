@@ -70,32 +70,35 @@
     const channels = rgb(input) || rgb(DEFAULT_BG);
     const base = hex(channels);
     const [hue, rawSaturation] = hsl(channels);
-    const saturation = Math.max(rawSaturation, 0.34);
+    // Keep every derived color close to the selected background hue. A theme
+    // should feel like one material with light/dark variations, rather than a
+    // collection of unrelated accent colors.
+    const saturation = Math.max(0.22, Math.min(rawSaturation, 0.42));
     const dark = luminance(channels) < 0.22;
     const css = {
       '--bg': base,
       '--surface': dark ? mix(base, '#ffffff', 0.08) : hslHex(hue, saturation * 0.22, 0.985),
       '--surface-2': dark ? mix(base, '#ffffff', 0.15) : hslHex(hue, saturation * 0.3, 0.955),
       '--border': dark ? mix(base, '#ffffff', 0.28) : hslHex(hue, saturation * 0.32, 0.885),
-      '--line': dark ? mix(base, '#ffffff', 0.4) : '#a8997f',
+      '--line': dark ? mix(base, '#ffffff', 0.4) : hslHex(hue, saturation * 0.34, 0.52),
       '--text': dark ? '#f5eee5' : '#3a3733',
       '--muted': dark ? '#c6beb4' : '#7d7468',
       '--primary': dark ? hslHex(hue, saturation, 0.38) : hslHex(hue, saturation, 0.62),
       '--primary-600': dark ? hslHex(hue, saturation * 0.9, 0.8) : hslHex(hue, saturation, 0.4),
-      '--accent': dark ? '#d4b274' : '#d4a44c',
-      '--danger': dark ? '#e48d88' : '#b5544c',
-      '--chart-2': dark ? '#a9c398' : '#8b9a7e',
-      '--chart-3': dark ? '#9cb8cb' : '#7d94a8',
-      '--chart-4': dark ? '#d0a2ac' : '#c08e8e',
-      '--chart-5': dark ? '#d4b274' : '#d4a44c',
-      '--chart-6': dark ? '#b9a992' : '#a89478',
+      '--accent': dark ? hslHex(hue, saturation * 0.45, 0.68) : hslHex(hue, saturation * 0.58, 0.52),
+      '--danger': dark ? hslHex(hue, saturation * 0.55, 0.68) : hslHex(hue, saturation * 0.72, 0.46),
+      '--chart-2': hslHex(hue, saturation * 0.58, dark ? 0.62 : 0.52),
+      '--chart-3': hslHex(hue, saturation * 0.42, dark ? 0.72 : 0.64),
+      '--chart-4': hslHex(hue, saturation * 0.34, dark ? 0.76 : 0.70),
+      '--chart-5': hslHex(hue, saturation * 0.66, dark ? 0.58 : 0.46),
+      '--chart-6': hslHex(hue, saturation * 0.28, dark ? 0.64 : 0.56),
       '--shadow': dark ? '4px 5px 0 rgba(0, 0, 0, .28)' : '4px 5px 0 rgba(58, 55, 51, .14)',
       '--shadow-sm': dark ? '3px 3px 0 rgba(0, 0, 0, .24)' : '3px 3px 0 rgba(58, 55, 51, .12)',
       '--shadow-lift': dark ? '6px 7px 0 rgba(0, 0, 0, .32)' : '6px 7px 0 rgba(58, 55, 51, .18)',
     };
     css['--primary-soft'] = dark ? mix(base, css['--primary'], 0.28) : hslHex(hue, saturation * 0.55, 0.93);
-    css['--accent-soft'] = dark ? mix(base, css['--accent'], 0.2) : '#f6ecd4';
-    css['--danger-soft'] = dark ? mix(base, css['--danger'], 0.2) : '#f4dfdc';
+    css['--accent-soft'] = dark ? mix(base, css['--accent'], 0.2) : mix(css['--surface'], css['--accent'], 0.14);
+    css['--danger-soft'] = dark ? mix(base, css['--danger'], 0.2) : mix(css['--surface'], css['--danger'], 0.12);
     css['--chart-1'] = hslHex(hue, saturation, dark ? 0.65 : 0.55);
 
     const categoryColors = {
@@ -126,12 +129,37 @@
       pin: dark ? css['--accent'] : css['--primary'],
       pinHole: surface,
       road: dark ? mix(css['--accent'], surface, 0.38) : surface,
-      divider: dark ? mix(css['--text'], base, 0.55) : '#fffaf5',
+      divider: dark ? mix(css['--text'], base, 0.55) : mix(css['--surface'], css['--border'], 0.25),
     };
     chart.forEach((color, i) => {
       brand[`region${String(i + 1).padStart(2, '0')}`] = mix(color, surface, dark ? 0.42 : 0.32);
     });
     return { base, mode: dark ? 'dark' : 'light', css, brand };
+  }
+
+  // Recolor inline scene illustrations without changing their shapes. The
+  // source SVGs use a shared set of flat colors; preserving each color's
+  // lightness while moving its hue to the selected background keeps the
+  // illustration readable and makes it feel like part of the same theme.
+  function recolorHex(value, input) {
+    const channels = rgb(value);
+    if (!channels) return value;
+    const theme = derive(input);
+    const [hue, sourceSaturation, lightness] = hsl(channels);
+    if (lightness >= 0.995) return '#ffffff';
+    const saturation = Math.min(0.48, Math.max(0.035,
+      theme.css['--primary'] ? (hsl(rgb(theme.css['--primary']))[1] * (0.28 + sourceSaturation * 0.86)) : 0.12));
+    const targetHue = hsl(rgb(theme.base))[0];
+    return hslHex(targetHue, saturation, lightness);
+  }
+
+  function recolorSvg(source, input) {
+    const theme = derive(input);
+    return String(source || '').replace(/#[\da-f]{6}\b/gi, value => {
+      // The scene's canvas should exactly match the user's chosen background.
+      if (value.toLowerCase() === '#ece2d2') return theme.base;
+      return recolorHex(value, input);
+    });
   }
 
   function apply(input) {
@@ -145,5 +173,5 @@
     return theme;
   }
 
-  return { BRAND_KEYS, DARK_BG, derive, apply, mix };
+  return { BRAND_KEYS, DARK_BG, derive, apply, mix, recolorSvg };
 });

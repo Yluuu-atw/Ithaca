@@ -66,8 +66,8 @@
   --shadow-lift: 6px 7px 0 rgba(58, 55, 51, .18);
   --radius: 14px;
   --radius-sm: 9px;
-  /* 不对称圆角：四角半径各不相同，模拟徒手画的方框 */
-  --radius-doodle: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  /* 兼容旧组件的统一外框圆角 */
+  --radius-doodle: 12px;
   --sidebar-w: 272px;
   --font: 'Chiron GoRound TC', 'Noto Serif SC', 'Songti SC', Georgia, serif;
 }
@@ -2756,3 +2756,1169 @@ body:not(.is-welcome) .welcome { display: none; }
 }
 :root[data-theme-mode="dark"] input::placeholder,
 :root[data-theme-mode="dark"] textarea::placeholder { color: var(--muted); }
+
+/* ============================================================
+   2026 手账纸页视觉层
+   暖纸底、轻透纸片、少量便签色，避免页面变成一排白色大方块。
+   ============================================================ */
+:root {
+  --bg: #e9e1d3;
+  --surface: #fffaf0;
+  --surface-2: #efe6d7;
+  --border: #d5c7b3;
+  --line: #958572;
+  --text: #3e3933;
+  --muted: #7f7568;
+  --primary: #bd6947;
+  --primary-600: #965039;
+  --primary-soft: #f3ddd0;
+  --accent: #c79a4d;
+  --accent-soft: #f4e9c9;
+  --danger-soft: #f2dcda;
+  --shadow: 0 10px 24px rgba(74, 61, 43, .13), 3px 4px 0 rgba(74, 61, 43, .08);
+  --shadow-sm: 0 5px 14px rgba(74, 61, 43, .10), 2px 3px 0 rgba(74, 61, 43, .06);
+  --shadow-lift: 0 15px 30px rgba(74, 61, 43, .16), 4px 6px 0 rgba(74, 61, 43, .09);
+  --radius: 17px;
+  --radius-sm: 11px;
+}
+
+html, body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(255,255,255,.46) 0 2px, transparent 2.5px),
+    radial-gradient(circle at 86% 18%, rgba(172,137,96,.13) 0 1.5px, transparent 2px),
+    repeating-linear-gradient(0deg, rgba(123,104,78,.035) 0 1px, transparent 1px 7px);
+  background-size: 130px 130px, 170px 170px, auto;
+  font-size: 17.5px;
+}
+
+.sidebar {
+  background: rgba(245, 238, 226, .76);
+  border-right: 1px solid rgba(149, 133, 114, .42);
+  box-shadow: 5px 0 22px rgba(74, 61, 43, .06);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+
+.brand { padding-bottom: 20px; }
+.nav { gap: 7px; }
+.nav-item { border: 1px solid transparent; border-radius: 13px; }
+.nav-item:hover { background: rgba(255,250,240,.58); border-color: var(--border); }
+.nav-item.active { background: var(--primary-soft); border-color: rgba(189,105,71,.28); box-shadow: inset 3px 0 0 var(--primary); }
+
+.topbar {
+  background: rgba(245, 238, 226, .72);
+  border-bottom: 1px solid rgba(149, 133, 114, .36);
+  box-shadow: 0 4px 16px rgba(74, 61, 43, .05);
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+}
+.page-title { letter-spacing: .02em; }
+.content { padding-top: 30px; }
+
+.card {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  border: 1px solid rgba(149, 133, 114, .52);
+  border-radius: 19px;
+  box-shadow: var(--shadow-sm);
+  padding: 18px 19px;
+  backdrop-filter: blur(5px) saturate(1.04);
+  -webkit-backdrop-filter: blur(5px) saturate(1.04);
+}
+.card::before {
+  top: -6px;
+  width: 52px;
+  height: 12px;
+  opacity: .62;
+  background: repeating-linear-gradient(-45deg, rgba(225,190,119,.52) 0 6px, rgba(244,221,169,.52) 6px 12px);
+  border: 0;
+}
+.card:hover { box-shadow: var(--shadow-lift); }
+.card-head { margin-bottom: 13px; }
+.card-head h2 { font-size: 18px; letter-spacing: .02em; }
+
+/* 页面中的次级纸片使用轻微的颜色差，保留清晰度又不显得整齐僵硬。 */
+.stat-card, .place-card, .trip-card, .guide-card, .memo-card,
+.board-card, .identity-row, .cal-cell, .tl-card, .expense-receipt,
+.expense-location-suggestion, .expense-location-result, .settle-transfer,
+.settle-bill, .chk-item, .member-pick-cur, .profile-avatar-choice,
+.profile-color-choice, .tripmgr-row {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border-color: rgba(149, 133, 114, .46);
+  box-shadow: 0 3px 10px rgba(74, 61, 43, .055);
+}
+.place-card:hover, .trip-card:hover, .guide-card:hover, .board-card:hover,
+.cal-cell.has-trip:hover, .tl-card:hover { box-shadow: var(--shadow-sm); }
+
+.stat-card:nth-child(3n+1), .place-card:nth-child(3n+1), .trip-card:nth-child(3n+1) {
+  background: color-mix(in srgb, #f7e8d5 48%, var(--surface));
+}
+.stat-card:nth-child(3n+2), .place-card:nth-child(3n+2), .trip-card:nth-child(3n+2) {
+  background: color-mix(in srgb, #e8eee3 42%, var(--surface));
+}
+.stat-card:nth-child(3n), .place-card:nth-child(3n), .trip-card:nth-child(3n) {
+  background: color-mix(in srgb, #e6edf0 38%, var(--surface));
+}
+
+.day-head { background: rgba(239,230,215,.72); border-bottom-color: var(--border); }
+.tl-summary { background: rgba(255,250,240,.70); border-color: rgba(149,133,114,.45); }
+.tl-card { border-radius: 15px; }
+
+.btn { border-width: 1px; border-color: rgba(149,133,114,.72); box-shadow: 2px 3px 0 rgba(74,61,43,.10); }
+.btn-ghost { background: rgba(255,250,240,.72); }
+.btn-primary { box-shadow: 2px 3px 0 rgba(150,80,57,.18); }
+.icon-btn:hover { background: rgba(239,230,215,.78); }
+.chip { background: rgba(255,250,240,.66); }
+.chip.active { box-shadow: 2px 3px 0 rgba(150,80,57,.15); }
+
+input, select, textarea,
+.auth-card input, .access-form input, .access-form select, .modal-body input[readonly] {
+  background: rgba(255,250,240,.72);
+  border-color: rgba(149,133,114,.55);
+}
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(189,105,71,.18); }
+
+.auth-gate { background: transparent; }
+.auth-card {
+  background: rgba(255,250,240,.86);
+  border: 1px solid rgba(149,133,114,.55);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+.modal-backdrop { background: rgba(56,46,37,.42); }
+.modal-card {
+  background: rgba(255,250,240,.96);
+  box-shadow: 0 -8px 30px rgba(74,61,43,.14);
+}
+
+@media (max-width: 767px) {
+  html, body { font-size: 16px; }
+  .topbar { padding: 13px 14px; }
+  .page-title { font-size: 24px; }
+  .content { padding: 18px 12px 38px; }
+  .card { padding: 15px 14px; border-radius: 16px; }
+  .dash-grid { gap: 11px; }
+  .card-head h2 { font-size: 17px; }
+  .nav-item { padding: 10px 12px; }
+  input, select, textarea { font-size: 16px !important; }
+  .btn { font-size: 15px; padding: 8px 13px; }
+  .stat-card, .place-card, .trip-card, .guide-card, .memo-card { border-radius: 14px; }
+}
+
+@media (max-width: 520px) {
+  .content { padding-left: 10px; padding-right: 10px; }
+  .card { padding: 14px 12px; }
+  .card::before { width: 42px; height: 10px; }
+  .page-title { font-size: 22px; }
+  .topbar-actions { gap: 5px; }
+  .topbar-actions .btn { padding-inline: 9px; }
+}
+
+/* ============================================================
+   概览页：拼贴式信息布局
+   用纸片、便签、线稿和色带区分重点，减少白色大卡片。
+   ============================================================ */
+.dash-grid {
+  grid-auto-flow: row dense;
+  gap: 12px;
+}
+.dash-grid > .card {
+  --card-paper: #f1dfcf;
+  --card-accent: #bd6947;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--card-paper) 52%, transparent), rgba(255,250,240,.18)),
+    repeating-linear-gradient(0deg, rgba(107,91,68,.035) 0 1px, transparent 1px 8px);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 34%, transparent);
+  border-top: 3px solid color-mix(in srgb, var(--card-accent) 72%, transparent);
+  border-radius: 14px 18px 16px 12px;
+  box-shadow: 0 4px 12px rgba(74,61,43,.065);
+  backdrop-filter: blur(4px) saturate(1.02);
+  -webkit-backdrop-filter: blur(4px) saturate(1.02);
+}
+.dash-grid > .card::before { display: none; }
+.dash-grid > .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.dash-grid > .card:nth-child(2) { --card-paper: #e5eddc; --card-accent: #829a78; }
+.dash-grid > .card:nth-child(3) { --card-paper: #e1edf0; --card-accent: #7899a9; }
+.dash-grid > .card:nth-child(4) { --card-paper: #f3e7c9; --card-accent: #c49a4d; }
+.dash-grid > .card:nth-child(5) { --card-paper: #eadff0; --card-accent: #9275a2; }
+.dash-grid > .card:nth-child(6) { --card-paper: #e5eee6; --card-accent: #6f9b7b; }
+.dash-grid > .card:nth-child(7) { --card-paper: #f2e0e0; --card-accent: #b47c7c; }
+.dash-grid > .card:nth-child(8) { --card-paper: #eee5d6; --card-accent: #a78a61; }
+.dash-grid > .card .card-head h2 { text-decoration: none; }
+.dash-grid > .card .card-head { padding-bottom: 8px; border-bottom: 1px dashed color-mix(in srgb, var(--card-accent) 38%, transparent); }
+.dash-grid > .card .stat-card {
+  background: rgba(255,250,240,.38);
+  border: 1px dashed color-mix(in srgb, var(--card-accent) 38%, transparent);
+  box-shadow: none;
+}
+.dash-grid > .card .settle-item { background: rgba(255,250,240,.36); box-shadow: none; }
+
+@media (max-width: 767px) {
+  /* 手机概览采用两列拼贴：长内容占满，短摘要相互并排。 */
+  .dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .dash-grid > .card { padding: 13px 11px; min-width: 0; }
+  .dash-grid > .card:first-child { grid-column: 1 / -1; }
+  .dash-grid > .span-4,
+  .dash-grid > .span-5,
+  .dash-grid > .span-7,
+  .dash-grid > .span-8 { grid-column: span 1; }
+  .dash-grid > .span-12 { grid-column: 1 / -1; }
+  .dash-grid > .card .card-head { gap: 6px; margin-bottom: 9px; }
+  .dash-grid > .card .card-head h2 { font-size: 15px; }
+  .dash-grid > .card .btn-sm { padding: 5px 8px; font-size: 13px; }
+  .dash-grid > .card:first-child .card-head h2 { font-size: 16px; }
+  .dash-grid > .card:nth-child(3) .chart-bars { min-height: 92px; }
+  .dash-grid > .card:nth-child(4) .donut { width: 82px; height: 82px; }
+  .dash-grid > .card:nth-child(5) .stat-value,
+  .dash-grid > .card:nth-child(7) .stat-value { font-size: 19px; }
+  .dash-grid > .card:nth-child(8) .settle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+}
+
+@media (max-width: 380px) {
+  .dash-grid { gap: 8px; }
+  .dash-grid > .card { padding: 11px 9px; }
+  .dash-grid > .card .card-head h2 { font-size: 14px; }
+  .dash-grid > .card:nth-child(8) .settle-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 767px) {
+  .dash-grid > .card { align-self: start; }
+  .dash-grid > .card:nth-child(3) .chart-empty { height: 94px; }
+  .dash-grid > .card:nth-child(4) .donut-wrap { gap: 8px; justify-content: center; }
+  .dash-grid > .card:nth-child(4) .donut-legend { min-width: 92px; }
+  .dash-grid > .card:nth-child(6) .ring-wrap { gap: 6px; }
+  .dash-grid > .card:nth-child(6) .ring-note { font-size: 12px; }
+  .dash-grid > .card:nth-child(8) .cat-list { gap: 6px; }
+}
+
+/* ============================================================
+   首页欢迎页：拆掉外层大白框，改成轻量拼贴
+   ============================================================ */
+.welcome-journey {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.welcome-journey-head {
+  margin: 0 7px 8px;
+  color: var(--primary-600);
+  font-size: 13px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.welcome-trip-primary {
+  min-height: 86px;
+  padding: 14px 16px;
+  border: 1px solid rgba(149,133,114,.4);
+  border-radius: 16px 20px 14px 18px;
+  background: rgba(250,239,222,.78);
+  box-shadow: 0 6px 15px rgba(74,61,43,.10), 3px 3px 0 rgba(189,105,71,.10);
+  transform: rotate(-.35deg);
+}
+.welcome-trip-primary:hover { transform: translateY(-2px) rotate(-.35deg); }
+.welcome-trip-icon { background: rgba(255,250,240,.72); box-shadow: inset 0 0 0 1px rgba(149,133,114,.18); }
+.welcome-trip-actions {
+  gap: 10px;
+  padding: 10px 4px 0;
+  background: transparent;
+}
+.welcome-trip-actions button {
+  min-height: 42px;
+  border-width: 1px;
+  border-radius: 12px 15px 11px 14px;
+  box-shadow: 2px 3px 0 rgba(74,61,43,.09);
+}
+.welcome-trip-go { background: #c8a66d; border-color: #a88652; color: #fffdf8; }
+.welcome-trip-expense { background: rgba(231,239,231,.86); border-color: #9daf9c; color: #526e58; }
+.welcome-other-trips { margin: 10px 7px 0; }
+
+.meta-card {
+  padding: 13px 20px 14px;
+  background-color: rgba(255,253,248,.38);
+  border: 1px solid rgba(149,133,114,.36);
+  box-shadow: 0 4px 12px rgba(74,61,43,.07);
+}
+.welcome-bubble {
+  max-width: 540px;
+  padding: 15px 20px 17px;
+  background: rgba(250,241,226,.52);
+  border: 0;
+  border-left: 3px solid rgba(189,105,71,.62);
+  border-radius: 5px 18px 12px 5px;
+  box-shadow: 4px 5px 0 rgba(149,133,114,.12);
+  transform: rotate(-.35deg);
+}
+.welcome-bubble > .tape { opacity: .72; }
+.welcome-main {
+  padding: 16px 24px;
+  border-width: 2px;
+  background: #bd6947;
+  box-shadow: 3px 4px 0 rgba(150,80,57,.18);
+}
+.welcome-mini {
+  border-width: 1px;
+  box-shadow: 2px 3px 0 rgba(74,61,43,.11);
+}
+.welcome-mini:nth-child(1) { background: rgba(224,237,222,.88); border-color: #9daf9c; }
+.welcome-mini:nth-child(2) { background: rgba(224,235,241,.88); border-color: #9bb3bf; }
+
+@media (max-width: 520px) {
+  .welcome-journey-head { margin-left: 4px; margin-right: 4px; }
+  .welcome-trip-primary { min-height: 76px; padding: 11px 12px; }
+  .welcome-trip-actions { padding: 9px 2px 0; }
+  .welcome-bubble { padding: 14px 15px 16px; }
+  .welcome-main { padding: 15px 18px; }
+}
+
+/* ============================================================
+   三色体系：纸张米白 + 陶土红 + 鼠尾草绿
+   ============================================================ */
+:root {
+  --bg: #eee6d8;
+  --surface: #fffaf1;
+  --surface-2: #e9e1d4;
+  --border: #d2c5b5;
+  --line: #958574;
+  --text: #403a34;
+  --muted: #7e7569;
+  --primary: #b96749;
+  --primary-600: #964f39;
+  --primary-soft: #f0ddd1;
+  --accent: #80947e;
+  --accent-soft: #e3ece2;
+  --danger: #a85d55;
+  --danger-soft: #f0dfdc;
+  --chart-1: #b96749;
+  --chart-2: #80947e;
+  --chart-3: #d49a7c;
+  --chart-4: #a9b9a6;
+  --chart-5: #c78669;
+  --chart-6: #9b907f;
+  --cat-flight: #80947e;
+  --cat-flight-soft: #e3ece2;
+  --cat-train: #80947e;
+  --cat-train-soft: #e3ece2;
+  --cat-bus: #b96749;
+  --cat-bus-soft: #f0ddd1;
+  --cat-hotel: #b96749;
+  --cat-hotel-soft: #f0ddd1;
+  --cat-other: #9b907f;
+  --cat-other-soft: #e9e1d4;
+  --cat-stay: #b96749;
+  --cat-stay-soft: #f0ddd1;
+  --cat-food: #b96749;
+  --cat-food-soft: #f0ddd1;
+  --cat-scenic: #80947e;
+  --cat-scenic-soft: #e3ece2;
+  --cat-traffic: #80947e;
+  --cat-traffic-soft: #e3ece2;
+  --cat-shop: #b96749;
+  --cat-shop-soft: #f0ddd1;
+  --cat-fun: #9b907f;
+  --cat-fun-soft: #e9e1d4;
+}
+
+/* 概览卡片只在纸色、红色、绿色之间变化。 */
+.dash-grid > .card:nth-child(1),
+.dash-grid > .card:nth-child(3),
+.dash-grid > .card:nth-child(5),
+.dash-grid > .card:nth-child(7),
+.dash-grid > .card:nth-child(8) {
+  --card-paper: #f0ddd1;
+  --card-accent: #b96749;
+}
+.dash-grid > .card:nth-child(2),
+.dash-grid > .card:nth-child(4),
+.dash-grid > .card:nth-child(6) {
+  --card-paper: #e3ece2;
+  --card-accent: #80947e;
+}
+
+/* 首页按钮和便签只保留红、绿、纸色。 */
+.welcome-trip-go { background: #b96749; border-color: #964f39; }
+.welcome-trip-expense { background: rgba(227,236,226,.90); border-color: #80947e; color: #536b55; }
+.welcome-mini:nth-child(1) { background: rgba(227,236,226,.90); border-color: #80947e; }
+.welcome-mini:nth-child(2) { background: rgba(255,250,241,.88); border-color: #d2c5b5; }
+.welcome-main { background: #b96749; border-color: #964f39; }
+
+/* 方格纸使用极淡的鼠尾草线，去掉蓝色视觉噪音。 */
+.meta-card {
+  background-image:
+    linear-gradient(rgba(128,148,126,.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(128,148,126,.15) 1px, transparent 1px);
+}
+
+/* 小标签不再各自使用一套颜色，只用陶土红、鼠尾草绿和纸色。 */
+.badge[data-cat="住宿"], .badge[data-cat="餐饮"], .badge[data-cat="购物"] {
+  background: var(--primary-soft); color: var(--primary-600);
+}
+.badge[data-cat="景点"], .badge[data-cat="门票"], .badge[data-cat="交通"] {
+  background: var(--accent-soft); color: #536b55;
+}
+.badge[data-cat="娱乐"], .badge[data-cat="其他"] {
+  background: var(--surface-2); color: var(--muted);
+}
+
+@media (max-width: 520px) {
+  .welcome-trip-go, .welcome-trip-expense, .welcome-mini { box-shadow: 1px 2px 0 rgba(74,61,43,.09); }
+}
+
+/* 柔和灰橄榄：与纸色、陶土红更接近，降低绿色的视觉冲击。 */
+:root {
+  --accent: #9b9a80;
+  --accent-soft: #eeecdd;
+  --chart-2: #9b9a80;
+  --chart-4: #c4c2a9;
+  --cat-flight: #9b9a80;
+  --cat-flight-soft: #eeecdd;
+  --cat-train: #9b9a80;
+  --cat-train-soft: #eeecdd;
+  --cat-scenic: #9b9a80;
+  --cat-scenic-soft: #eeecdd;
+  --cat-traffic: #9b9a80;
+  --cat-traffic-soft: #eeecdd;
+}
+.dash-grid > .card:nth-child(2),
+.dash-grid > .card:nth-child(4),
+.dash-grid > .card:nth-child(6) {
+  --card-paper: #ebe9dc;
+  --card-accent: #9b9a80;
+}
+.welcome-trip-expense,
+.welcome-mini:nth-child(1) {
+  background: rgba(238,236,221,.92);
+  border-color: #b8b59b;
+  color: #6f6e5b;
+}
+.badge[data-cat="景点"], .badge[data-cat="门票"], .badge[data-cat="交通"] {
+  background: var(--accent-soft);
+  color: #77765f;
+}
+
+/* ============================================================
+   主题联动：所有纸片、边框和重点色跟随背景色的同色相变化
+   ============================================================ */
+.dash-grid > .card {
+  --card-paper: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  --card-accent: var(--primary);
+}
+.dash-grid > .card:nth-child(2),
+.dash-grid > .card:nth-child(4),
+.dash-grid > .card:nth-child(6) {
+  --card-paper: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  --card-accent: var(--accent);
+}
+.dash-grid > .card:nth-child(3),
+.dash-grid > .card:nth-child(5),
+.dash-grid > .card:nth-child(7) {
+  --card-paper: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  --card-accent: color-mix(in srgb, var(--primary) 72%, var(--border));
+}
+.welcome-trip-primary {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+  box-shadow: 0 6px 15px color-mix(in srgb, var(--text) 10%, transparent), 3px 3px 0 color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.welcome-trip-icon { background: color-mix(in srgb, var(--surface) 76%, var(--primary-soft)); }
+.welcome-trip-go, .welcome-main { background: var(--primary); border-color: var(--primary-600); }
+.welcome-trip-expense, .welcome-mini:nth-child(1) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  color: var(--text);
+}
+.welcome-mini:nth-child(2) { background: var(--surface); border-color: var(--border); }
+.welcome-bubble { background: color-mix(in srgb, var(--primary) 7%, transparent); border-left-color: color-mix(in srgb, var(--primary) 65%, var(--border)); box-shadow: 4px 5px 0 color-mix(in srgb, var(--text) 10%, transparent); }
+.meta-card {
+  background-color: color-mix(in srgb, var(--surface) 42%, transparent);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent) 20%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, transparent) 1px, transparent 1px);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+.cat-fill, .progress > span { background: linear-gradient(90deg, var(--primary), var(--accent)); }
+.st-booked { background: var(--accent-soft); color: var(--accent); }
+
+/* 顶栏、侧栏与页面内容共享主题背景，避免切换背景色后出现断层。 */
+.sidebar {
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  border-right-color: color-mix(in srgb, var(--border) 82%, transparent);
+}
+.topbar {
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--border) 82%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 7%, transparent);
+}
+.page-title, .topbar-trip { color: var(--text); }
+.topbar-trip { color: var(--primary-600); }
+.welcome-corner, .welcome-account {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  color: var(--text);
+}
+.welcome-corner:hover, .welcome-account:hover {
+  box-shadow: var(--shadow);
+}
+
+/* 标题装饰也使用主题主色，切换背景后不会残留固定陶土红。 */
+.trip-title::after {
+  background: none;
+  border-bottom: 2px solid color-mix(in srgb, var(--primary) 76%, transparent);
+  height: 4px;
+}
+.trip-title > .tape {
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+/* 概览首尾两块是基础信息区，使用主题边框色，不再用醒目的强调色。 */
+.dash-grid > .card:first-child,
+.dash-grid > .card:nth-child(8) {
+  --card-paper: color-mix(in srgb, var(--surface) 62%, var(--bg));
+  --card-accent: var(--border);
+  background: color-mix(in srgb, var(--surface) 62%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-top: 2px solid var(--border);
+}
+.dash-grid > .card:first-child .card-head,
+.dash-grid > .card:nth-child(8) .card-head {
+  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* 首页插画与主题背景同步：SVG 画面和上面的雾层都使用当前 --bg。 */
+.welcome-bg::after {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bg) 20%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 40%, transparent) 46%,
+    color-mix(in srgb, var(--bg) 74%, transparent) 100%);
+}
+.welcome-bg svg,
+.welcome-bg img { transition: filter .22s ease, opacity .22s ease; }
+:root[data-theme-mode="dark"] .welcome-bg::after {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--bg) 54%, transparent),
+    color-mix(in srgb, var(--bg) 86%, transparent));
+}
+
+/* 概览聚焦四件事：今天的安排、成员、花费、结算。 */
+.overview-head-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.overview-today .trip-summary { margin-bottom: 12px; }
+.today-date { display: flex; align-items: baseline; gap: 8px; margin: 3px 0 9px; color: var(--muted); }
+.today-date strong { color: var(--text); font-size: 17px; }
+.today-date span { font-size: 13px; }
+.today-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.today-item { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: 11px; background: color-mix(in srgb, var(--surface) 58%, transparent); }
+.today-item time { color: var(--primary-600); font-size: 14px; font-variant-numeric: tabular-nums; }
+.today-item-main { display: grid; gap: 2px; min-width: 0; }
+.today-item-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.today-item-main span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.today-item .badge { margin: 0; font-size: 11px; }
+.today-empty { display: grid; gap: 5px; padding: 15px 4px 5px; color: var(--muted); }
+.today-empty strong { color: var(--text); font-size: 15px; }
+.today-empty span { font-size: 13px; }
+.overview-total { display: grid; gap: 2px; padding: 8px 0 12px; }
+.overview-total strong { color: var(--primary-600); font-size: clamp(28px, 4vw, 36px); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.overview-total span { color: var(--muted); font-size: 13px; }
+.overview-expense-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; color: var(--muted); font-size: 13px; }
+.overview-net { display: grid; gap: 4px; margin-bottom: 10px; }
+.overview-net strong { color: var(--primary-600); font-size: 18px; }
+.overview-net span { color: var(--muted); font-size: 13px; }
+.overview-transfers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.overview-transfer-group { display: grid; gap: 5px; padding: 9px 10px; border: 1px dashed color-mix(in srgb, var(--border) 72%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--surface) 50%, transparent); }
+.overview-transfer-group > span { color: var(--muted); font-size: 12px; }
+.overview-transfer-group > div { display: grid; gap: 5px; }
+.overview-transfer { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: 13px; }
+.overview-transfer b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.overview-transfer strong { color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.overview-transfer-group small { color: var(--muted); font-size: 12px; }
+.overview-member-balances { display: grid; gap: 7px; }
+.overview-member-balance { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px dashed color-mix(in srgb, var(--border) 62%, transparent); }
+.overview-member-balance:last-child { border-bottom: 0; }
+.overview-member-balance strong { font-size: 13px; white-space: nowrap; }
+@media (max-width: 767px) {
+  .overview-head-actions { gap: 4px; }
+  .overview-head-actions .btn { padding-inline: 7px; }
+  .today-item { grid-template-columns: 45px minmax(0, 1fr); }
+  .today-item .badge { display: none; }
+  .overview-transfers { grid-template-columns: 1fr; }
+  .overview-total strong { font-size: 28px; }
+}
+
+/* 概览层级：旅行信息靠右收 compact，今日行程占满并成为视觉主角。 */
+.overview-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 4px; }
+.overview-title-wrap { min-width: 0; }
+.overview-context { flex: 0 1 390px; min-width: 270px; margin: 2px 0 15px auto; padding: 10px 0 2px 18px; border-left: 1px solid color-mix(in srgb, var(--border) 72%, transparent); color: var(--muted); }
+.overview-context-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 12px; letter-spacing: .08em; }
+.overview-context-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px 14px; }
+.overview-context-facts > div { display: grid; gap: 2px; min-width: 0; }
+.overview-context-facts span { font-size: 11px; }
+.overview-context-facts strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 13px; font-weight: 600; }
+.overview-context-form { margin: 0; padding: 8px 0 0; }
+.overview-today { min-height: 245px; }
+.overview-today .card-head { align-items: center; }
+.today-date { margin-top: 2px; }
+.today-list { gap: 10px; }
+.today-item { grid-template-columns: 84px minmax(0, 1fr); min-height: 66px; padding: 14px 16px; border-radius: 14px; }
+.today-item time { font-size: 20px; font-weight: 700; }
+.today-item-main strong { font-size: 20px; }
+.today-item-main span { font-size: 13px; }
+.overview-expense-layout { display: grid; grid-template-columns: minmax(180px, .65fr) minmax(0, 1.35fr); gap: 22px; align-items: stretch; }
+.overview-expenses .overview-total { justify-content: center; padding: 10px 18px; border-right: 1px dashed color-mix(in srgb, var(--border) 72%, transparent); }
+.overview-expense-settlement { min-width: 0; }
+.overview-expense-settlement > h3 { margin: 0 0 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
+@media (max-width: 767px) {
+  .overview-top { display: block; }
+  .overview-context { min-width: 0; margin: -2px 0 12px; padding: 8px 0 0; border-left: 0; border-top: 1px solid color-mix(in srgb, var(--border) 62%, transparent); }
+  .overview-context-facts { gap: 7px 10px; }
+  .overview-context-facts strong { font-size: 12px; }
+  .overview-today { min-height: 0; }
+  .today-item { grid-template-columns: 65px minmax(0, 1fr); }
+  .today-item time { font-size: 18px; }
+  .today-item-main strong { font-size: 17px; }
+  .overview-expense-layout { grid-template-columns: 1fr; gap: 12px; }
+  .overview-expenses .overview-total { justify-content: start; padding: 6px 0 10px; border-right: 0; border-bottom: 1px dashed color-mix(in srgb, var(--border) 72%, transparent); }
+}
+
+/* 旅行信息像右上角的小便签，今日行程和花费则承担主要视觉重量。 */
+.overview-context {
+  padding: 13px 15px 14px;
+  background: color-mix(in srgb, var(--surface) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+  border-left: 3px solid var(--primary);
+  border-radius: 5px 14px 14px 5px;
+  box-shadow: 3px 4px 0 color-mix(in srgb, var(--text) 6%, transparent);
+}
+.overview-expenses .overview-total {
+  justify-content: flex-start;
+  padding: 7px 0 15px;
+  border: 0;
+}
+.overview-expense-layout { grid-template-columns: 1fr; gap: 0; }
+.overview-member-spend { padding: 0 0 16px; }
+.overview-member-spend > h3,
+.overview-expense-settlement > h3 { margin: 0 0 9px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.overview-member-spend .donut-wrap { justify-content: center; padding: 5px 0; }
+.overview-member-spend .donut { width: 176px; height: 176px; }
+.overview-member-spend .donut-total { font-size: 22px; }
+.overview-expense-settlement { padding-top: 15px; border-top: 1px dashed color-mix(in srgb, var(--border) 72%, transparent); }
+@media (max-width: 767px) {
+  .overview-context { box-shadow: 2px 3px 0 color-mix(in srgb, var(--text) 5%, transparent); }
+  .overview-member-spend .donut { width: 128px; height: 128px; }
+}
+
+/* 花费饼图改为居中大图，成员金额在下方紧凑排列，避免右侧空白。 */
+.overview-member-spend .donut-wrap { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.overview-member-spend .donut { margin: 0 auto; }
+.overview-member-spend .donut-legend { width: 100%; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 7px 14px; }
+.overview-member-spend .legend-row { justify-content: space-between; padding: 6px 8px; border-bottom: 1px dashed color-mix(in srgb, var(--border) 60%, transparent); }
+
+/* 记账页统一为半透明纸片和主题边框，取消白色大方框的层层嵌套。 */
+.ledger-scan {
+  margin-bottom: 14px;
+  padding: 12px 15px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 72%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+  box-shadow: none;
+}
+.ledger-scan:hover { box-shadow: var(--shadow-sm); }
+.ledger-filters { margin-bottom: 12px; padding: 3px; border-color: color-mix(in srgb, var(--border) 78%, transparent); background: color-mix(in srgb, var(--surface) 34%, transparent); }
+.ledger-filter.active { background: color-mix(in srgb, var(--primary) 13%, var(--surface)); box-shadow: none; }
+.settle-head {
+  margin: 8px 0 15px;
+  padding: 15px 16px 17px;
+  background: color-mix(in srgb, var(--surface) 48%, var(--bg));
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--primary) 6%, transparent), transparent 58%);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-top: 3px solid color-mix(in srgb, var(--primary) 70%, var(--border));
+  border-radius: 13px;
+  box-shadow: 0 4px 13px color-mix(in srgb, var(--text) 6%, transparent);
+}
+.settle-title { font-size: 25px; margin-bottom: 14px; }
+.settle-title .emo { width: 27px; height: 27px; }
+.settle-transfer,
+.settle-bill { background: color-mix(in srgb, var(--surface) 48%, var(--bg)); border-color: color-mix(in srgb, var(--border) 72%, transparent); box-shadow: none; }
+.settle-transfer:hover,
+.settle-bill:not(.settle-bill-unlinked):hover { background: color-mix(in srgb, var(--primary) 8%, var(--surface)); border-color: var(--primary); }
+.exp-frame { padding: 0; background: transparent; border: 0; box-shadow: none; }
+.journal-div { margin: 18px 0; padding: 0; }
+.receipt { margin-bottom: 15px; padding: 12px 14px 13px; background: color-mix(in srgb, var(--surface) 43%, var(--bg)); border-color: color-mix(in srgb, var(--border) 82%, transparent); box-shadow: 0 3px 10px color-mix(in srgb, var(--text) 5%, transparent); }
+.receipt::after { background: radial-gradient(circle at 50% 0, color-mix(in srgb, var(--surface) 43%, var(--bg)) 6px, transparent 6.5px) 0 0 / 14px 8px repeat-x; filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--border) 75%, transparent)); }
+.receipt-head { border-bottom-color: color-mix(in srgb, var(--border) 74%, transparent); }
+.receipt-foot { border-top-color: color-mix(in srgb, var(--border) 74%, transparent); }
+.exp-row:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.exp-mx-date, .exp-mx-total { background: color-mix(in srgb, var(--surface) 46%, var(--bg)); }
+.expense-receipt { background: color-mix(in srgb, var(--surface) 44%, var(--bg)); border-color: color-mix(in srgb, var(--border) 72%, transparent); }
+@media (max-width: 767px) {
+  .overview-member-spend .donut { width: 158px; height: 158px; }
+  .overview-member-spend .donut-legend { grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+  .settle-head { padding: 13px 13px 15px; }
+  .exp-frame { padding: 0; }
+  .receipt { padding: 10px 11px 12px; }
+}
+
+/* ============================================================
+   清爽统一主题：首页与记账页共用同一套轻面板层级
+   面板只负责分组，不再使用白纸纹理、胶带、撕边和装饰阴影。
+   颜色全部来自主题变量，切换背景色时保持同色相。
+   ============================================================ */
+:root {
+  --clean-panel: color-mix(in srgb, var(--bg) 84%, var(--surface));
+  --clean-panel-soft: color-mix(in srgb, var(--bg) 91%, var(--surface));
+  --clean-line: color-mix(in srgb, var(--border) 76%, transparent);
+  --clean-shadow: 0 2px 8px color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+html,
+body.is-welcome,
+body:not(.is-welcome) {
+  background-image: none;
+}
+
+/* 首页：保留背景插画作为识别点，其余内容回到轻量面板。 */
+body.is-welcome .welcome-bg::after {
+  background: color-mix(in srgb, var(--bg) 58%, transparent);
+}
+body.is-welcome .welcome-inner { gap: 14px; }
+body.is-welcome .welcome-corner,
+body.is-welcome .welcome-account,
+body.is-welcome .welcome-journey,
+body.is-welcome .meta-card,
+body.is-welcome .welcome-bubble {
+  background: var(--clean-panel) !important;
+  background-image: none !important;
+  border: 1px solid var(--clean-line) !important;
+  border-radius: 13px !important;
+  box-shadow: var(--clean-shadow) !important;
+  transform: none !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.is-welcome .welcome-corner,
+body.is-welcome .welcome-account {
+  padding: 8px 12px;
+  color: var(--text);
+}
+body.is-welcome .welcome-journey { padding: 13px; }
+body.is-welcome .welcome-trip-primary,
+body.is-welcome .welcome-trip-actions {
+  background: var(--clean-panel-soft) !important;
+}
+body.is-welcome .welcome-trip-primary {
+  min-height: 78px;
+  border-radius: 10px 10px 0 0;
+}
+body.is-welcome .welcome-trip-actions {
+  padding: 8px 0 0;
+  gap: 8px;
+}
+body.is-welcome .welcome-trip-actions button,
+body.is-welcome .welcome-main,
+body.is-welcome .welcome-mini {
+  border: 1px solid var(--clean-line);
+  border-radius: 10px;
+  box-shadow: none !important;
+  transform: none !important;
+}
+body.is-welcome .welcome-trip-go,
+body.is-welcome .welcome-main {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+body.is-welcome .welcome-trip-expense,
+body.is-welcome .welcome-mini,
+body.is-welcome .welcome-mini:nth-child(1),
+body.is-welcome .welcome-mini:nth-child(2) {
+  background: var(--clean-panel-soft) !important;
+  color: var(--text);
+}
+body.is-welcome .welcome-other-trips button {
+  background: var(--clean-panel-soft);
+  border-color: var(--clean-line);
+}
+body.is-welcome .brush-name {
+  display: none;
+}
+body.is-welcome .welcome-trip-icon,
+body.is-welcome .welcome-empty-mark {
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+}
+body.is-welcome .meta-card {
+  max-width: 660px;
+  padding: 13px 17px;
+}
+body.is-welcome .welcome-bubble {
+  padding: 14px 17px 16px;
+  border-left: 2px solid color-mix(in srgb, var(--primary) 52%, var(--border)) !important;
+}
+body.is-welcome .welcome-main { width: 100%; padding: 15px 20px; }
+body.is-welcome .welcome-sub { gap: 8px; }
+body.is-welcome .welcome-mini { padding: 12px 10px; }
+body.is-welcome .tape,
+body.is-welcome .welcome-bubble > .tape,
+body.is-welcome .meta-card > .tape { display: none !important; }
+
+/* 记账页：用同一个轻面板颜色组织结算、筛选和账单。 */
+body:not(.is-welcome) .ledger-scan,
+body:not(.is-welcome) .settle-head,
+body:not(.is-welcome) .receipt,
+body:not(.is-welcome) .settle-transfer,
+body:not(.is-welcome) .settle-bill {
+  background: var(--clean-panel) !important;
+  background-image: none !important;
+  border: 1px solid var(--clean-line) !important;
+  border-radius: 12px;
+  box-shadow: none !important;
+}
+body:not(.is-welcome) .ledger-scan {
+  margin-bottom: 12px;
+  border-style: solid !important;
+  padding: 11px 14px;
+}
+body:not(.is-welcome) .ledger-scan:hover {
+  box-shadow: none !important;
+  transform: none;
+  border-color: var(--primary) !important;
+}
+body:not(.is-welcome) .ledger-filters {
+  margin-bottom: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+body:not(.is-welcome) .ledger-filter {
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none !important;
+}
+body:not(.is-welcome) .ledger-filter.active {
+  background: var(--clean-panel-soft);
+  border-color: var(--clean-line);
+}
+body:not(.is-welcome) .settle-head {
+  margin: 8px 0 14px;
+  padding: 14px 15px 16px;
+  border-top: 2px solid var(--primary) !important;
+}
+body:not(.is-welcome) .settle-title {
+  margin-bottom: 12px;
+  font-size: 24px;
+}
+body:not(.is-welcome) .settle-transfer,
+body:not(.is-welcome) .settle-bill {
+  background: var(--clean-panel-soft) !important;
+}
+body:not(.is-welcome) .settle-transfer:hover,
+body:not(.is-welcome) .settle-bill:not(.settle-bill-unlinked):hover {
+  background: color-mix(in srgb, var(--primary) 7%, var(--clean-panel-soft)) !important;
+  border-color: var(--primary) !important;
+}
+body:not(.is-welcome) .exp-frame {
+  padding: 0;
+  background: transparent !important;
+  border: 0;
+  box-shadow: none;
+}
+body:not(.is-welcome) .journal-div {
+  display: none;
+}
+body:not(.is-welcome) .receipt {
+  margin-bottom: 12px;
+  padding: 11px 13px 12px;
+}
+body:not(.is-welcome) .receipt::after {
+  display: none;
+}
+body:not(.is-welcome) .receipt-head,
+body:not(.is-welcome) .receipt-foot {
+  border-color: var(--clean-line);
+}
+body:not(.is-welcome) .receipt-dots {
+  border-top-color: var(--clean-line);
+}
+body:not(.is-welcome) .exp-row {
+  border-bottom-color: var(--clean-line);
+}
+body:not(.is-welcome) .exp-row:hover {
+  background: color-mix(in srgb, var(--primary) 6%, var(--clean-panel)) !important;
+}
+body:not(.is-welcome) .settle-bar > i,
+body:not(.is-welcome) .cat-fill,
+body:not(.is-welcome) .progress > span {
+  background: var(--primary);
+}
+body:not(.is-welcome) .exp-mx-date,
+body:not(.is-welcome) .exp-mx-total,
+body:not(.is-welcome) .expense-receipt {
+  background: var(--clean-panel-soft) !important;
+  box-shadow: none !important;
+}
+body:not(.is-welcome) .btn,
+body:not(.is-welcome) .list-head .btn,
+body:not(.is-welcome) .ledger-export-actions .btn {
+  box-shadow: none !important;
+}
+
+/* 共同的细节线：不再用虚线和大面积装饰抢重点。 */
+body.is-welcome .trip-title::after,
+body:not(.is-welcome) .settle-details,
+body:not(.is-welcome) .overview-transfer-group,
+body:not(.is-welcome) .overview-member-balance {
+  border-style: solid;
+}
+body:not(.is-welcome) .settle-details,
+body:not(.is-welcome) .overview-transfer-group,
+body:not(.is-welcome) .overview-member-balance {
+  border-color: var(--clean-line);
+}
+
+@media (max-width: 767px) {
+  body.is-welcome .welcome { padding: 24px 15px calc(24px + env(safe-area-inset-bottom)); }
+  body.is-welcome .welcome-inner { gap: 11px; }
+  body.is-welcome .welcome-trip-primary { min-height: 70px; padding: 11px; }
+  body.is-welcome .welcome-trip-actions { gap: 6px; }
+  body.is-welcome .welcome-trip-actions button { min-height: 40px; padding: 8px 9px; }
+}
+
+/* 一级模块下的轻量二级切换：保留功能入口，但不再增加新的导航栏层级。 */
+.module-subnav {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 15px;
+  padding: 3px;
+  border: 1px solid var(--clean-line);
+  border-radius: 10px;
+  background: var(--clean-panel-soft);
+}
+.module-subnav-item {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.module-subnav-item:hover { color: var(--text); }
+.module-subnav-item.active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--clean-panel-soft));
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--clean-line));
+  color: var(--primary-600);
+  font-weight: 700;
+}
+@media (max-width: 767px) {
+  .module-subnav { width: 100%; margin-bottom: 12px; }
+  .module-subnav-item { flex: 1 1 0; min-width: 0; padding-inline: 7px; font-size: 13px; }
+}
+
+/* 概览两个主模块使用明确的标题栏，避免内容看起来像没有名称的大方格。 */
+.overview-today > .card-head,
+.overview-expenses > .card-head {
+  align-items: center;
+  margin: -2px 0 15px;
+  padding: 0 0 10px;
+  border-bottom: 2px solid color-mix(in srgb, var(--primary) 42%, var(--clean-line));
+}
+.overview-today > .card-head h2,
+.overview-expenses > .card-head h2 {
+  color: var(--text);
+  font-size: clamp(19px, 2.3vw, 24px);
+  font-weight: 800;
+  letter-spacing: .01em;
+  line-height: 1.3;
+  text-decoration: none;
+}
+.overview-today > .card-head h2::after,
+.overview-expenses > .card-head h2::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 0 3px 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: .72;
+}
+@media (max-width: 767px) {
+  .overview-today > .card-head,
+  .overview-expenses > .card-head { margin-bottom: 12px; padding-bottom: 8px; }
+  .overview-today > .card-head h2,
+  .overview-expenses > .card-head h2 { font-size: 18px; }
+}
+
+/* 概览标题位于内容方框之外，标题与内容形成清晰的上下层级。 */
+.dash-grid > .overview-block {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.overview-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin: 3px 2px 8px;
+}
+.overview-block-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(20px, 2.5vw, 26px);
+  font-weight: 800;
+  letter-spacing: .01em;
+  line-height: 1.3;
+}
+.overview-block-title .overview-head-actions { flex: none; }
+.overview-block > .card {
+  background: var(--clean-panel) !important;
+  background-image: none !important;
+  border: 1px solid var(--clean-line) !important;
+  border-top: 2px solid color-mix(in srgb, var(--primary) 34%, var(--clean-line)) !important;
+  border-radius: 14px;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.overview-block > .card::before { display: none !important; }
+.overview-block > .card:hover { box-shadow: none !important; transform: none !important; }
+@media (max-width: 767px) {
+  .overview-block-title { margin: 2px 1px 7px; gap: 8px; }
+  .overview-block-title h2 { font-size: 19px; }
+  .overview-block-title .overview-head-actions .btn { padding-inline: 8px; }
+}
+
+/* 成员花费：饼图和成员金额各自成面板，桌面端并排、窄屏自动堆叠。 */
+.overview-member-spend .donut-wrap {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) minmax(145px, .65fr);
+  align-items: stretch;
+  gap: 12px;
+  padding: 4px 0 0;
+}
+.overview-member-spend .donut,
+.overview-member-spend .donut-legend {
+  min-width: 0;
+  background: var(--clean-panel-soft);
+  border: 1px solid var(--clean-line);
+  border-radius: 12px;
+}
+.overview-member-spend .donut {
+  width: min(100%, 240px);
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  padding: 19px;
+  align-self: center;
+}
+.overview-member-spend .donut-legend {
+  width: auto;
+  padding: 9px 10px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+.overview-member-spend .legend-row {
+  min-width: 0;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--clean-line);
+}
+.overview-member-spend .legend-row:last-child { border-bottom: 0; }
+@media (max-width: 560px) {
+  .overview-member-spend .donut-wrap { grid-template-columns: 1fr; }
+  .overview-member-spend .donut { width: min(100%, 190px); }
+}
+
+/* 桌面端以整个 App 外壳作为 16:9 画布，内容卡片保持自然高度。 */
+@media (min-width: 768px) {
+  html,
+  body {
+    min-width: 0;
+    min-height: 100%;
+  }
+
+  body:not(.is-welcome) {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  body:not(.is-welcome) .app {
+    position: relative;
+    width: min(100vw, calc(100vh * 16 / 9));
+    height: min(100vh, calc(100vw * 9 / 16));
+    min-width: 0;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  body:not(.is-welcome) .sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    height: 100%;
+  }
+
+  body:not(.is-welcome) .main {
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:not(.is-welcome) .content {
+    flex: 1 1 auto;
+    width: auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+/* 统一规则外框：页面内容使用同一套圆角矩形，去掉手绘式不对称边角。 */
+:root {
+  --frame-radius: 12px;
+}
+
+.card,
+.dash-grid > .card,
+.overview-block > .card,
+.settle-head,
+.tripmgr-row,
+.welcome-corner,
+.welcome-account,
+.welcome-journey,
+.welcome-trip-primary,
+.welcome-trip-actions,
+.welcome-bubble,
+.welcome-main,
+.welcome-mini,
+.meta-card,
+.overview-context {
+  border-radius: var(--frame-radius) !important;
+}
+
+.btn {
+  border-radius: var(--radius-sm) !important;
+}
+
+/* 内容页不再叠加胶带装饰，避免外框出现不统一的视觉边缘。 */
+body:not(.is-welcome) .card::before {
+  display: none;
+}

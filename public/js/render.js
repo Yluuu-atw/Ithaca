@@ -7,18 +7,32 @@
  */
 
 window.Render = (() => {
-  // w 是槽位宽度权重：左 3 项各 1.0 共 3.0、概览 1.25、右 4 项各 0.75 共 3.0，
-  // 概览中心 = 3.0 + 1.25/2 = 3.625，总权重 7.25，正好落在 0.5 中线上
+  // 一级导航只保留四个旅行模块；模块内的页面通过 module-subnav 切换。
   const TABS = [
-    { id: 'itinerary', label: '行程', icon: '🗺️', w: 1 },
+    { id: 'overview', label: '行程', icon: '🗺️', w: 1 },
     { id: 'places', label: '攻略', icon: '📌', w: 1 },
-    { id: 'map', label: '地图', icon: '📍', w: 1 },
-    { id: 'overview', label: '概览', icon: '🏠', w: 1.25 },
-    { id: 'wishlist', label: '心愿单', icon: '⭐', w: 0.75 },
-    { id: 'bookings', label: '记账', icon: '🎫', w: 0.75 },
-    { id: 'checklist', label: '清单', icon: '🎒', w: 0.75 },
-    { id: 'photos', label: '照片', icon: '📷', w: 0.75 },
+    { id: 'bookings', label: '记账', icon: '🎫', w: 1 },
+    { id: 'checklist', label: '我的', icon: '👤', w: 1 },
   ];
+
+  const MODULES = {
+    itinerary: { label: '行程', pages: [{ id: 'overview', label: '概览' }, { id: 'itinerary', label: '每日行程' }] },
+    guide: { label: '攻略', pages: [{ id: 'places', label: '收藏攻略' }, { id: 'wishlist', label: '心愿单' }, { id: 'map', label: '地图' }] },
+    ledger: { label: '记账', pages: [{ id: 'bookings', label: '记账' }] },
+    mine: { label: '我的', pages: [{ id: 'checklist', label: '清单' }, { id: 'photos', label: '照片' }] },
+  };
+
+  const PAGE_MODULE = {
+    overview: 'itinerary', itinerary: 'itinerary',
+    places: 'guide', wishlist: 'guide', map: 'guide',
+    bookings: 'ledger',
+    checklist: 'mine', photos: 'mine',
+  };
+
+  const PAGE_TITLES = {
+    overview: '行程', itinerary: '每日行程', places: '收藏攻略', wishlist: '心愿单', map: '地图',
+    bookings: '记账', checklist: '清单', photos: '照片',
+  };
 
   // ---------------- 小工具 ----------------
   // FluentUI 3D emoji（MIT, github.com/microsoft/fluentui-emoji）。
@@ -297,9 +311,25 @@ window.Render = (() => {
   }
 
   // ---------------- 导航 ----------------
+  function isPrimaryTabActive(primary, active) {
+    const module = PAGE_MODULE[active];
+    return (primary === 'overview' && module === 'itinerary')
+      || (primary === 'places' && module === 'guide')
+      || (primary === 'bookings' && module === 'ledger')
+      || (primary === 'checklist' && module === 'mine');
+  }
+
+  function renderModuleNav(moduleId, active) {
+    const module = MODULES[moduleId];
+    if (!module || module.pages.length < 2) return '';
+    return `<nav class="module-subnav" aria-label="${esc(module.label)}模块">
+      ${module.pages.map(page => `<button type="button" class="module-subnav-item ${page.id === active ? 'active' : ''}" data-action="nav" data-tab="${page.id}">${esc(page.label)}</button>`).join('')}
+    </nav>`;
+  }
+
   function renderNav(active) {
     return TABS.map(t => `
-      <button class="nav-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}">
+      <button class="nav-item ${isPrimaryTabActive(t.id, active) ? 'active' : ''}" data-action="nav" data-tab="${t.id}">
         <span class="nav-icon">${emo(t.icon)}</span><span class="nav-label">${t.label}</span>
       </button>`).join('');
   }
@@ -310,13 +340,12 @@ window.Render = (() => {
   function renderTabbar(active) {
     const total = TABS.reduce((s, t) => s + t.w, 0);
     return TABS.map(t => `
-      <button class="tab-item ${t.id === active ? 'active' : ''}" data-action="nav" data-tab="${t.id}" style="width:${(t.w / total * 100).toFixed(4)}%" aria-label="${esc(t.label)}"></button>`).join('');
+      <button class="tab-item ${isPrimaryTabActive(t.id, active) ? 'active' : ''}" data-action="nav" data-tab="${t.id}" style="width:${(t.w / total * 100).toFixed(4)}%" aria-label="${esc(t.label)}"></button>`).join('');
   }
 
   function tabTitle(tab) {
     if (tab === 'trips') return '管理旅行';   // 不在 TABS 里，从侧栏看板进入
-    const t = TABS.find(x => x.id === tab);
-    return t ? t.label : '';
+    return PAGE_TITLES[tab] || '';
   }
 
   // ---------------- 页面分发 ----------------
@@ -627,121 +656,132 @@ window.Render = (() => {
     </section>`;
   }
 
+  // 首页概览只展示系统当前日期的安排，日期取浏览器本地时间。
+  function renderTodayItinerary(s) {
+    const date = today();
+    const days = (s.itinerary || []).filter(item => item && item.date === date);
+    const day = days[0];
+    const items = days.flatMap(item => orderDayItems(item));
+    const next = (s.itinerary || [])
+      .filter(item => item && item.date && item.date > date)
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (!items.length) {
+      return `<div class="today-empty">
+        <strong>${day ? '今天还没有安排' : '今天没有行程'}</strong>
+        <span>${next ? `下一安排：${esc(fmtDate(next.date))} ${esc(weekday(next.date))}` : '去「行程」板块添加今天的安排'}</span>
+      </div>`;
+    }
+    return `<ol class="today-list">${items.map(item => `
+      <li class="today-item">
+        <time>${esc(item.time || '待定')}</time>
+        <div class="today-item-main">
+          <strong>${esc(item.location || item.title || '未命名安排')}</strong>
+          ${item.location && item.title && item.title !== item.location ? `<span>${esc(item.title)}</span>` : ''}
+        </div>
+      </li>`).join('')}</ol>`;
+  }
+
+  function renderOverviewContext(s, editMeta) {
+    const m = s.meta;
+    const dates = tripDates(s);
+    const cycle = dates.start
+      ? `${fmtDate(dates.start)}${dates.end && dates.end !== dates.start ? ` – ${fmtDate(dates.end)}` : ''}`
+      : '尚未安排';
+    const members = (m.members || []).map(name => esc(dispName(m.members || [], name))).join('、') || '尚未添加';
+    const facts = `<div class="overview-context-facts">
+      <div><span>目的地</span><strong>${esc(m.destination || tripStops(s)[0] || '尚未填写')}</strong></div>
+      <div><span>旅行周期</span><strong>${esc(cycle)}</strong></div>
+      <div><span>旅行成员</span><strong>${members}</strong></div>
+    </div>`;
+    const form = `<form class="grid-form overview-context-form" data-form="meta">
+      <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
+      <label>目的地<input name="destination" value="${esc(m.destination || '')}" placeholder="如：京都·大阪 或 Paris" autocomplete="off"></label>
+      <label class="full">途径地点<span class="field-hint">城市或站点级概括，留空则自动取自行程条目的地点</span>${stopsEditor(m.stops)}</label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button><button type="button" class="btn btn-ghost" data-action="meta-cancel">取消</button></div>
+    </form>`;
+    return `<aside class="overview-context">
+      <div class="overview-context-head"><span>本次旅行</span>${editMeta
+        ? ''
+        : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}</div>
+      ${editMeta ? form : facts}
+    </aside>`;
+  }
+
+  function renderOverviewExpenses(s, exp) {
+    const currency = s.meta.currency;
+    const mine = Store.getMySettlement && Store.getMySettlement(s.id);
+    const count = (s.expenses || []).length;
+    const currencyOpts = Object.keys(Store.CONST.currencySymbol)
+      .map(c => `<option value="${c}" ${c === s.meta.currency ? 'selected' : ''}>${c}</option>`).join('');
+    let transferContent = '';
+    const memberSpend = donutChart(s, exp.advanced);
+    if (mine) {
+      const net = (Number(mine.balanceMinor) || 0) / 100;
+      const netLabel = net > 0.005 ? `我应收 ${money(net, currency)}`
+        : net < -0.005 ? `我需转 ${money(-net, currency)}` : '目前已持平';
+      const transfers = Array.isArray(mine.transfers) ? mine.transfers : [];
+      const groups = [
+        { direction: 'out', label: '我转给', empty: '暂无待转' },
+        { direction: 'in', label: '我收取', empty: '暂无待收' },
+      ].map(group => {
+        const rows = transfers.filter(item => item.direction === group.direction);
+        return `<div class="overview-transfer-group"><span>${group.label}</span><div>${rows.length
+          ? rows.map(item => `<span class="overview-transfer"><b>${esc(item.otherName || '成员')}</b><strong>${money((Number(item.amountMinor) || 0) / 100, currency)}</strong></span>`).join('')
+          : `<small>${group.empty}</small>`}</div></div>`;
+      }).join('');
+      transferContent = `<div class="overview-net"><strong>${netLabel}</strong><span>我垫付 ${money((Number(mine.advancedMinor) || 0) / 100, currency)} · 我应分摊 ${money((Number(mine.owedMinor) || 0) / 100, currency)}</span></div><div class="overview-transfers">${groups}</div>`;
+    } else {
+      const rows = (s.meta.members || []).map(name => {
+        const balance = exp.balance[name] || 0;
+        const label = balance > 0.005 ? `应收 ${money(balance, currency)}`
+          : balance < -0.005 ? `应补 ${money(-balance, currency)}` : '持平';
+        const cls = balance > 0.005 ? 'pos' : balance < -0.005 ? 'neg' : 'zero';
+        return `<div class="overview-member-balance"><span>${memberChip(s.meta, name)}</span><strong class="${cls}">${label}</strong></div>`;
+      }).join('');
+      transferContent = `<div class="overview-net"><strong>成员结算</strong><span>登录后会显示“我需转给谁 / 谁需转给我”。</span></div><div class="overview-member-balances">${rows || '<p class="empty small">还没有成员</p>'}</div>`;
+    }
+    return `<section class="overview-block overview-block-expenses">
+      <div class="overview-block-title"><h2>${emo('💸')} 花费</h2><span class="overview-head-actions"><label class="currency-pick">币种<select data-action="currency-change">${currencyOpts}</select></label><button class="btn btn-ghost btn-sm" data-action="nav" data-tab="bookings">查看记账</button></span></div>
+      <div class="card overview-expenses">
+        <div class="overview-total"><strong>${money(exp.total, currency)}</strong><span>总花费 · 已记录 ${count} 笔</span></div>
+        <div class="overview-expense-layout">
+          <div class="overview-member-spend"><h3>成员花费</h3>${memberSpend}</div>
+          <div class="overview-expense-settlement"><h3>还需转账</h3>${transferContent}</div>
+        </div>
+      </div>
+    </section>`;
+  }
+
   function renderOverview(s, editMeta) {
     const m = s.meta;
     const exp = summarizeExpenses(s);
-    const checklistDone = s.checklist.filter(c => c.checked).length;
-    const checklistTotal = s.checklist.length;
-
-    const currencyOpts = Object.keys(Store.CONST.currencySymbol)
-      .map(c => `<option value="${c}" ${c === m.currency ? 'selected' : ''}>${c}</option>`).join('');
-
-    const settle = (m.members || []).map(name => {
-      const b = exp.balance[name] || 0;
-      let txt, cls;
-      if (b > 0.005) { txt = '应收 ' + money(b, m.currency); cls = 'pos'; }
-      else if (b < -0.005) { txt = '应补 ' + money(-b, m.currency); cls = 'neg'; }
-      else { txt = '持平'; cls = 'zero'; }
-      return `<div class="settle-item">
-        <div class="settle-name">${memberChip(m, name)}</div>
-        <div class="settle-line">垫付 ${money(exp.advanced[name] || 0, m.currency)} · 应付 ${money(exp.shouldPay[name] || 0, m.currency)}</div>
-        <div class="settle-bal ${cls}">${txt}</div>
-      </div>`;
-    }).join('');
-
-    const catEntries = Object.entries(exp.byCategory).sort((a, b) => b[1] - a[1]);
-    const maxCat = Math.max(1, ...catEntries.map(e => e[1]));
-    const catBars = catEntries.map(([c, v]) => `
-      <div class="cat-row">
-        <span class="cat-name">${esc(c)}</span>
-        <div class="cat-bar"><div class="cat-fill" style="--pct:${(v / maxCat * 100).toFixed(0)}%"></div></div>
-        <span class="cat-val">${money(v, m.currency)}</span>
-      </div>`).join('') || '<p class="empty">还没有记账记录</p>';
-
-    const daily = dailySpend(s);
-    const photoN = (s.photos || []).length;
-    const guideN = (s.guides || []).length;
-    const placeN = (s.places || []).length;
-    const receiptCount = (s.expenses || []).filter(isReceiptExpense).length;
 
     return `
-      <h1 class="trip-title"><span class="tape" aria-hidden="true"></span>${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
+      ${renderModuleNav('itinerary', 'overview')}
+      <div class="overview-top">
+        <div class="overview-title-wrap"><h1 class="trip-title"><span class="tape" aria-hidden="true"></span>${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
       ${AuthUI.user ? `<div class="overview-tools">
         <button class="btn btn-ghost btn-sm" data-action="theme-open" title="更换页面背景色"><span class="theme-dot"></span> 背景</button>
         ${Store.canManageTrip() ? '<button class="btn btn-ghost btn-sm" data-action="share-open"><img class="emo" src="vendor/fluent-emoji/1f517.png" alt=""> 分享</button>' : ''}
-      </div>` : ''}
+      </div>` : ''}</div>
+        ${renderOverviewContext(s, editMeta)}
+      </div>
       <div class="dash-grid">
-        <section class="card span-8">
-          <div class="card-head">
-            <h2>${emo('🧳')} 行程信息</h2>
-            ${editMeta
-              ? '<button class="btn btn-ghost btn-sm" data-action="meta-cancel">取消</button>'
-              : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}
-          </div>
-          ${editMeta ? `
-          <form class="grid-form" data-form="meta">
-            <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
-            <label>目的地<input name="destination" value="${esc(m.destination || '')}" placeholder="如：京都·大阪 或 Paris" autocomplete="off"></label>
-            <label class="full">途径地点<span class="field-hint">城市或站点级概括，留空则自动取自行程条目的地点</span>${stopsEditor(m.stops)}</label>
-            <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
-          </form>` : metaSummary(s)}
-        </section>
-
-        ${renderMembers(s)}
-
-        <section class="card span-7">
-          <div class="card-head"><h2>${emo('📅')} 每日花费</h2></div>
-          ${barChart(s, daily)}
-        </section>
-
-        <section class="card span-5">
-          <div class="card-head"><h2>${emo('🍩')} 分类占比</h2></div>
-          ${donutChart(s, exp.byCategory)}
-        </section>
-
-        <section class="card span-4">
-          <div class="card-head"><h2>${emo('📊')} 统计</h2></div>
-          <div class="stat-grid stat-grid-2">
-            <div class="stat-card"><div class="stat-value">${money(exp.total, m.currency)}</div><div class="stat-label">总花费</div></div>
-            <div class="stat-card"><div class="stat-value">${s.itinerary.length}</div><div class="stat-label">行程天数</div></div>
-            <div class="stat-card"><div class="stat-value">${receiptCount}</div><div class="stat-label">票据</div></div>
-            <div class="stat-card"><div class="stat-value">${s.wishlist.length}</div><div class="stat-label">心愿单</div></div>
+        <section class="overview-block overview-block-today">
+          <div class="overview-block-title"><h2>${emo('🧳')} 今日行程</h2><span class="overview-head-actions"><button class="btn btn-ghost btn-sm" data-action="nav" data-tab="itinerary">全部行程</button></span></div>
+          <div class="card overview-today">
+          <div class="today-date"><strong>${esc(fmtDate(today()))}</strong><span>${esc(weekday(today()))}</span></div>
+          ${renderTodayItinerary(s)}
           </div>
         </section>
-
-        <section class="card span-4">
-          <div class="card-head"><h2>${emo('🎒')} 打包进度</h2></div>
-          ${ringChart(checklistDone, checklistTotal, checklistTotal
-            ? `还有 ${checklistTotal - checklistDone} 件没装进行李箱`
-            : '去清单页加几样要带的东西')}
-        </section>
-
-        <section class="card span-4">
-          <div class="card-head"><h2>${emo('📷')} 旅行收藏</h2></div>
-          <div class="stat-grid stat-grid-2">
-            <div class="stat-card"><div class="stat-value">${photoN}</div><div class="stat-label">照片</div></div>
-            <div class="stat-card"><div class="stat-value">${placeN}</div><div class="stat-label">攻略</div></div>
-            <div class="stat-card"><div class="stat-value">${guideN}</div><div class="stat-label">笔记</div></div>
-            <div class="stat-card"><div class="stat-value">${(s.tracks || []).length}</div><div class="stat-label">足迹</div></div>
-          </div>
-        </section>
-
-        <section class="card span-12">
-          <div class="card-head">
-            <h2>${emo('💸')} 花费与结算</h2>
-            <label class="currency-pick">币种
-              <select data-action="currency-change">${currencyOpts}</select>
-            </label>
-          </div>
-          <div class="settle-grid">${settle}</div>
-          <div class="cat-list">${catBars}</div>
-        </section>
+        ${renderOverviewExpenses(s, exp)}
       </div>`;
   }
 
   // ---------------- 行程 ----------------
   function renderItinerary(s, mode) {
     const isDetail = mode === 'detail';
+    const subnav = renderModuleNav('itinerary', 'itinerary');
     const days = [...s.itinerary].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const estTotal = s.itinerary.reduce((a, d) => a + (d.items || []).reduce((x, i) => x + (Number(i.amount) || 0), 0), 0);
     const head = `<div class="list-head">
@@ -753,14 +793,14 @@ window.Render = (() => {
     </div>`;
 
     if (!days.length) {
-      return `<div class="card">${head}<div class="empty">
+      return subnav + `<div class="card">${head}<div class="empty">
         <p>还没有行程安排</p><p class="empty-hint">先新建一天，再把想去的地方排进去 ${emo('✨')}</p>
       </div></div>`;
     }
     if (isDetail) {
-      return head + `<div class="timeline">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
+      return subnav + head + `<div class="timeline">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
     }
-    return head + `<div class="timeline">${days.map((d, i) => renderDaySimple(s, d, i)).join('')}</div>`;
+    return subnav + head + `<div class="timeline">${days.map((d, i) => renderDaySimple(s, d, i)).join('')}</div>`;
   }
 
   function renderDaySimple(s, d, idx) {
@@ -1290,6 +1330,7 @@ window.Render = (() => {
   }
 
   function renderChecklist(s) {
+    const subnav = renderModuleNav('mine', 'checklist');
     const total = s.checklist.length;
     const done = s.checklist.filter(c => c.checked).length;
     const pct = total ? Math.round(done / total * 100) : 0;
@@ -1300,7 +1341,7 @@ window.Render = (() => {
     </div>`;
 
     if (!total) {
-      return pool + `<div class="chk-drop">${head}<section class="notebook">
+      return subnav + pool + `<div class="chk-drop">${head}<section class="notebook">
         <div class="nb-binds" aria-hidden="true"></div>
         <header class="nb-head">
           <h2 class="nb-title">${emo('🎒')} 行李清单</h2>
@@ -1327,7 +1368,7 @@ window.Render = (() => {
       <ul class="chk-list">${g.items.map(c => renderChecklistItem(s, c)).join('')}</ul>`;
     }).join('');
 
-    return pool + `<div class="chk-drop">${head}<section class="notebook">
+    return subnav + pool + `<div class="chk-drop">${head}<section class="notebook">
       <div class="nb-binds" aria-hidden="true"></div>
       <header class="nb-head">
         <h2 class="nb-title">${emo('🎒')} 行李清单</h2>
@@ -1358,14 +1399,15 @@ window.Render = (() => {
 
   // ---------------- 心愿单 ----------------
   function renderWishlist(s) {
+    const subnav = renderModuleNav('guide', 'wishlist');
     const head = `<div class="list-head">
       <span>共 ${s.wishlist.length} 个心愿</span>
       <button class="btn btn-primary" data-action="wish-add">＋ 添加心愿</button>
     </div>`;
     if (!s.wishlist.length) {
-      return `<div class="card">${head}<div class="empty"><p>还没有心愿</p><p class="empty-hint">把想去的地方、想做的事记下来 ${emo('⭐')}</p></div></div>`;
+      return subnav + `<div class="card">${head}<div class="empty"><p>还没有心愿</p><p class="empty-hint">把想去的地方、想做的事记下来 ${emo('⭐')}</p></div></div>`;
     }
-    return head + `<div class="wish-grid">${s.wishlist.map(w => renderWishItem(s, w)).join('')}</div>`;
+    return subnav + head + `<div class="wish-grid">${s.wishlist.map(w => renderWishItem(s, w)).join('')}</div>`;
   }
 
   function renderWishItem(s, w) {
@@ -1628,7 +1670,7 @@ window.Render = (() => {
   function renderMap(s, tileSource) {
     const ts = tileSource || 'amap';
     const tileBtn = (val, label) => `<button class="btn btn-sm ${ts === val ? 'btn-primary' : 'btn-ghost'}" data-action="tile-source" data-tile="${val}">${label}</button>`;
-    return `
+    return `${renderModuleNav('guide', 'map')}
       <div class="map-layout">
         <div class="map-toolbar">
           <div class="map-legend" id="mapLegend"></div>
@@ -1647,6 +1689,7 @@ window.Render = (() => {
 
   // ---------------- 照片 ----------------
   function renderPhotos(s) {
+    const subnav = renderModuleNav('mine', 'photos');
     const photos = s.photos || [];
     const head = `<div class="list-head">
       <span>共 ${photos.length} 张照片</span>
@@ -1654,7 +1697,7 @@ window.Render = (() => {
     </div>`;
 
     if (!photos.length) {
-      return `<div class="card">${head}<div class="empty">
+      return subnav + `<div class="card">${head}<div class="empty">
         <p>还没有照片</p>
         <p class="empty-hint">把旅行照片传上来，做成手帐 ${emo('📷')}${emo('✨')}</p>
       </div></div>`;
@@ -1669,7 +1712,7 @@ window.Render = (() => {
         </div>
       </section>`).join('');
 
-    return head + `<div class="day-list">${body}</div>`;
+    return subnav + head + `<div class="day-list">${body}</div>`;
   }
 
   function renderPhotoCard(s, p) {
@@ -1708,6 +1751,7 @@ window.Render = (() => {
 
   // ---------------- 攻略 / 预订 ----------------
   function renderPlaces(s, filter) {
+    const subnav = renderModuleNav('guide', 'places');
     const places = s.places || [];
     const cats = Store.CONST.placeCategories;
     filter = filter || {};
@@ -1737,7 +1781,7 @@ window.Render = (() => {
     </div>`;
 
     if (!places.length) {
-      return head + tools + `<div class="card"><div class="empty">
+      return subnav + head + tools + `<div class="card"><div class="empty">
         <p>还没有收藏的地点</p><p class="empty-hint">把要订的酒店、想去的餐厅加进来 ${emo('📌')}</p>
       </div></div>`;
     }
@@ -1746,7 +1790,7 @@ window.Render = (() => {
       ? `<div class="place-grid">${list.map(p => renderPlaceCard(s, p)).join('')}</div>`
       : `<div class="card"><div class="empty"><p>没有匹配的结果</p></div></div>`;
 
-    return head + tools + grid;
+    return subnav + head + tools + grid;
   }
 
   function renderPlaceCard(s, p) {
@@ -2071,7 +2115,8 @@ window.Render = (() => {
 
   // ---------------- 旅行日历 ----------------
   // 每趟旅行一个色，同一日期可能有多趟旅行重叠，格子里并排显示色点
-  const TRIP_COLORS = ['#c4714b', '#8b9a7e', '#6f8fa8', '#a88bb0', '#c9a24a', '#b0748a', '#5f9e93', '#9a8b6f'];
+  // 旅行标记沿用当前主题的同色系变量，避免日历和管理页跳出另一套颜色。
+  const TRIP_COLORS = ['var(--primary)', 'var(--accent)', 'var(--primary-600)', 'var(--border)'];
 
   function calendarDays(trips) {
     const map = {};
@@ -2297,7 +2342,7 @@ window.Render = (() => {
   return {
     TABS,
     esc, money, today, fmtDate, weekday,
-    renderNav, renderTabbar, tabTitle, renderPage, mapHint,
+    renderNav, renderTabbar, tabTitle, renderPage, mapHint, isPrimaryTabActive,
     formDay, formItem, itemFields: itemFieldsHtml, formExpense, expenseDetail, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace,
     formTemplateManage, formTemplateEdit, formSaveTemplate,
     renderPlaces, placeDetail, dayDetail, identityPicker, tripProfileEditor,
