@@ -192,7 +192,7 @@ test('receipt filter applies to daily spending and bill rows without counting re
   assert.match(receipts, /结算按全部账单计算/);
 });
 
-test('overview daily spending agrees with the ledger when an order also has a receipt', () => {
+test('overview spending agrees with the ledger when an order also has a receipt', () => {
   const context = {
     window: {},
     AuthUI: { user: null },
@@ -212,9 +212,9 @@ test('overview daily spending agrees with the ledger when an order also has a re
     checklist: [], wishlist: [], photos: [], places: [], guides: [], tracks: [],
   };
   const html = context.window.Render.renderPage(state, 'overview');
-  assert.match(html, /class="bar-col has-value" title="2026-10-01 ¥123\.45"/);
-  assert.doesNotMatch(html, /2026-10-01 ¥246\.9/);
-  assert.match(html, /<div class="stat-value">1<\/div><div class="stat-label">票据<\/div>/);
+  assert.match(html, /<div class="overview-total"><strong>¥123\.45<\/strong><span>总花费 · 已记录 1 笔<\/span><\/div>/);
+  assert.doesNotMatch(html, /¥246\.9/);
+  assert.match(html, /已记录 1 笔/);
 });
 
 test('daily expense matrix uses trip days and amount-only member columns', () => {
