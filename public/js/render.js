@@ -7,31 +7,32 @@
  */
 
 window.Render = (() => {
-  // 一级导航只保留四个旅行模块；模块内的页面通过 module-subnav 切换。
+  // 一级导航只保留四个旅行模块；“我的”使用入口列表进入各个详情页。
   const TABS = [
     { id: 'overview', label: '行程', icon: '🗺️', w: 1 },
     { id: 'places', label: '攻略', icon: '📌', w: 1 },
     { id: 'bookings', label: '记账', icon: '🎫', w: 1 },
-    { id: 'checklist', label: '我的', icon: '👤', w: 1 },
+    { id: 'mine', label: '我的', icon: '👤', w: 1 },
   ];
 
   const MODULES = {
     itinerary: { label: '行程', pages: [{ id: 'overview', label: '概览' }, { id: 'itinerary', label: '每日行程' }] },
     guide: { label: '攻略', pages: [{ id: 'places', label: '收藏攻略' }, { id: 'wishlist', label: '心愿单' }, { id: 'map', label: '地图' }] },
     ledger: { label: '记账', pages: [{ id: 'bookings', label: '记账' }] },
-    mine: { label: '我的', pages: [{ id: 'checklist', label: '清单' }, { id: 'photos', label: '照片' }] },
+    mine: { label: '我的', pages: [{ id: 'mine', label: '我的' }] },
   };
 
   const PAGE_MODULE = {
     overview: 'itinerary', itinerary: 'itinerary',
     places: 'guide', wishlist: 'guide', map: 'guide',
     bookings: 'ledger',
-    checklist: 'mine', photos: 'mine',
+    mine: 'mine', checklist: 'mine', photos: 'mine', profile: 'mine', journal: 'mine', 'journal-editor': 'mine', archive: 'mine', settings: 'mine', footprints: 'mine',
   };
 
   const PAGE_TITLES = {
     overview: '行程', itinerary: '每日行程', places: '收藏攻略', wishlist: '心愿单', map: '地图',
-    bookings: '记账', checklist: '清单', photos: '照片',
+    bookings: '记账', mine: '我的', checklist: '清单', photos: '照片', profile: '个人信息', journal: '旅行日志',
+    'journal-editor': '写旅行日志', archive: '旅行档案', settings: '设置', footprints: '我的足迹',
   };
 
   // ---------------- 小工具 ----------------
@@ -316,7 +317,7 @@ window.Render = (() => {
     return (primary === 'overview' && module === 'itinerary')
       || (primary === 'places' && module === 'guide')
       || (primary === 'bookings' && module === 'ledger')
-      || (primary === 'checklist' && module === 'mine');
+      || (primary === 'mine' && module === 'mine');
   }
 
   function renderModuleNav(moduleId, active) {
@@ -357,11 +358,235 @@ window.Render = (() => {
       case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
       case 'bookings': return renderExpenses(state, opts.ledgerFilter, opts.settlementDetailsOpen);
       case 'map': return renderMap(state, opts.tileSource);
-      case 'checklist': return renderChecklist(state);
+      case 'mine': return renderMine(state);
+      case 'profile': return renderMyProfile(state);
+      case 'journal': return renderJournal(state);
+      case 'journal-editor': return renderJournalEditor(state, opts.journalMemo);
+      case 'archive': return renderMyArchive(state);
+      case 'settings': return renderMySettings(state);
+      case 'footprints': return renderMyFootprints(state, opts.footprintsSummary);
+      case 'checklist': return renderChecklist(state, opts.packingPoolOpen);
       case 'wishlist': return renderWishlist(state);
-      case 'photos': return renderPhotos(state);
+      case 'photos': return renderPhotos(state, opts.photoDay);
       default: return renderOverview(state, opts.editMeta);
     }
+  }
+
+  // ---------------- 我的：入口页与二级页面 ----------------
+  function mineIcon(kind) {
+    const shapes = {
+      checklist: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V2h6v2M9 10h6M9 15h6"/>',
+      photos: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8" cy="9" r="1.5"/><path d="m3 17 5-5 4 4 3-3 6 6"/>',
+      journal: '<path d="M6 3h12a1 1 0 0 1 1 1v17H7a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2Z M4 18a3 3 0 0 1 3-3h12M8 7h7M8 11h5"/>',
+      profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+      archive: '<rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/>',
+      footprints: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3ZM9 3v15m6-12v15"/>',
+      settings: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="var(--bg)"/><circle cx="16" cy="12" r="2" fill="var(--bg)"/><circle cx="10" cy="18" r="2" fill="var(--bg)"/>',
+      theme: '<path d="M12 3a9 9 0 1 0 0 18h2a2 2 0 0 0 1-3.7 1.5 1.5 0 0 1 .7-2.8H18A3 3 0 0 0 21 12a9 9 0 0 0-9-9Z"/><path d="M7 10h.01M10 6.5h.01M15 7h.01M17.5 11h.01" stroke-width="3"/>',
+      export: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>',
+      chevron: '<path d="m9 5 7 7-7 7"/>',
+    };
+    return `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${shapes[kind] || shapes.profile}</svg>`;
+  }
+
+  function myPerson() {
+    const index = Store.getIdentity();
+    return index == null ? null : Store.getRoster()[index] || null;
+  }
+
+  function mineDetailNav(s, backTab = 'mine', backLabel = '返回我的') {
+    return `<nav class="mine-detail-nav" aria-label="我的页面导航">
+      <button type="button" class="mine-back" data-action="nav" data-tab="${esc(backTab)}"><span aria-hidden="true">‹</span> ${esc(backLabel)}</button>
+      <span>${esc(s.meta.tripName || '当前旅行')}</span>
+    </nav>`;
+  }
+
+  function renderMine(s) {
+    const person = myPerson();
+    const user = AuthUI.user;
+    const name = person && (person.displayName || person.name) || user && (user.displayName || user.username) || '旅行访客';
+    const account = user ? `账号：${user.username}` : person ? '临时旅行成员' : '只读旅行访客';
+    const checklist = s.checklist || [];
+    const done = checklist.filter(item => item.checked).length;
+    const journalCount = user ? Store.listMemos().filter(memo => memo.tripId === s.id).length : 0;
+    const row = (tab, label, meta) => `<button type="button" class="mine-menu-row" data-action="nav" data-tab="${tab}">
+      <span class="mine-menu-icon">${mineIcon(tab)}</span><span class="mine-menu-label">${label}</span>
+      <span class="mine-menu-meta">${esc(meta)}</span><span class="mine-chevron">${mineIcon('chevron')}</span>
+    </button>`;
+    return `<section class="mine-page" aria-label="我的功能入口">
+      <button type="button" class="mine-profile-entry" data-action="nav" data-tab="profile" aria-label="查看个人信息">
+        <span class="mine-avatar">${emo(person && person.avatar || '👤')}</span>
+        <span class="mine-profile-copy"><strong class="mine-name">${esc(name)}</strong><span class="mine-account">${esc(account)}</span></span>
+        <span class="mine-chevron">${mineIcon('chevron')}</span>
+      </button>
+      <p class="mine-section-label">本次旅行 · ${esc(s.meta.tripName || '未命名旅行')}</p>
+      <div class="mine-menu">
+        ${row('checklist', '清单', checklist.length ? `已打包 ${done}/${checklist.length}` : '准备行李')}
+        ${row('photos', '照片', `${(s.photos || []).length} 张`)}
+        ${row('journal', '旅行日志', user ? `${journalCount} 篇` : '个人记录')}
+      </div>
+      <p class="mine-section-label">个人</p>
+      <div class="mine-menu">
+        ${row('profile', '个人信息', '账号与旅行资料')}
+        ${row('archive', '旅行档案', `${Store.listTrips().length} 趟旅行`)}
+        ${row('footprints', '我的足迹', '地图 · 旅行统计')}
+        ${row('settings', '设置', '主题 · 账号 · 导出')}
+      </div>
+    </section>`;
+  }
+
+  function renderMyProfile(s) {
+    const user = AuthUI.user;
+    const person = myPerson();
+    const fact = (label, value) => `<div class="mine-info-row"><dt>${label}</dt><dd>${esc(value)}</dd></div>`;
+    return `${mineDetailNav(s)}<section class="mine-detail" aria-label="个人信息详情">
+      <p class="mine-section-label">账号信息</p>
+      <dl class="mine-info-list">
+        ${fact('用户名', user ? user.username : '未登录正式账号')}
+        ${fact('昵称', user ? user.displayName || user.username : person && (person.displayName || person.name) || '旅行访客')}
+        ${fact('当前身份', user ? '正式账号' : person ? '临时成员' : '只读访客')}
+      </dl>
+      <div class="mine-detail-actions"><button type="button" class="btn btn-ghost" data-action="account-open">${user ? '编辑账号信息' : '查看当前身份'}</button></div>
+      <p class="mine-section-label">本次旅行资料</p>
+      <dl class="mine-info-list">
+        ${fact('旅行', s.meta.tripName || '未命名旅行')}
+        ${person ? `<div class="mine-info-row"><dt>头像</dt><dd><span class="mine-avatar">${emo(person.avatar || '👤')}</span></dd></div>${fact('旅行昵称', person.displayName || person.name)}` : fact('成员资料', '当前以访客身份查看旅行')}
+      </dl>
+      ${person ? '<div class="mine-detail-actions"><button type="button" class="btn btn-ghost" data-action="trip-profile-open">编辑旅行资料</button></div>' : ''}
+    </section>`;
+  }
+
+  function renderJournal(s) {
+    const nav = mineDetailNav(s);
+    if (!AuthUI.user) return `${nav}<section class="mine-detail mine-empty"><h2>旅行日志是你的个人记录</h2><p>请使用正式账号登录后查看和记录；临时成员和只读访客无法使用个人日志。</p></section>`;
+    // 备忘录本身由服务端按账号隔离，这里进一步按当前旅行组织。
+    const memos = Store.listMemos().filter(memo => memo.tripId === s.id);
+    return `${nav}<section class="mine-detail" aria-label="本次旅行日志">
+      <div class="list-head"><span>${memos.length} 篇 · 仅自己可见</span><button type="button" class="btn btn-primary" data-action="memo-new">＋ 写日志</button></div>
+      ${memos.length ? renderMemos(memos, [s]) : '<div class="mine-empty"><h2>记录旅途中的片刻</h2><p>写下见闻、心情，留住这趟旅行的回忆。</p></div>'}
+    </section>`;
+  }
+
+  function archiveDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+    const [year, month, day] = value.split('-').map(Number);
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1] ? value : '';
+  }
+
+  function renderMyArchive(s) {
+    const trips = Store.listTrips().map(trip => {
+      const meta = trip.meta || {};
+      const itineraryDates = tripDates({ itinerary: (trip.itinerary || []).filter(day => archiveDate(day.date)) });
+      const start = archiveDate(meta.startDate) || itineraryDates.start;
+      const end = archiveDate(meta.endDate) || itineraryDates.end;
+      return { trip, meta, start, end, year: start ? start.slice(0, 4) : '' };
+    }).sort((a, b) => b.start.localeCompare(a.start));
+    const groups = new Map();
+    trips.forEach(entry => {
+      if (!groups.has(entry.year)) groups.set(entry.year, []);
+      groups.get(entry.year).push(entry);
+    });
+    const dateLabel = (start, end) => {
+      if (!start && !end) return '日期待定';
+      const show = value => `${value.slice(0, 4)}年${fmtDate(value)}`;
+      if (!start) return `出发待定 · ${show(end)}结束`;
+      if (!end || start === end) return show(start);
+      return `${show(start)} — ${start.slice(0, 4) === end.slice(0, 4) ? fmtDate(end) : show(end)}`;
+    };
+    const sections = Array.from(groups, ([year, entries]) => `<h2 class="mine-archive-year">${year ? `${year} 年` : '待定日期'}<span>${entries.length} 趟</span></h2>
+      <div class="mine-archive-group">${entries.map(({ trip, meta, start, end }) => {
+        const cover = trip.photos && trip.photos[0] && trip.photos[0].url;
+        const statuses = [trip.id === s.id ? '当前' : '', meta.archived ? '已归档' : ''].filter(Boolean);
+        return `<button type="button" class="mine-archive-row" data-action="trip-open" data-id="${esc(trip.id)}">
+          <span class="mine-archive-cover">${cover ? `<img ${photoSourceAttrs(cover)} alt="" loading="lazy" referrerpolicy="no-referrer">` : mineIcon('archive')}</span>
+          <span class="mine-archive-main">
+            <span class="mine-archive-title">${esc(meta.tripName || '未命名旅行')}${statuses.map(status => `<span class="mine-archive-status">${status}</span>`).join('')}</span>
+            <span class="mine-archive-meta">${esc(meta.destination || '目的地待定')}</span>
+            <span class="mine-archive-meta">${esc(dateLabel(start, end))}</span>
+          </span>
+          <span class="mine-chevron">${mineIcon('chevron')}</span>
+        </button>`;
+      }).join('')}</div>`).join('');
+    return `${mineDetailNav(s)}<section class="mine-detail" aria-label="旅行档案详情">
+      <p class="mine-archive-summary">共 ${trips.length} 趟旅行 · 点开回看行程、照片和花费</p>
+      ${sections || '<div class="mine-empty"><h2>还没有旅行档案</h2><p>创建或加入旅行后，会在这里按年份整理。</p></div>'}
+    </section>`;
+  }
+
+  function renderFootprintCities(cities) {
+    return cities.map(city => {
+      const mapped = Number.isFinite(city.lat) && Number.isFinite(city.lng);
+      return `<button type="button" class="footprints-city-row" data-action="footprints-city" data-key="${esc(city.key)}">
+        <span class="mine-menu-icon">${mineIcon('footprints')}</span>
+        <span class="footprints-city-copy"><span class="footprints-city-name">${esc(city.name)}</span>
+          <span class="footprints-city-meta">${mapped ? '查看地图' : '待定位 · 点击查找城市'}${city.lastDate ? ` · 最近 ${esc(city.lastDate)}` : ''}</span></span>
+        <span class="footprints-city-count">${esc(city.visits)} 趟旅行</span>
+      </button>`;
+    }).join('');
+  }
+
+  function renderMyFootprints(s, summary) {
+    summary = summary || Footprints.summarize(Store.listTrips());
+    const cities = typeof FootprintsMap === 'undefined' ? summary.cities : FootprintsMap.decorate(summary.cities);
+    const mapped = cities.filter(city => Number.isFinite(city.lat) && Number.isFinite(city.lng)).length;
+    const places = summary.places || [];
+    const placeRows = places.map(place => {
+      const located = Number.isFinite(place.lat) && Number.isFinite(place.lng);
+      if (place.mode === 'hidden') {
+        return `<div class="footprints-city-row footprints-place-name-only">
+          <span class="mine-menu-icon">${mineIcon('footprints')}</span>
+          <span class="footprints-city-name">${esc(place.name)}</span>
+        </div>`;
+      }
+      return `<button type="button" class="footprints-city-row" data-action="footprints-place" data-key="${esc(place.key)}">
+        <span class="mine-menu-icon">${mineIcon('footprints')}</span>
+        <span class="footprints-city-copy"><span class="footprints-city-name">${esc(place.name)}</span>
+          <span class="footprints-city-meta">${place.mode === 'nearby' ? `附近标记：${esc(place.nearbyName)}` : `${esc(place.tripName)}${place.planned ? ' · 计划' : ''}${place.date ? ` · ${esc(place.date)}` : ''}`}</span></span>
+        <span class="footprints-city-count">${located ? '查看地图' : '去定位'}</span>
+      </button>`;
+    }).join('');
+    const undated = summary.undatedCount + (summary.invalidDateCount || 0);
+    return `${mineDetailNav(s)}<section class="mine-detail footprints-page" aria-label="我的足迹详情">
+      <dl class="footprints-stats">
+        <div class="footprints-stat"><dt>已标记城市</dt><dd id="footprintsCityCount">${mapped}</dd></div>
+        <div class="footprints-stat"><dt>旅行次数</dt><dd>${summary.tripCount}</dd></div>
+        <div class="footprints-stat"><dt>累计旅行天数</dt><dd>${summary.dayCount}</dd></div>
+      </dl>
+      <p class="footprints-note">按已开始旅行的目的地统计，进行中计至今天，重叠日期只计一天。${undated ? `另有 ${undated} 趟旅行缺少有效日期，暂未计入。` : ''}</p>
+      <section class="footprints-map-panel" aria-label="足迹地图">
+        <div class="footprints-map-toolbar"><h2>足迹地图</h2><div class="footprints-map-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="footprintsCancelPick" data-action="footprints-cancel-pick" hidden>取消选点</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="footprints-fit">查看全部</button>
+        </div></div>
+        <div id="footprintsMap" class="footprints-map" aria-label="可缩放的城市和行程地点地图"></div>
+        <p id="footprintsMapStatus" class="footprints-map-status" role="status" aria-live="polite">正在加载地图…</p>
+      </section>
+      ${places.length ? `<p class="mine-section-label">行程地点</p><div class="footprints-city-list">${placeRows}</div>` : ''}
+      <p class="mine-section-label">城市记录</p>
+      <div id="footprintsCityList" class="footprints-city-list">${renderFootprintCities(cities)}</div>
+      ${!cities.length && !places.length ? `<div class="mine-empty"><strong>${summary.tripCount ? '为旅行补充地点' : '足迹从一趟旅行开始'}</strong><p>${summary.tripCount ? '添加行程地点或填写旅行目的地后，会在这里汇总。' : '已开始且填写了日期的旅行会自动记录在这里。'}</p></div>` : ''}
+    </section>`;
+  }
+
+  function renderMySettings(s) {
+    const user = AuthUI.user;
+    const row = (action, icon, label, meta) => `<button type="button" class="mine-menu-row" data-action="${action}">
+      <span class="mine-menu-icon">${mineIcon(icon)}</span><span class="mine-menu-label">${label}</span>
+      <span class="mine-menu-meta">${meta}</span><span class="mine-chevron">${mineIcon('chevron')}</span>
+    </button>`;
+    return `${mineDetailNav(s)}<section class="mine-detail" aria-label="设置详情">
+      <p class="mine-section-label">通用</p>
+      <div class="mine-menu">
+        ${user ? row('theme-open', 'theme', '页面主题', '背景与配色') : ''}
+        ${row('account-open', 'profile', user ? '账号与安全' : '查看当前身份', user ? '昵称 · 通行密钥' : '旅行访问身份')}
+      </div>
+      ${user ? '' : '<p class="mine-setting-note">页面主题和账号安全设置需要使用正式账号登录。</p>'}
+      <p class="mine-section-label">数据</p>
+      <div class="mine-menu">${row('export', 'export', '导出旅行数据', 'JSON 文件')}</div>
+      <p class="mine-setting-note">导出当前可访问的旅行记录，不含照片文件、账号和通行密钥，不是完整备份。</p>
+    </section>`;
   }
 
   // ---------------- 侧栏旅行看板 ----------------
@@ -1265,7 +1490,7 @@ window.Render = (() => {
 
   // ---------------- 打包清单 ----------------
   // 候选物品池：按旅行类型给推荐，点一下加入清单，已加的置灰可再点移除
-  function packingPoolHtml(s) {
+  function packingPoolHtml(s, open) {
     const templates = Store.getTemplates();
     const chosen = ((s.meta && s.meta.packingTypes) || []).filter(id => templates.some(t => t.id === id));
     // 一趟旅行还没选类型时默认看「通用」，避免一进来是空的
@@ -1305,88 +1530,61 @@ window.Render = (() => {
       </div>`;
     }).join('');
 
-    return `<section class="card pool-wrap">
-      <div class="day-head">
-        <h3>${emo('💡')} 推荐物品</h3>
+    return `<details class="pool-wrap" id="packingPool"${open ? ' open' : ''}>
+      <summary class="pool-summary">
+        <span>推荐物品</span>
+        <span class="pool-toggle-label"><span>展开</span><span>收起</span></span>
+      </summary>
+      <div class="pool-content">
         <div class="pool-actions">
           <button class="btn btn-ghost btn-sm" data-action="template-manage">管理模板</button>
           <button class="btn btn-ghost btn-sm" data-action="template-save">存为模板</button>
         </div>
+        <div class="pool-types">${typeBar}</div>
+        ${groups || '<p class="empty-hint">选一个旅行类型，就能看到推荐物品</p>'}
       </div>
-      <div class="pool-types">${typeBar}</div>
-      ${groups || '<p class="empty-hint">选一个旅行类型，就能看到推荐物品</p>'}
-    </section>`;
+    </details>`;
   }
 
-  // 打包清单分类的小图标，日记本章节标题用
-  const CHECKLIST_CAT_ICON = { '证件': '🧾', '衣物': '🧥', '洗漱': '🧴', '电子': '🔌', '药品': '💊', '其他': '📦' };
-
-  // 日记本封面的日期栏：2026.09.24 — 2026.10.02
-  function nbDateRange(s) {
-    const m = s.meta || {};
-    const f = (d) => (d ? d.replace(/-/g, '.') : '');
-    if (m.startDate && m.endDate) return `${f(m.startDate)} — ${f(m.endDate)}`;
-    return f(m.startDate || m.endDate) || '未定日期';
-  }
-
-  function renderChecklist(s) {
-    const subnav = renderModuleNav('mine', 'checklist');
+  function renderChecklist(s, packingPoolOpen) {
+    const subnav = mineDetailNav(s);
     const total = s.checklist.length;
     const done = s.checklist.filter(c => c.checked).length;
     const pct = total ? Math.round(done / total * 100) : 0;
-    const pool = packingPoolHtml(s);
-    const head = `<div class="list-head">
-      <span>已打包 ${done}/${total}</span>
-      <button class="btn btn-primary" data-action="checklist-add">＋ 添加物品</button>
-    </div>`;
-
-    if (!total) {
-      return subnav + pool + `<div class="chk-drop">${head}<section class="notebook">
-        <div class="nb-binds" aria-hidden="true"></div>
-        <header class="nb-head">
-          <h2 class="nb-title">${emo('🎒')} 行李清单</h2>
-          <div class="nb-date">${esc(nbDateRange(s))}</div>
-        </header>
-        <div class="nb-body">
-          <p class="nb-blank">还没写上要带的东西 ${emo('✍️')}</p>
-          <p class="nb-blank-hint">点上面的推荐物品，或把它们拖进来</p>
+    const pool = packingPoolHtml(s, packingPoolOpen);
+    const dates = [...new Set([s.meta?.startDate, s.meta?.endDate].filter(Boolean))];
+    const groups = groupByCategory(s.checklist, Store.CONST.checklistCategories).map(({ category, items }) => {
+      const checked = items.filter(item => item.checked).length;
+      return `<section class="chk-group">
+        <div class="chk-group-head">
+          <h3>${esc(category)}</h3>
+          <span>${checked}/${items.length}</span>
         </div>
-        <footer class="nb-foot"><div class="nb-foot-hint">共 0 件</div></footer>
-      </section></div>`;
-    }
-
-    // 所有分类连成一页横线纸，类别只是纸上的章节标题，不再是独立卡片
-    const grouped = groupByCategory(s.checklist, Store.CONST.checklistCategories);
-    const body = grouped.map(g => {
-      const gdone = g.items.filter(c => c.checked).length;
-      return `<div class="nb-cat">
-        <span class="nb-cat-ico">${emo(CHECKLIST_CAT_ICON[g.category] || '📦')}</span>
-        <h3 class="nb-cat-name" data-cat="${esc(g.category)}">${esc(g.category)}</h3>
-        <span class="nb-cat-rule"></span>
-        <span class="nb-cat-n">${gdone}/${g.items.length}</span>
-      </div>
-      <ul class="chk-list">${g.items.map(c => renderChecklistItem(s, c)).join('')}</ul>`;
+        <ul class="chk-list">${items.map(item => renderChecklistItem(s, item)).join('')}</ul>
+      </section>`;
     }).join('');
 
-    return subnav + pool + `<div class="chk-drop">${head}<section class="notebook">
-      <div class="nb-binds" aria-hidden="true"></div>
-      <header class="nb-head">
-        <h2 class="nb-title">${emo('🎒')} 行李清单</h2>
-        <div class="nb-date">${esc(nbDateRange(s))}</div>
+    return subnav + pool + `<section class="chk-panel chk-drop">
+      <header class="chk-head">
+        <div>
+          <h2>行李清单</h2>
+          ${dates.length ? `<div class="chk-date">${esc(dates.map(date => date.replace(/-/g, '.')).join(' – '))}</div>` : ''}
+        </div>
+        <button class="btn btn-primary" data-action="checklist-add">＋ 添加物品</button>
       </header>
-      <div class="nb-body">${body}</div>
-      <footer class="nb-foot">
+      ${groups || '<p class="chk-empty">清单还没有物品。可以展开推荐物品，或自己添加。</p>'}
+      ${total ? `<footer class="chk-summary">
+        <span>已打包 ${done}/${total}</span>
         <div class="progress"><div class="progress-fill" style="--pct:${pct}%"></div></div>
-        <div class="nb-foot-hint">${pct}% · 已打包 ${done}/${total}</div>
-      </footer>
-    </section></div>`;
+      </footer>` : ''}
+    </section>`;
   }
 
   function renderChecklistItem(s, c) {
     return `<li class="chk-item ${c.checked ? 'done' : ''}">
       <label class="chk">
         <input type="checkbox" data-action="checklist-toggle" data-id="${esc(c.id)}" ${c.checked ? 'checked' : ''}>
-        <span class="chk-box"></span>
+        <span class="chk-box" aria-hidden="true"></span>
         <span class="chk-name">${esc(c.name)}</span>
       </label>
       <div class="chk-side">
@@ -1688,34 +1886,45 @@ window.Render = (() => {
   }
 
   // ---------------- 照片 ----------------
-  function renderPhotos(s) {
-    const subnav = renderModuleNav('mine', 'photos');
-    const photos = s.photos || [];
-    const head = `<div class="list-head">
-      <span>共 ${photos.length} 张照片</span>
-      <button class="btn btn-primary" data-action="photo-add">＋ 添加照片</button>
-    </div>`;
-
-    if (!photos.length) {
-      return subnav + `<div class="card">${head}<div class="empty">
-        <p>还没有照片</p>
-        <p class="empty-hint">把旅行照片传上来，做成手帐 ${emo('📷')}${emo('✨')}</p>
-      </div></div>`;
-    }
-
-    const grouped = groupByDate(photos);
-    const body = grouped.map(g => `
-      <section class="card photo-day">
-        <div class="day-head"><h3>${fmtDate(g.date)} ${weekday(g.date)}</h3><span class="muted">${g.items.length} 张</span></div>
-        <div class="photo-grid">
-          ${g.items.map(p => renderPhotoCard(s, p)).join('')}
-        </div>
-      </section>`).join('');
-
-    return subnav + head + `<div class="day-list">${body}</div>`;
+  function photoDayLabel(album) {
+    if (!album.date) return '未标日期';
+    return `${fmtDate(album.date)} ${weekday(album.date)}`;
   }
 
-  function renderPhotoCard(s, p) {
+  function renderPhotos(s, key) {
+    const albums = PhotoAlbum.albums(s);
+    const album = albums.find(entry => entry.key === key);
+    if (album) {
+      return `${mineDetailNav(s, 'photos', '返回照片')}<section class="mine-detail" aria-label="每日相册">
+        <div class="list-head photo-album-heading">
+          <div><h2>${esc(photoDayLabel(album))}</h2><span>${album.number ? `第 ${album.number} 天 · ` : ''}${album.photos.length} 张照片</span></div>
+          <button type="button" class="btn btn-primary" data-action="photo-add" data-date="${esc(album.date)}">＋ 添加照片</button>
+        </div>
+        ${album.photos.length ? `<div class="photo-grid">${album.photos.map(renderPhotoCard).join('')}</div>`
+          : '<div class="mine-empty"><strong>这天还没有照片</strong><p>添加照片后会归到这一天。</p></div>'}
+      </section>`;
+    }
+
+    const rows = entries => entries.map(entry => `<button type="button" class="mine-menu-row" data-action="photo-day-open" data-date="${esc(entry.key)}">
+      <span class="mine-menu-icon">${mineIcon('photos')}</span>
+      <span class="photo-album-row-copy"><span class="mine-menu-label">${esc(photoDayLabel(entry))}</span>
+      ${entry.number ? `<span class="mine-account">第 ${entry.number} 天</span>` : ''}</span>
+      <span class="mine-menu-meta">${entry.photos.length} 张</span><span class="mine-chevron">${mineIcon('chevron')}</span>
+    </button>`).join('');
+    const scheduled = albums.filter(entry => entry.number !== null);
+    const others = albums.filter(entry => entry.number === null);
+    return `${mineDetailNav(s)}<section class="mine-detail" aria-label="旅行照片相册">
+      <div class="list-head photo-album-heading">
+        <span>共 ${(s.photos || []).length} 张照片</span>
+        <button type="button" class="btn btn-primary" data-action="photo-add">按拍摄日期上传</button>
+      </div>
+      ${scheduled.length ? `<p class="mine-section-label">旅行日期</p><div class="mine-menu">${rows(scheduled)}</div>`
+        : '<p class="mine-section-label">添加行程日期后，这里会显示每天的相册。</p>'}
+      ${others.length ? `<p class="mine-section-label">其他日期</p><div class="mine-menu">${rows(others)}</div>` : ''}
+    </section>`;
+  }
+
+  function renderPhotoCard(p) {
     return `<figure class="photo-card">
       <div class="photo-img-wrap">
         <button type="button" class="photo-open" data-action="photo-open" data-id="${esc(p.id)}" aria-label="查看${esc(p.caption || '照片')}原图">
@@ -1739,14 +1948,31 @@ window.Render = (() => {
   }
 
   // ---------------- 照片上传表单 ----------------
-  function formPhoto() {
-    return `<form data-form="photo">
-      <label>选择照片<input type="file" name="file" accept="image/*" required multiple></label>
-      <label>拍摄日期<input type="date" name="date" value="${today()}"></label>
+  function formPhoto(trip, date = '') {
+    return `<form data-form="photo" data-trip="${esc(trip.id)}" data-date="${esc(date)}">
+      <label>选择照片<input type="file" name="file" accept="image/*,.heic,.heif" required multiple></label>
+      <p class="field-hint">${date ? `照片会添加到 ${esc(date)} 的相册。` : '可同时选择多张。会按照片里的拍摄日期归档，读不到日期时可以手选。'}</p>
+      <p class="field-hint" data-photo-status role="status" aria-live="polite"></p>
+      <div class="photo-date-list" data-photo-dates></div>
       <label>配文<input name="caption" placeholder="一句话记录此刻（可选）"></label>
       <label>地点<input name="location" placeholder="如：维多利亚港（可选）"></label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">上传</button></div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit" disabled>上传</button></div>
     </form>`;
+  }
+
+  function photoBatchDates(entries, tripDates) {
+    return entries.map((entry, index) => {
+      const date = entry.date;
+      const note = date ? '已识别拍摄日期' : entry.takenOn ? `拍摄于 ${entry.takenOn}，不在旅行日期内` : '未读到拍摄日期';
+      const field = tripDates.length
+        ? `<select name="date-${index}" required><option value="">请选择</option>${tripDates.map(day =>
+          `<option value="${esc(day)}"${day === date ? ' selected' : ''}>${esc(day)}</option>`).join('')}</select>`
+        : `<input type="date" name="date-${index}" value="${esc(date)}" required>`;
+      return `<label class="photo-date-row">
+        <span class="photo-date-copy"><strong>${esc(entry.file.name)}</strong><span class="field-hint">${esc(note)}</span><span class="sr-only">归档日期</span></span>
+        ${field}
+      </label>`;
+    }).join('');
   }
 
   // ---------------- 攻略 / 预订 ----------------
@@ -2245,21 +2471,57 @@ window.Render = (() => {
     }).join('')}</div>`;
   }
 
+  function memoTripOptions(trips, tripId) {
+    return '<option value="">不关联旅行</option>' + trips.map(trip => {
+      const name = trip.meta?.tripName || '未命名旅行';
+      return `<option value="${esc(trip.id)}"${tripId === trip.id ? ' selected' : ''}>${esc(name)}</option>`;
+    }).join('');
+  }
+
+  function memoAttachments(memo) {
+    return (memo.photos || []).length ? `<div class="memo-photos">${memo.photos.map(renderMemoPhoto).join('')}</div>
+      <label class="memo-keep"><input type="checkbox" name="keep" checked> 保留已有照片</label>` : '';
+  }
+
+  function renderJournalEditor(s, memo) {
+    if (!AuthUI.user || memo?.tripId !== s.id) return renderJournal(s);
+    const date = new Date(memo.createdAt || Date.now());
+    const label = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-CN', {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+    });
+    return `<form id="journalEditor" class="journal-editor" data-form="memo">
+      <input type="hidden" name="id" value="${esc(memo.id || '')}">
+      <div class="journal-tools">
+        <button type="button" class="mine-back" data-action="nav" data-tab="journal"><span aria-hidden="true">‹</span> 返回日志</button>
+        <button type="submit" class="btn btn-primary">保存日志</button>
+        <p class="journal-status" data-memo-status role="status"></p>
+      </div>
+      <div class="journal-document">
+        <div class="journal-document-meta">
+          <span>${esc(label)}</span>
+          <span>仅自己可见</span>
+        </div>
+        <textarea id="journalText" name="text" aria-label="日志正文" rows="14" required
+          placeholder="今天去了哪里？有什么瞬间想记下来？">
+${esc(memo.text || '')}</textarea>
+        <div class="journal-attachments">
+          <label>添加照片<input type="file" name="file" accept="image/*" multiple></label>
+          <label>关联旅行<select name="tripId">${memoTripOptions(Store.listTrips(), memo.tripId)}</select></label>
+          ${memoAttachments(memo)}
+        </div>
+      </div>
+    </form>`;
+  }
+
   function formMemo(memo, trips) {
     const m = memo || {};
-    const opts = [`<option value="">不关联旅行</option>`]
-      .concat((trips || []).map(t => {
-        const name = (t.meta && t.meta.tripName) || '未命名';
-        return `<option value="${esc(t.id)}" ${m.tripId === t.id ? 'selected' : ''}>${esc(name)}</option>`;
-      })).join('');
-    const has = (m.photos || []).length ? `<div class="memo-photos">${(m.photos || []).map(renderMemoPhoto).join('')}</div>
-      <label class="memo-keep"><input type="checkbox" name="keep" checked> 保留已有照片（取消勾选则清空）</label>` : '';
     return `<form data-form="memo">
       <input type="hidden" name="id" value="${esc(m.id || '')}">
       <label>内容<textarea name="text" rows="5" required placeholder="记下此刻的想法…">${esc(m.text || '')}</textarea></label>
-      <label>关联旅行<select name="tripId">${opts}</select></label>
-      ${has}
+      <label>关联旅行<select name="tripId">${memoTripOptions(trips || [], m.tripId)}</select></label>
+      ${memoAttachments(m)}
       <label>添加照片<input type="file" name="file" accept="image/*" multiple></label>
+      <p class="journal-status" data-memo-status role="status"></p>
       <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button></div>
     </form>`;
   }
@@ -2342,8 +2604,8 @@ window.Render = (() => {
   return {
     TABS,
     esc, money, today, fmtDate, weekday,
-    renderNav, renderTabbar, tabTitle, renderPage, mapHint, isPrimaryTabActive,
-    formDay, formItem, itemFields: itemFieldsHtml, formExpense, expenseDetail, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, formPlace,
+    renderNav, renderTabbar, tabTitle, renderPage, mapHint, isPrimaryTabActive, renderFootprintCities,
+    formDay, formItem, itemFields: itemFieldsHtml, formExpense, expenseDetail, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, photoBatchDates, formPlace,
     formTemplateManage, formTemplateEdit, formSaveTemplate,
     renderPlaces, placeDetail, dayDetail, identityPicker, tripProfileEditor,
     formGuide,

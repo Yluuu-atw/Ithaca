@@ -13,11 +13,15 @@ window.App = (() => {
   let welcomeSceneSrc = '';
   let shareNotice = '';
   let sharePeople = [];
+  let footprintsDayTimer = null;
+  let footprintsDayStamp = '';
   const viewActions = new Set([
     'board-toggle',
     'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
-    'expense-detail', 'export', 'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter', 'settlement-details-toggle',
-    'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
+    'expense-detail', 'export', 'footprints-city', 'footprints-place', 'footprints-place-result',
+    'footprints-pick', 'footprints-cancel-pick', 'footprints-fit',
+    'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter', 'settlement-details-toggle',
+    'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-day-open', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
     'welcome-home', 'welcome-trips',
@@ -146,6 +150,7 @@ window.App = (() => {
     current.view = view;
     document.body.classList.toggle('is-welcome', view === 'welcome');
     if (view === 'welcome') {
+      clearFootprintsView();
       // View switches do not notify the store, so reapply the account theme here.
       applyTheme(Store.getWelcomeTheme());
       $('#welcome').innerHTML = Render.renderWelcome();
@@ -277,11 +282,29 @@ window.App = (() => {
   }
 
   function showMemos() {
+    if (current.view === 'app' && current.tab === 'journal') {
+      closeModal();
+      render();
+      return;
+    }
     openModal('备忘录', `
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
         <button type="button" class="btn btn-primary btn-sm" data-action="memo-new">＋ 新建</button>
       </div>
       ${Render.renderMemos(Store.listMemos(), Store.listTrips())}`);
+  }
+
+  function openJournalEditor(memo = null) {
+    const tripId = Store.getActiveTripId();
+    if (!tripId || (memo && memo.tripId !== tripId)) return;
+    current.journalMemo = memo || { tripId, createdAt: new Date().toISOString() };
+    navigateTo('journal-editor');
+  }
+
+  function journalHasChanges(form) {
+    const { text, tripId, file, keep } = form.elements;
+    return text.value !== text.defaultValue || tripId.value !== current.journalMemo.tripId
+      || !!file.files.length || !!(keep && keep.checked !== keep.defaultChecked);
   }
 
   // wttr.in 按 IP 推断城市，无需 key。失败就静默降级，不阻塞页面。
@@ -360,6 +383,7 @@ window.App = (() => {
       if (Object.hasOwn(fields, 'location') && fields.location !== (item.location || '')) {
         item.lat = null;
         item.lng = null;
+        delete item.locationMap;
       }
       Object.assign(item, fields);
     }
@@ -387,8 +411,8 @@ window.App = (() => {
       participants: (item.participants || []).slice(),
       note: item.note || '',
       location: item.location || '',
-      lat: item.lat ?? null,
-      lng: item.lng ?? null,
+      lat: item.locationMap?.mode === 'nearby' ? null : item.lat ?? null,
+      lng: item.locationMap?.mode === 'nearby' ? null : item.lng ?? null,
     };
     // Keep a zero-cost ledger entry when its receipt or images still matter.
     if (!cost) {
@@ -414,9 +438,13 @@ window.App = (() => {
       it.refNo = ex.refNo || '';
       if (ex.title) it.title = ex.title;
       it.note = ex.note || '';
-      it.location = ex.location || '';
-      it.lat = ex.lat ?? null;
-      it.lng = ex.lng ?? null;
+      const location = ex.location || '';
+      if (location !== (it.location || '') || ex.lat != null && ex.lng != null) delete it.locationMap;
+      it.location = location;
+      if (it.locationMap?.mode !== 'nearby') {
+        it.lat = ex.lat ?? null;
+        it.lng = ex.lng ?? null;
+      }
       it.amount = Number(ex.amount) || 0;
       if (ex.payer) it.payer = ex.payer;
       if (Array.isArray(ex.participants)) it.participants = ex.participants.slice();
@@ -479,9 +507,160 @@ window.App = (() => {
   }
 
   // ---------------- 渲染 ----------------
+  function clearFootprintsView() {
+    if (typeof FootprintsMap !== 'undefined') FootprintsMap.destroy();
+    clearTimeout(footprintsDayTimer);
+    footprintsDayTimer = null;
+    footprintsDayStamp = '';
+  }
+
+  function projectFootprintPoint(lat, lng) {
+    if (isHkMacau(lng, lat)) return [lat, lng];
+    const [mapLng, mapLat] = wgs84ToGcj02(lng, lat);
+    return [mapLat, mapLng];
+  }
+
+  function mountFootprints(summary) {
+    FootprintsMap.mount(summary, {
+      projectPoint: projectFootprintPoint,
+      onCitiesChange(cities) {
+        if (current.view !== 'app' || current.tab !== 'footprints') return;
+        const count = $('#footprintsCityCount');
+        const list = $('#footprintsCityList');
+        if (count) count.textContent = String(cities.filter(city => Number.isFinite(city.lat) && Number.isFinite(city.lng)).length);
+        if (list) list.innerHTML = Render.renderFootprintCities(cities);
+      },
+    });
+    footprintsDayStamp = Render.today();
+    const nextDay = new Date();
+    nextDay.setHours(24, 0, 1, 0);
+    footprintsDayTimer = setTimeout(() => {
+      if (current.view === 'app' && current.tab === 'footprints') render();
+    }, Math.max(1000, nextDay.getTime() - Date.now()));
+  }
+
+  function canLocateFootprint(tripId, item) {
+    if (!item) return false;
+    const role = Store.getRole(tripId);
+    return role === 'owner' || role === 'editor' || role === 'temporary' && item.authorId === AuthUI.temporary?.id;
+  }
+
+  function openFootprintLocation(key) {
+    FootprintsMap.cancelPick();
+    if (FootprintsMap.focus(key)) return;
+    const trips = Store.listTrips();
+    const place = Footprints.summarize(trips).places.find(entry => entry.key === key);
+    if (!place || Footprints.coordinates(place)) return;
+    const trip = trips.find(entry => entry.id === place.tripId);
+    const item = trip?.itinerary.find(day => day.id === place.dayId)?.items.find(entry => entry.id === place.itemId);
+    if (!canLocateFootprint(place.tripId, item)) {
+      toast('需要这趟旅行的编辑权限才能补充地点坐标', 'info');
+      return;
+    }
+    openModal('定位行程地点', `<form data-form="footprints-location">
+      <label>搜索地点<input name="query" required minlength="2" maxlength="120" value="${Render.esc(place.name)}" placeholder="地点名称及所在城市" autocomplete="off"></label>
+      <p class="field-hint">可加上城市或街道来缩小范围。选择正确的结果后，坐标会保存到这条行程。</p>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">搜索地点</button>
+        <button class="btn btn-ghost" type="button" data-action="footprints-pick">在地图上选点</button>
+      </div>
+      <p class="field-hint" data-location-status role="status"></p>
+      <div class="expense-location-suggestions" data-location-results></div>
+    </form>`);
+    const form = modalBody().querySelector('form[data-form="footprints-location"]');
+    if (form) form._footprintPlace = place;
+  }
+
+  async function searchFootprintLocation(form, query) {
+    const place = form._footprintPlace;
+    if (!place || form._saving) return;
+    form._locationSearchController?.abort();
+    const controller = new AbortController();
+    form._locationSearchController = controller;
+    const status = form.querySelector('[data-location-status]');
+    const box = form.querySelector('[data-location-results]');
+    box.replaceChildren();
+    form._locationCandidates = [];
+    status.textContent = '正在查找…';
+    try {
+      const results = await Store.searchPlaces(query, { tripId: place.tripId, signal: controller.signal });
+      if (!form.isConnected || controller.signal.aborted) return;
+      const candidates = results.filter(result => Footprints.coordinates(result));
+      form._locationCandidates = candidates;
+      status.textContent = candidates.length ? '点选正确的地点，将它标到地图上。' : '未找到这个地点。试试全名，或加上城市和街道。';
+      box.innerHTML = candidates.map((result, index) => `<button type="button" class="expense-location-result" data-action="footprints-place-result" data-index="${index}">
+        <strong>${Render.esc(result.name || result.address)}</strong><span>${Render.esc(result.address)}</span>
+      </button>`).join('');
+      if (candidates.length) box.insertAdjacentHTML('beforeend', '<p class="field-hint">地点查询 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></p>');
+    } catch (error) {
+      if (form.isConnected && !controller.signal.aborted) status.textContent = error.message || '地点查询失败，请稍后再试。';
+    } finally {
+      if (form._locationSearchController === controller) form._locationSearchController = null;
+    }
+  }
+
+  function pickFootprintLocation(form) {
+    const place = form?._footprintPlace;
+    if (!place || !closeModal()) return;
+    const started = FootprintsMap.pickPoint(place.name, point => {
+      let { lat, lng } = point;
+      // Reverse the high-level map projection before saving canonical WGS84 coordinates.
+      for (let i = 0; i < 3; i++) {
+        const [projectedLat, projectedLng] = projectFootprintPoint(lat, lng);
+        lat += point.lat - projectedLat;
+        lng += point.lng - projectedLng;
+      }
+      openModal('保存地点标记', `<form data-form="footprints-location-confirm">
+        <p>把「${Render.esc(place.name)}」标在刚选的位置。</p>
+        <p class="field-hint" data-location-status role="status"></p>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">保存标记</button>
+          <button type="button" class="btn btn-ghost" data-action="footprints-pick">重新选点</button>
+        </div>
+      </form>`);
+      const confirmation = modalBody().querySelector('form[data-form="footprints-location-confirm"]');
+      if (confirmation) {
+        confirmation._footprintPlace = place;
+        confirmation._footprintPoint = { lat, lng };
+      }
+    });
+    if (!started) toast('地图暂不可用，请稍后再试', 'info');
+  }
+
+  async function saveFootprintLocation(form, candidate) {
+    const place = form?._footprintPlace;
+    const point = Footprints.coordinates(candidate);
+    if (!place || !point || form._saving) return;
+    form._saving = true;
+    try {
+      await Store.mutate(trip => {
+        const item = trip.itinerary.find(day => day.id === place.dayId)?.items.find(entry => entry.id === place.itemId);
+        if (!canLocateFootprint(trip.id, item) || Footprints.itineraryPlaceName(item) !== place.name
+          || Footprints.coordinates(item) && !Footprints.isCityFallback(item)) {
+          throw new Error('这条行程已更新，请重新打开后再定位');
+        }
+        if (!item.location) item.location = place.name;
+        Object.assign(item, point);
+        delete item.locationMap;
+        const expense = trip.expenses.find(entry => entry.itemId === item.id);
+        if (expense && canLocateFootprint(trip.id, expense)) Object.assign(expense, { location: item.location, ...point });
+      }, place.tripId);
+      closeModal(true);
+      FootprintsMap.focus(place.key);
+      toast(place.planned ? '已保存位置，到行程当天会显示在足迹地图' : '已标记行程地点', 'success');
+    } catch (error) {
+      form.querySelector('[data-location-status]').textContent = error.message || '坐标保存失败';
+    } finally {
+      form._saving = false;
+    }
+  }
+
   function render() {
     const data = Store.getState();
     if (!data) return;
+    const packingPool = $('#packingPool');
+    if (packingPool) current.packingPoolOpen = packingPool.open;
+    clearFootprintsView();
     document.body.dataset.accessRole = Store.getRole() || 'viewer';
     document.body.dataset.currentTab = current.tab;
     applyTheme(Store.getWelcomeTheme());
@@ -497,12 +676,19 @@ window.App = (() => {
       b.classList.toggle('active', Render.isPrimaryTabActive(b.dataset.tab, current.tab));
     });
     if (dockKick) dockKick();
-    $('#pageTitle').textContent = Render.tabTitle(current.tab);
+    $('#pageTitle').textContent = current.tab === 'journal-editor' && current.journalMemo?.id
+      ? '编辑旅行日志' : Render.tabTitle(current.tab);
     $('#board').innerHTML = Render.renderTripBoard();
     const tripNameEl = $('#topbarTripName');
     if (tripNameEl) tripNameEl.textContent = data.meta.tripName || '九州 ITHACA';
     // 开启页下主内容区不渲染，但侧栏、看板、导航要保持最新
     if (current.view === 'welcome') { applyPermissions(); return; }
+
+    // 共享旅行同步时保留正在编辑的正文、光标和所选照片。
+    if (current.tab === 'journal-editor' && AuthUI.user && $('#journalEditor')) {
+      applyPermissions();
+      return;
+    }
 
     // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
     if (current.tab === 'map') {
@@ -517,7 +703,12 @@ window.App = (() => {
 
     const focusedSearch = document.activeElement && (document.activeElement.id === 'placeSearch' || document.activeElement.id === 'guideSearch')
       ? document.activeElement.id : null;
+    const footprintsSummary = current.tab === 'footprints' ? Footprints.summarize(Store.listTrips()) : null;
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
+      footprintsSummary,
+      journalMemo: current.journalMemo,
+      photoDay: activePhotoDay(data),
+      packingPoolOpen: current.packingPoolOpen,
       itineraryMode: current.itineraryMode,
       ledgerFilter: current.ledgerFilter,
       settlementDetailsOpen: current.settlementDetailsOpen && current.settlementDetailsTripId === data.id,
@@ -532,6 +723,29 @@ window.App = (() => {
       if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     }
     applyPermissions();
+    if (footprintsSummary) mountFootprints(footprintsSummary);
+  }
+
+  function activePhotoDay(trip) {
+    return current.photoAlbum?.tripId === trip.id ? current.photoAlbum.key : null;
+  }
+
+  function navigateTo(tab, photoAlbum = null) {
+    if (current.tab === 'journal-editor' && tab !== 'journal-editor') {
+      const editor = $('#journalEditor');
+      if (editor?._saving) return;
+      if (editor && current.journalMemo && journalHasChanges(editor)
+        && !confirm('旅行日志尚未保存。要放弃修改并返回吗？')) return;
+      current.journalMemo = null;
+    }
+    current.tab = tab;
+    current.photoAlbum = photoAlbum;
+    // 首页、底栏和二级入口统一切页，详情不继承上一个页面的滚动位置。
+    if (current.view === 'welcome') setView('app'); else render();
+    $('#content').scrollTop = 0;
+    window.scrollTo(0, 0);
+    $('#pageTitle').setAttribute('tabindex', '-1');
+    $('#pageTitle').focus({ preventScroll: true });
   }
 
   // ---------------- 弹窗 ----------------
@@ -926,9 +1140,95 @@ window.App = (() => {
     return location;
   }
 
-  async function doMutate(fn, successMsg) {
+  function confirmItineraryLocation({ title, text, hint, address, accept, cancel }) {
+    return new Promise(resolve => {
+      const dialog = document.createElement('dialog');
+      dialog.className = 'nearby-location-dialog';
+      dialog.setAttribute('aria-labelledby', 'itineraryLocationTitle');
+      dialog.innerHTML = `<form method="dialog">
+        <h2 id="itineraryLocationTitle">${Render.esc(title)}</h2>
+        <p>${Render.esc(text)}</p>
+        ${address ? `<p class="field-hint">${Render.esc(address)}</p>` : ''}
+        <p class="field-hint">${Render.esc(hint)}</p>
+        <div class="form-actions">
+          <button class="btn btn-ghost" value="no" autofocus>${Render.esc(cancel)}</button>
+          <button class="btn btn-primary" value="yes">${Render.esc(accept)}</button>
+        </div>
+      </form>`;
+      dialog.addEventListener('close', () => {
+        const accepted = dialog.returnValue === 'yes';
+        dialog.remove();
+        resolve(accepted);
+      }, { once: true });
+      document.body.append(dialog);
+      dialog.showModal();
+    });
+  }
+
+  // One deadline covers the original query and all name variants.
+  const ITINERARY_LOCATION_WAIT_MS = 1500;
+
+  async function locateItineraryOnSave(trip, dayId, fields, existing) {
+    const name = Footprints.itineraryPlaceName(fields);
+    if (!name) return { fields: {} };
+    const legacy = Footprints.isCityFallback(existing);
+    if (existing && !legacy && name === Footprints.itineraryPlaceName(existing)
+      && (Footprints.coordinates(existing) || ['hidden', 'pending'].includes(existing.locationMap?.mode))) return { fields: {} };
+
+    const index = Footprints.itineraryLocationIndex(trip);
+    const stored = Footprints.matchStoredLocation(name, index);
+    if (stored) return { fields: { ...Footprints.coordinates(stored),
+      locationMap: stored.source === 'osm' ? { source: 'osm' } : null } };
+
+    const areas = Footprints.itinerarySearchAreas(trip, dayId, name);
+    const reference = Footprints.itineraryReferencePoint(trip, dayId, name, index);
+    const results = [];
+    const signal = AbortSignal.timeout(ITINERARY_LOCATION_WAIT_MS);
+    const options = { tripId: trip.id, near: areas.length === 1 ? Footprints.coordinates(areas[0]) : undefined, signal };
+    let nearby;
+    for (const query of Footprints.itinerarySearchQueries(name, areas)) {
+      try {
+        const matches = await Store.searchPlaces(query, options);
+        if (signal.aborted) break;
+        results.push(...matches);
+      } catch (_) { break; }
+      const match = Footprints.selectItineraryMatch(name, results, areas, reference);
+      if (match.exact) return { fields: { ...Footprints.coordinates(match.exact), locationMap: { source: 'osm' } } };
+      nearby = match.nearby;
+      if (nearby) break;
+    }
+    if (!nearby) {
+      const accepted = await confirmItineraryLocation({
+        title: '先保存地点名称？',
+        text: signal.aborted ? `「${name}」还没查到位置。现在可以先保存行程。` : `暂时找不到「${name}」的位置。`,
+        hint: '保存后，可在「我的足迹」的行程地点列表点这条记录，搜索或在地图上选点。',
+        accept: '暂存名称',
+        cancel: '继续编辑',
+      });
+      if (!accepted) return null;
+      return {
+        fields: { lat: null, lng: null, locationMap: { mode: 'pending' } },
+        message: '已保存行程，可稍后在我的足迹定位',
+      };
+    }
+    const accepted = await confirmItineraryLocation({
+      title: '用附近地点标记？',
+      text: `没能确认「${name}」的准确位置。要在足迹地图上用「${nearby.name}」作为参考位置吗？`,
+      address: nearby.address,
+      hint: '选「否」会保留行程地点名称，地图上不显示标记。',
+      accept: '是',
+      cancel: '否',
+    });
+    if (!accepted) return { fields: { lat: null, lng: null, locationMap: { mode: 'hidden' } } };
+    return { fields: {
+      ...Footprints.coordinates(nearby),
+      locationMap: { mode: 'nearby', name: nearby.name, source: nearby.source || (results.includes(nearby) ? 'osm' : '') },
+    } };
+  }
+
+  async function doMutate(fn, successMsg, tripId) {
     try {
-      await Store.mutate(fn);
+      await Store.mutate(fn, tripId);
       if (successMsg) toast(successMsg, 'success');
       return true;
     } catch (e) {
@@ -1146,12 +1446,15 @@ window.App = (() => {
         break;
 
       case 'memo-new':
-        openModal('新建备忘录', Render.formMemo(null, Store.listTrips()));
+        if (current.view === 'app' && current.tab === 'journal') openJournalEditor();
+        else openModal('新建备忘录', Render.formMemo(null, Store.listTrips()));
         break;
 
       case 'memo-edit': {
         const m = Store.listMemos().find(x => x.id === el.dataset.id);
-        if (m) openModal('编辑备忘录', Render.formMemo(m, Store.listTrips()));
+        if (!m) break;
+        if (current.view === 'app' && current.tab === 'journal') openJournalEditor(m);
+        else openModal('编辑备忘录', Render.formMemo(m, Store.listTrips()));
         break;
       }
 
@@ -1174,9 +1477,34 @@ window.App = (() => {
       }
 
       case 'nav':
-        current.tab = el.dataset.tab;
-        // 开启页下点侧栏导航，直接进到对应页面，不必先点「我的旅行」
-        if (current.view === 'welcome') setView('app'); else render();
+        navigateTo(el.dataset.tab);
+        break;
+
+      case 'footprints-city':
+        FootprintsMap.locate(el.dataset.key);
+        break;
+
+      case 'footprints-place':
+        openFootprintLocation(el.dataset.key);
+        break;
+
+      case 'footprints-place-result':
+        {
+          const form = el.closest('form[data-form="footprints-location"]');
+          saveFootprintLocation(form, form?._locationCandidates?.[Number(el.dataset.index)]);
+        }
+        break;
+
+      case 'footprints-pick':
+        pickFootprintLocation(el.closest('form'));
+        break;
+
+      case 'footprints-cancel-pick':
+        FootprintsMap.cancelPick();
+        break;
+
+      case 'footprints-fit':
+        FootprintsMap.fit();
         break;
 
       // 从行程详情弹窗进来的编辑，返回/保存后回到行程详情而不是关掉
@@ -1348,10 +1676,9 @@ window.App = (() => {
 
       case 'trip-open':
         Store.setActiveTrip(el.dataset.id);
-        current.tab = 'overview';
         // 从管理旅行弹窗点进来要先关弹窗；开启页下点边栏卡片则直接进该旅行
         closeModal();
-        if (current.view === 'welcome') setView('app'); else render();
+        navigateTo('overview');
         break;
 
       case 'trip-archive': {
@@ -1607,13 +1934,26 @@ window.App = (() => {
         }
         break;
 
-      case 'photo-add':
-        openModal('添加照片', Render.formPhoto());
+      case 'photo-day-open': {
+        const trip = Store.getState();
+        if (PhotoAlbum.albums(trip).some(album => album.key === el.dataset.date)) {
+          navigateTo('photos', { tripId: trip.id, key: el.dataset.date });
+        }
         break;
+      }
 
-      case 'photo-open':
-        PhotoViewer.open(Store.getState().photos || [], el.dataset.id);
+      case 'photo-add': {
+        const date = PhotoAlbum.dateKey(el.dataset.date);
+        openModal(date ? '添加照片' : '按拍摄日期上传', Render.formPhoto(Store.getState(), date));
         break;
+      }
+
+      case 'photo-open': {
+        const trip = Store.getState();
+        const album = PhotoAlbum.albums(trip).find(entry => entry.key === activePhotoDay(trip));
+        PhotoViewer.open(album?.photos || trip.photos || [], el.dataset.id);
+        break;
+      }
 
       case 'photo-open-url':
         PhotoViewer.open([{ id: 'memo', url: el.dataset.url }], 'memo');
@@ -1863,7 +2203,12 @@ window.App = (() => {
           avatar: String(fd.get('avatar') || ''), color: String(fd.get('color') || ''),
         });
         await Store.load();
-        openModal('旅行成员', Render.identityPicker(Store.getState()));
+        if (current.view === 'app' && current.tab === 'profile') {
+          closeModal();
+          render();
+        } else {
+          openModal('旅行成员', Render.identityPicker(Store.getState()));
+        }
         toast('旅行资料已保存', 'success');
       } catch (error) { toast(error.message, 'error'); }
       return;
@@ -1896,7 +2241,19 @@ window.App = (() => {
       } catch (error) { toast(error.message, 'error'); }
       return;
     }
-    if (!Store.canEditTrip() && !(AuthUI.user && (kind === 'memo' || kind.startsWith('tpl-') || kind === 'theme'))) {
+    if (kind === 'footprints-location') {
+      await searchFootprintLocation(form, String(fd.get('query') || '').trim());
+      return;
+    }
+    if (kind === 'footprints-location-confirm') {
+      await saveFootprintLocation(form, form._footprintPoint);
+      return;
+    }
+    if (kind === 'memo') {
+      if (AuthUI.user) await saveMemo(form, fd);
+      return;
+    }
+    if (!Store.canEditTrip() && !(AuthUI.user && (kind.startsWith('tpl-') || kind === 'theme'))) {
       toast('这趟旅行是只读的', 'error');
       return;
     }
@@ -1921,38 +2278,6 @@ window.App = (() => {
         doDocOp(() => Store.mutateDoc(d => { d.meta.welcomeTheme = bg; }), '个人主题已更新');
       }
       closeModal();
-      return;
-    }
-
-    if (kind === 'memo') {
-      const id = (fd.get('id') || '').trim();
-      const text = (fd.get('text') || '').trim();
-      const tripId = (fd.get('tripId') || '').trim();
-      const keep = fd.get('keep') != null;
-      const files = fd.getAll('file').filter(f => f && f.size);
-      const existing = id ? (Store.listMemos().find(x => x.id === id) || {}) : {};
-      const carried = (id && keep) ? (existing.photos || []) : [];
-      closeModal();
-      (async () => {
-        if (files.length) toast('照片上传中…', 'info');
-        const uploaded = [];
-        for (const f of files) {
-          try { uploaded.push(await Store.uploadPhoto(f, 'memo')); }
-          catch (_) { toast('有照片上传失败，其余已保存', 'error'); }
-        }
-        const photos = carried.concat(uploaded);
-        await doDocOp(() => Store.mutateDoc(d => {
-          d.memos = d.memos || [];
-          const i = id ? d.memos.findIndex(x => x.id === id) : -1;
-          const rec = {
-            id: id || Store.uid('memo'),
-            text, photos, tripId,
-            createdAt: i >= 0 ? d.memos[i].createdAt : new Date().toISOString(),
-          };
-          if (i >= 0) d.memos[i] = rec; else d.memos.unshift(rec);
-        }), '备忘录已保存');
-        showMemos();
-      })();
       return;
     }
 
@@ -1981,7 +2306,8 @@ window.App = (() => {
     if (kind === 'item') {
       const dayId = fd.get('dayId');
       const itemId = fd.get('itemId');
-      const existing = Store.getState().itinerary.find(day => day.id === dayId)?.items.find(item => item.id === itemId);
+      const trip = Store.getState();
+      const existing = trip.itinerary.find(day => day.id === dayId)?.items.find(item => item.id === itemId);
       // datetime-local 提交的是 YYYY-MM-DDTHH:MM，拆成日期 + 时分两段存
       const [startDate, time] = splitDT(fd.get('time'));
       const [endDate, endTime] = splitDT(fd.get('endTime'));
@@ -2011,12 +2337,25 @@ window.App = (() => {
       form._saving = true;
       const submit = form.querySelector('[type="submit"]');
       submit.disabled = true;
+      const submitText = submit.textContent;
       let targetDayId;
-      const saved = await doMutate(d => {
-        targetDayId = saveItineraryItem(d, dayId, itemId, fields);
-      }, itemId ? '已保存' : '已添加');
-      form._saving = false;
-      submit.disabled = false;
+      let saved;
+      try {
+        submit.textContent = '正在确认地点…';
+        const location = await locateItineraryOnSave(trip, dayId, fields, existing);
+        if (!location || !form.isConnected) return;
+        Object.assign(fields, location.fields);
+        submit.textContent = '正在保存…';
+        saved = await doMutate(d => {
+          targetDayId = saveItineraryItem(d, dayId, itemId, fields);
+        }, location.message || (itemId ? '已保存' : '已添加'), trip.id);
+      } catch (error) {
+        toast(error.message || '行程保存失败', 'error');
+      } finally {
+        form._saving = false;
+        submit.disabled = false;
+        submit.textContent = submitText;
+      }
       if (!saved) return;
       // 内嵌表单：重渲染行程详情，保持这条展开并回到只读态
       if (inline) {
@@ -2222,14 +2561,7 @@ window.App = (() => {
     }
 
     if (kind === 'photo') {
-      const fileInput = form.querySelector('input[type=file]');
-      const files = fileInput ? fileInput.files : null;
-      if (!files || !files.length) { toast('请先选择照片', 'error'); return; }
-      const date = fd.get('date') || '';
-      const caption = fd.get('caption') || '';
-      const location = fd.get('location') || '';
-      uploadPhotos(files, date, caption, location);
-      closeModal();
+      await uploadPhotos(form, fd);
       return;
     }
 
@@ -2358,22 +2690,151 @@ window.App = (() => {
     }
   }
 
-  // ---------------- 照片上传 ----------------
-  async function uploadPhotos(files, date, caption, location) {
-    toast('上传中…', 'info');
+  // ---------------- 私人日志与备忘录 ----------------
+  async function saveMemo(form, fd) {
+    if (form._saving) return;
+    const journal = form.matches('#journalEditor');
+    const status = form.querySelector('[data-memo-status]');
+    const editingId = String(fd.get('id') || '');
+    const text = String(fd.get('text') || '');
+    const tripId = String(fd.get('tripId') || '');
+    const keepPhotos = fd.has('keep');
+    const files = fd.getAll('file').filter(file => file.size);
+    if (!text.trim()) {
+      status.textContent = '请先写下正文。';
+      form.elements.text.focus();
+      return;
+    }
+    if (tripId && !Store.listTrips().some(trip => trip.id === tripId)) {
+      status.textContent = '关联的旅行已不可用，请重新选择。';
+      return;
+    }
+
+    const id = editingId || (form._memoId ||= Store.uid('memo'));
+    const controls = Array.from(form.querySelectorAll('textarea, select, input:not([type="hidden"]), button[type="submit"]'));
+    const uploads = form._memoUploads ||= new Map();
+    form._saving = true;
+    controls.forEach(control => { control.disabled = true; });
     try {
-      const uploaded = [];
-      for (const file of Array.from(files)) {
-        const url = await Store.uploadPhoto(file);
-        uploaded.push({ id: Store.uid('pho'), url, date, caption, location });
+      status.textContent = files.length ? '正在上传照片…' : '正在保存…';
+      for (const file of files) {
+        if (!uploads.has(file)) uploads.set(file, await Store.uploadPhoto(file, 'memo'));
       }
-      await Store.mutate(d => {
-        d.photos = d.photos || [];
-        d.photos.push(...uploaded);
+      const added = files.map(file => uploads.get(file));
+      status.textContent = '正在保存…';
+      const createdAt = new Date().toISOString();
+      await Store.mutateDoc(doc => {
+        doc.memos ||= [];
+        const index = doc.memos.findIndex(memo => memo.id === id);
+        if (editingId && index < 0) throw new Error('这篇记录已被删除。可以复制正文后重新创建。');
+        const existing = doc.memos[index];
+        const photos = keepPhotos ? [...(existing?.photos || []), ...added] : added;
+        const memo = { id, tripId, text, photos: [...new Set(photos)], createdAt: existing?.createdAt || createdAt };
+        if (existing) doc.memos[index] = memo;
+        else doc.memos.unshift(memo);
       });
-      toast(`已上传 ${uploaded.length} 张照片`, 'success');
+    } catch (error) {
+      status.textContent = `保存失败：${error.message || '请重试'}。正文仍在编辑区。`;
+      return;
+    } finally {
+      form._saving = false;
+      controls.forEach(control => { control.disabled = false; });
+    }
+
+    if (journal) {
+      current.journalMemo = null;
+      navigateTo('journal');
+    } else showMemos();
+    toast(journal ? '旅行日志已保存' : '备忘录已保存', 'success');
+  }
+
+  // ---------------- 照片上传 ----------------
+  async function preparePhotoBatch(form, input) {
+    if (form._saving) return;
+    const trip = Store.listTrips().find(entry => entry.id === form.dataset.trip);
+    const submit = form.querySelector('[type="submit"]');
+    const status = form.querySelector('[data-photo-status]');
+    const dateList = form.querySelector('[data-photo-dates]');
+    const fixedDate = PhotoAlbum.dateKey(form.dataset.date);
+    const entries = Array.from(input.files, file => ({ file, id: Store.uid('pho'), date: fixedDate }));
+    const batch = { entries, tripId: form.dataset.trip, ready: false };
+    form._photoBatch = batch;
+    submit.disabled = true;
+    dateList.replaceChildren();
+    status.textContent = '';
+    if (!entries.length) return;
+    if (!trip || !Store.canEditTrip(trip.id)) {
+      status.textContent = '当前旅行无法上传照片。';
+      return;
+    }
+    if (entries.some(entry => entry.file.size > 20 * 1024 * 1024)) {
+      status.textContent = '有照片超过 20 MB，请压缩后重新选择。';
+      return;
+    }
+
+    if (!fixedDate) {
+      const days = PhotoAlbum.tripDays(trip);
+      const daySet = new Set(days);
+      status.textContent = '正在读取拍摄日期…';
+      for (const entry of entries) {
+        entry.takenOn = await PhotoAlbum.captureDate(entry.file);
+        if (!form.isConnected || form._photoBatch !== batch) return;
+        entry.date = !days.length || daySet.has(entry.takenOn) ? entry.takenOn : '';
+      }
+      dateList.innerHTML = Render.photoBatchDates(entries, days);
+      const missing = entries.filter(entry => !entry.date).length;
+      status.textContent = missing ? `请为 ${missing} 张照片选择归档日期。` : `已识别 ${entries.length} 张照片的拍摄日期。`;
+    } else status.textContent = `已选择 ${entries.length} 张照片。`;
+    batch.ready = true;
+    submit.disabled = false;
+  }
+
+  async function uploadPhotos(form, fd) {
+    const batch = form._photoBatch;
+    if (!batch?.ready || form._saving) return;
+    const { entries, tripId } = batch;
+    const fixedDate = PhotoAlbum.dateKey(form.dataset.date);
+    const dates = entries.map((entry, index) => fixedDate || PhotoAlbum.dateKey(fd.get(`date-${index}`)));
+    const status = form.querySelector('[data-photo-status]');
+    if (dates.some(date => !date)) {
+      status.textContent = '请先为每张照片选择归档日期。';
+      return;
+    }
+    const submit = form.querySelector('[type="submit"]');
+    const input = form.querySelector('[type="file"]');
+    const caption = fd.get('caption') || '';
+    const location = fd.get('location') || '';
+    form._saving = true;
+    submit.disabled = true;
+    input.disabled = true;
+    let saved = false;
+    try {
+      for (const [index, entry] of entries.entries()) {
+        if (entry.url) continue;
+        status.textContent = `正在上传第 ${index + 1} / ${entries.length} 张照片…`;
+        const result = await Store.uploadImage(entry.file, undefined, { tripId });
+        entry.url = result.url;
+      }
+      const uploaded = entries.map((entry, index) => ({
+        id: entry.id, url: entry.url, date: dates[index], caption, location,
+      }));
+      status.textContent = '正在归档照片…';
+      await Store.mutate(trip => {
+        trip.photos = trip.photos || [];
+        const existing = new Set(trip.photos.map(photo => photo.id));
+        trip.photos.push(...uploaded.filter(photo => !existing.has(photo.id)));
+      }, tripId);
+      saved = true;
     } catch (e) {
-      toast('上传失败：' + e.message, 'error');
+      status.textContent = `上传失败：${e.message}。选中的照片和日期已保留，可以重试。`;
+    } finally {
+      form._saving = false;
+      submit.disabled = false;
+      input.disabled = false;
+    }
+    if (saved && form.isConnected) {
+      closeModal(true);
+      toast(`已归档 ${entries.length} 张照片`, 'success');
     }
   }
 
@@ -2458,7 +2919,7 @@ window.App = (() => {
     const points = [];
     for (const day of data.itinerary) {
       for (const item of (day.items || [])) {
-        if (item.lat != null && item.lng != null) points.push({ day, item });
+        if (item.lat != null && item.lng != null && !Footprints.isCityFallback(item)) points.push({ day, item });
       }
     }
 
@@ -2730,13 +3191,19 @@ window.App = (() => {
     initPoolDrag();
     // 记账分类切换时重填二级字段（细分 + 车次/航班号）
     document.addEventListener('change', (e) => {
+      if (e.target.matches('form[data-form="photo"] input[type="file"]')) {
+        preparePhotoBatch(e.target.form, e.target);
+      }
       if (e.target && e.target.id === 'expCat') {
         const box = document.getElementById('expFields');
         if (box) box.innerHTML = Render.expFields(e.target.value, {});
       }
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeModal(); return; }
+      if (e.key === 'Escape') {
+        if (!document.querySelector('.nearby-location-dialog[open]')) closeModal();
+        return;
+      }
       // 途径地点输入框里回车是「加这个地点」，不能让表单直接提交
       if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('stops-input')) {
         if (e.isComposing || e.keyCode === 229) return;
@@ -2751,7 +3218,8 @@ window.App = (() => {
     });
     window.addEventListener('beforeunload', (e) => {
       const form = !modal().hidden && modalBody().querySelector('form');
-      if (!form || !form._entryTask) return;
+      const journal = current.tab === 'journal-editor' && $('#journalEditor');
+      if (!form?._entryTask && !(journal && current.journalMemo && (journal._saving || journalHasChanges(journal)))) return;
       e.preventDefault();
       e.returnValue = '';
     });
@@ -2946,7 +3414,7 @@ window.App = (() => {
         return null;
       };
       const switchTo = (item) => {
-        if (item && item.dataset.tab !== current.tab) { current.tab = item.dataset.tab; render(); }
+        if (item && item.dataset.tab !== current.tab) navigateTo(item.dataset.tab);
       };
 
       let dragging = false;
@@ -2978,6 +3446,9 @@ window.App = (() => {
     })();
     // 窗口尺寸变化时重算地图尺寸，避免瓦片错位
     window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && current.view === 'app' && current.tab === 'footprints' && footprintsDayStamp !== Render.today()) render();
+    });
 
     Store.setStatusHandler((st) => {
       if (st === 'connected') setStatus(true, '已连接');

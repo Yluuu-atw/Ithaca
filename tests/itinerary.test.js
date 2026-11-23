@@ -9,22 +9,72 @@ const { project, updateDocument, AccessDeniedError } = require('../data/document
 const { syncTripRoster, unusedAppearance } = require('../data/people');
 const { ownedDoc, addFormalMember } = require('./fixtures');
 
-function itineraryHelpers(canEditRecord = () => true) {
+function itineraryHelpers(canEditRecord = () => true, options = {}) {
   const source = fs.readFileSync(path.join(__dirname, '../public/js/app.js'), 'utf8')
-    .replace('return { init };', 'return { saveItineraryItem, moveItemToDate, syncExpenseFromItem, syncItemFromExpense, removeExpenseRecord };')
+    .replace('return { init };', 'return { saveItineraryItem, moveItemToDate, syncExpenseFromItem, syncItemFromExpense, removeExpenseRecord, locateItineraryOnSave };')
     .replace("document.addEventListener('DOMContentLoaded', App.init);", '');
   let sequence = 0;
   const context = {
-    window: {}, document: { addEventListener() {} },
+    window: {}, document: options.document || { addEventListener() {} },
+    AbortSignal: options.abortSignal || AbortSignal,
+    Render: { esc: value => String(value) },
     Store: {
       uid: prefix => `${prefix}_test_${++sequence}`,
       canEditRecord,
+      searchPlaces: options.searchPlaces,
       CONST: { itemToExpenseCategory: { 交通: '交通' }, expenseToItemCategory: { 交通: '交通' } },
     },
   };
+  if (options.searchPlaces) {
+    const model = fs.readFileSync(path.join(__dirname, '../public/js/footprints.js'), 'utf8');
+    vm.runInNewContext(model, context);
+    context.Footprints = context.window.Footprints;
+  }
   vm.runInNewContext(source, context);
   return context.window.App;
 }
+
+test('a slow lookup uses one short deadline and lets the user save a pending point or keep editing', async () => {
+  const trip = { id: 'trip', meta: { destination: '香港' }, itinerary: [{ id: 'day', items: [] }] };
+  for (const answer of ['yes', 'no']) {
+    const controller = new AbortController();
+    let deadline;
+    let calls = 0;
+    let dialog;
+    const { locateItineraryOnSave } = itineraryHelpers(() => true, {
+      abortSignal: { timeout(ms) { deadline = ms; return controller.signal; } },
+      document: {
+        body: { append() {} },
+        createElement() {
+          dialog = {
+            returnValue: answer,
+            setAttribute() {},
+            remove() {},
+            addEventListener(event, listener) { this.close = listener; },
+            showModal() { this.close(); },
+          };
+          return dialog;
+        },
+      },
+      async searchPlaces(query, { signal }) {
+        calls++;
+        return new Promise((resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('Timed out')), { once: true });
+          controller.abort();
+        });
+      },
+    });
+    const result = await locateItineraryOnSave(trip, 'day', { title: '地图上未收录的景点', category: '景点' });
+    assert.ok(deadline <= 1500);
+    assert.equal(calls, 1);
+    assert.match(dialog.innerHTML, /暂存名称/);
+    assert.match(dialog.innerHTML, /继续编辑/);
+    if (answer === 'yes') {
+      assert.equal(result.fields.locationMap.mode, 'pending');
+      assert.equal(result.fields.lat, null);
+    } else assert.equal(result, null);
+  }
+});
 
 function sampleItem(id, authorId) {
   return { id, authorId, title: 'Train', startDate: '2026-10-15', time: '09:00',

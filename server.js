@@ -855,7 +855,7 @@ async function handleApi(req, res, pathname, principal) {
     try {
       const body = await readJSON(req);
       if (!body.tripId || !canEdit(db, principal, body.tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
-      const results = await placeSearch.search(body.query);
+      const results = await placeSearch.search(body.query, body.near);
       return sendJSON(res, 200, { results, attribution: '© OpenStreetMap contributors' });
     } catch (error) {
       return sendJSON(res, error instanceof PlaceSearchError ? error.status : 400, { error: error instanceof PlaceSearchError ? error.message : '地点查询失败' });

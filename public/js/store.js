@@ -118,13 +118,13 @@ window.Store = (() => {
    *
    * 乐观并发控制：若版本冲突（对方已改），自动拉取最新并重放本次修改。
    */
-  async function mutate(fn) {
+  async function mutate(fn, tripId) {
     if (!state) await load();
-    if (!canEditTrip()) throw new Error('这趟旅行是只读的');
+    const id = tripId || currentTripId();
     for (let attempt = 0; attempt < 6; attempt++) {
+      if (!canEditTrip(id)) throw new Error('这趟旅行是只读的');
       const base = version;
       const next = deepClone(state);
-      const id = currentTripId();
       const trip = next.trips.find(t => t.id === id);
       if (!trip) throw new Error('当前旅行不存在，请刷新');
       fn(trip);
@@ -325,7 +325,7 @@ window.Store = (() => {
   }
 
   async function uploadImage(blob, scope, options) {
-    const target = scope === 'memo' ? '?scope=memo' : `?tripId=${encodeURIComponent(currentTripId() || '')}`;
+    const target = scope === 'memo' ? '?scope=memo' : `?tripId=${encodeURIComponent(options?.tripId || currentTripId() || '')}`;
     if (options) return sendImageRequest('/api/images' + target, blob, options);
     const res = await fetch('/api/images' + target, {
       method: 'POST',
@@ -392,7 +392,7 @@ window.Store = (() => {
     const res = await fetch('/api/places/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-      body: JSON.stringify({ query, tripId: currentTripId() }),
+      body: JSON.stringify({ query, tripId: options.tripId || currentTripId(), near: options.near }),
       signal: options.signal,
     });
     const data = await res.json().catch(() => ({}));
