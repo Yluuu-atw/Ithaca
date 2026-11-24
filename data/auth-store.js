@@ -15,6 +15,7 @@ function keysMatch(value, keys) {
 }
 
 function nonempty(value) { return typeof value === 'string' && value.length > 0; }
+const AVATAR_WEBP_LIMIT = 65536; // Maximum length of the stored base64 thumbnail.
 
 function validateAuth(value) {
   const userKeys = ['id', 'username', 'usernameKey', 'displayName', 'password', 'passkeys', 'createdAt'];
@@ -28,7 +29,10 @@ function validateAuth(value) {
   const names = new Set();
   const passkeys = new Set();
   for (const user of value.users) {
-    if (!keysMatch(user, userKeys) || !userKeys.filter(key => key !== 'password' && key !== 'passkeys').every(key => nonempty(user[key]))
+    const hasAvatar = !!user && Object.hasOwn(user, 'avatarWebp');
+    if (!keysMatch(user, hasAvatar ? [...userKeys, 'avatarWebp'] : userKeys)
+      || !userKeys.filter(key => key !== 'password' && key !== 'passkeys').every(key => nonempty(user[key]))
+      || (hasAvatar && (!nonempty(user.avatarWebp) || user.avatarWebp.length > AVATAR_WEBP_LIMIT || !/^[A-Za-z0-9+/]+={0,2}$/.test(user.avatarWebp)))
       || users.has(user.id) || names.has(user.usernameKey)
       || !keysMatch(user.password, passwordKeys) || user.password.scheme !== 'scrypt'
       || !nonempty(user.password.salt) || !nonempty(user.password.hash)
@@ -90,4 +94,4 @@ function createAuthStore(file) {
   return { get: () => structuredClone(state), mutate };
 }
 
-module.exports = { emptyAuth, readAuth, createAuthStore };
+module.exports = { emptyAuth, readAuth, createAuthStore, AVATAR_WEBP_LIMIT };

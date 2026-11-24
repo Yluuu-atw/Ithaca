@@ -243,6 +243,43 @@ test('daily expense matrix uses trip days and amount-only member columns', () =>
   assert.doesNotMatch(matrix, /2026-08-03|笔|exp-mx-toggle|exp-mx-detail/);
 });
 
+test('ledger member icons show the signed-in account photo on its own member only', () => {
+  const state = {
+    id: 'trip_1',
+    meta: { members: ['Alice', 'Bob'], avatars: ['😎', '🐱'], currency: 'CNY' },
+    expenses: [{ id: 'meal', date: '2026-10-01', payer: 'Alice', participants: ['Alice', 'Bob'], amount: 22 }],
+    itinerary: [],
+  };
+  const user = { id: 'account_alice', avatarUrl: 'data:image/webp;base64,UklGRg==' };
+  const context = {
+    window: { AuthUI: { user } },
+    Store: {
+      getState: () => state,
+      getIdentity: () => 0,
+      getRoster: () => [
+        { kind: 'formal', userId: 'account_alice', name: 'Alice' },
+        { kind: 'formal', userId: 'account_bob', name: 'Bob' },
+      ],
+      getMySettlement: () => null,
+      canEditRecord: () => true,
+      CONST: { currencySymbol: { CNY: '¥' }, expenseCategories: [] },
+    },
+    Theme: { DARK_BG: '#202020' },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  const render = context.window.Render;
+  for (const html of [render.renderPage(state, 'bookings'), render.expenseDetail(state, 'meal'), render.formExpense(state.meta.members)]) {
+    assert.match(html, /class="member-avatar-photo"/);
+    assert.match(html, /vendor\/fluent-emoji\/1f431\.png/);
+    assert.doesNotMatch(html, /vendor\/fluent-emoji\/1f60e\.png|data:image\/webp/);
+  }
+  assert.equal(Object.getOwnPropertySymbols(state.meta).length, 0);
+  user.id = 'not_a_member';
+  const otherAccount = render.renderPage(state, 'bookings');
+  assert.doesNotMatch(otherAccount, /member-avatar-photo/);
+  assert.match(otherAccount, /vendor\/fluent-emoji\/1f60e\.png/);
+});
+
 test('ledger shows only current identity transfer actions when a personal plan exists', () => {
   const context = {
     window: {},

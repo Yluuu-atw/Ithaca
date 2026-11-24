@@ -14,13 +14,14 @@ window.AuthUI = (() => {
   }
 
   async function request(path, method = 'GET', body) {
+    const binary = body instanceof Blob;
     const response = await fetch(path, {
       method,
       headers: {
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined || binary ? {} : { 'Content-Type': 'application/json' }),
         ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body === undefined ? {} : { body: binary ? body : JSON.stringify(body) }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `请求失败 (${response.status})`);
@@ -221,6 +222,13 @@ window.AuthUI = (() => {
     return currentUser;
   }
 
+  async function updateAvatar(photo) {
+    if (!currentUser) throw new Error('请先登录');
+    const result = await request('/api/auth/avatar', 'POST', photo);
+    currentUser = result.user;
+    return currentUser;
+  }
+
   async function logout() {
     if (currentUser) await request('/api/auth/logout', 'POST', {});
     await request('/api/temporary/leave', 'POST', {});
@@ -228,5 +236,5 @@ window.AuthUI = (() => {
     location.reload();
   }
 
-  return { start, request, registerPasskey, removePasskey, updateDisplayName, logout, get user() { return currentUser; }, get temporary() { return currentTemporary; } };
+  return { start, request, registerPasskey, removePasskey, updateDisplayName, updateAvatar, logout, get user() { return currentUser; }, get temporary() { return currentTemporary; } };
 })();

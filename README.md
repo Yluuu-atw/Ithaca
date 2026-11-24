@@ -48,9 +48,25 @@ npm start
 
 通行密钥在「账号」中添加。登录时先输入用户名；已有通行密钥的账号会直接请求设备验证，失败后可改用密码。密码输入后按回车即可登录。设备可提供 Apple 密码、Face ID、Touch ID、指纹或跨设备扫码；验证方式取决于浏览器和设备。公网使用时需配置 HTTPS 与准确的 `ITHACA_ORIGIN`，例如 `https://ithaca.example.com`。登录默认保持 30 天，可用 `ITHACA_SESSION_DAYS=1` 至 `90` 调整；会记住上次登录的用户名，不保存密码。
 
-在「记账」页顶部或账目表单中点击「让我看看」选择截图，页面会填写能识别的字段，保存前可以核对修改。识别、上传和保存的进度固定显示在弹窗底部；识别或上传期间可主动取消，未保存的内容会保留在表单中。识别只使用已有的票种和支出分类；付款人及分摊成员由用户选择。支出截图里的明确店名与地址会尝试匹配地点；存在歧义时由用户选择，找不到时留空。也可手动搜索地点、在地图上选点或使用设备 GPS；照片含 GPS 时仅作为建议。地点查询通过 [Photon](https://github.com/komoot/photon) 使用 OpenStreetMap 公共地点数据，服务端按查询与地区缓存并限速。图片随记录保存，显示时使用私有 WebP 预览，点击可查看、缩放和下载原图。服务端配置 `ARK_API_KEY` 后启用识别，可用 `ARK_MODEL_ID` 指定模型；未配置时入口改为「添加图片」，仍可保存截图并手动填写。
+在「记账」页顶部或账目表单中点击「让我看看」选择截图，页面会填写能识别的字段，保存前可以核对修改。识别、上传和保存的进度固定显示在弹窗底部；识别或上传期间可主动取消，未保存的内容会保留在表单中。识别只使用已有的票种和支出分类；付款人及分摊成员由用户选择。支出截图里的明确店名与地址会尝试匹配地点；存在歧义时由用户选择，找不到时留空。也可手动搜索地点、在地图上选点或使用设备 GPS；照片含 GPS 时仅作为建议。地点查询通过 [Photon](https://github.com/komoot/photon) 使用 OpenStreetMap 公共地点数据，服务端按查询与地区缓存并限速。图片随记录保存，显示时使用私有 WebP 预览，点击可查看、缩放和下载原图。识别服务的配置见下文。未配置识别服务时，入口为「添加图片」，可以保存截图并手动填写。
 
 > 换端口：`PORT=8080 ITHACA_ORIGIN=http://localhost:8080 npm start`
+
+### 配置 AI 服务
+
+把 `.env.example` 复制为项目根目录的 `.env`。填好服务地址、模型名和 API 密钥后，重启 Ithaca。Docker 部署可用 `--env-file .env` 在运行容器时加载配置。
+
+```dotenv
+ITHACA_AI_TEXT_BASE_URL=https://api.deepseek.com
+ITHACA_AI_TEXT_MODEL=deepseek-flash
+ITHACA_AI_TEXT_API_KEY=填入你在 DeepSeek 申请的密钥
+```
+
+文本服务用于【攻略 → 生成路线】里的「使用 AI 补充游览建议」。用户勾选后，本次目的地、站点名称和已有看点会发送给配置的模型。游览时间、排序和餐厅匹配继续由 Ithaca 处理。文本服务未配置或请求失败时，仍可生成基础路线。[DeepSeek API 文档](https://api-docs.deepseek.com/)
+
+截图识别使用独立的 `ITHACA_AI_VISION_BASE_URL`、`ITHACA_AI_VISION_MODEL`、`ITHACA_AI_VISION_API_KEY`。选用能接收 `image_url` 图片输入的模型，截图会发送给这个服务用于识别。省略这套配置时，Ithaca 会读取已有的 `ARK_API_KEY` 和 `ARK_MODEL_ID` 来接入火山方舟。
+
+其他兼容 OpenAI Chat Completions 的服务可填写各自的地址和模型名。本机 Ollama 可使用 `http://127.0.0.1:11434/v1`，模型名填写本机已下载的模型，密钥可留空。远程服务使用 HTTPS。密钥放在服务端，`.env` 已加入 Git 忽略列表。[Ollama 兼容接口](https://docs.ollama.com/api/openai-compatibility)
 
 ## 数据与呈现分离（架构）
 

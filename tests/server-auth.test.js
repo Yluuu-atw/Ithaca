@@ -85,6 +85,28 @@ test('registration creates a private trip and issues a CSRF-protected session', 
     const visitorCsrf = (await register.json()).csrf;
     const visitorData = await (await fetch(`${origin}/api/data`, { headers: { Cookie: visitorCookie } })).json();
     assert.equal(visitorData.trips.length, 0);
+    const avatarPath = `${origin}/api/auth/avatar`;
+    const portrait = await sharp({ create: { width: 360, height: 240, channels: 3, background: '#7c967c' } })
+      .withExif({ IFD0: { Artist: 'private original metadata' } }).jpeg().toBuffer();
+    const avatarHeaders = { Cookie: cookie, Origin: origin, 'Content-Type': 'image/jpeg' };
+    assert.equal((await fetch(avatarPath, { method: 'POST', headers: { Origin: origin }, body: portrait })).status, 401);
+    assert.equal((await fetch(avatarPath, { method: 'POST', headers: avatarHeaders, body: portrait })).status, 403);
+    avatarHeaders['X-CSRF-Token'] = csrf;
+    assert.equal((await fetch(avatarPath, { method: 'POST', headers: avatarHeaders, body: 'not an image' })).status, 400);
+    const avatarSave = await fetch(avatarPath, { method: 'POST', headers: avatarHeaders, body: portrait });
+    assert.equal(avatarSave.status, 200);
+    const { avatarUrl } = (await avatarSave.json()).user;
+    assert.match(avatarUrl, /^data:image\/webp;base64,/);
+    const thumbnail = await sharp(Buffer.from(avatarUrl.split(',')[1], 'base64')).metadata();
+    assert.equal(thumbnail.format, 'webp');
+    assert.equal(thumbnail.width, 192);
+    assert.equal(thumbnail.height, 192);
+    assert.equal(thumbnail.exif, undefined);
+    const me = `${origin}/api/auth/me`;
+    assert.equal((await (await fetch(me, { headers: { Cookie: cookie } })).json()).user.avatarUrl, avatarUrl);
+    assert.equal((await (await fetch(me, { headers: { Cookie: visitorCookie } })).json()).user.avatarUrl, undefined);
+    assert.doesNotMatch(JSON.stringify((await (await fetch(`${origin}/api/data`, { headers: { Cookie: cookie } })).json()).rosters), /avatarUrl|data:image/);
+    assert.ok(JSON.parse(fs.readFileSync(path.join(dir, 'auth.json'), 'utf8')).users[0].avatarWebp);
     assert.equal(JSON.parse(await (await fetch(`${origin}/api/export`, { headers: { Cookie: visitorCookie } })).text()).trips.length, 0);
     const injected = await fetch(`${origin}/api/data`, {
       method: 'PUT',

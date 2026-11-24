@@ -17,22 +17,22 @@ window.Render = (() => {
 
   const MODULES = {
     itinerary: { label: '行程', pages: [{ id: 'overview', label: '概览' }, { id: 'itinerary', label: '每日行程' }] },
-    guide: { label: '攻略', pages: [{ id: 'places', label: '收藏攻略' }, { id: 'wishlist', label: '心愿单' }, { id: 'map', label: '地图' }] },
+    guide: { label: '攻略', pages: [{ id: 'guide-plan', label: '生成路线' }, { id: 'places', label: '收藏攻略' }, { id: 'wishlist', label: '心愿单' }, { id: 'map', label: '地图' }] },
     ledger: { label: '记账', pages: [{ id: 'bookings', label: '记账' }] },
     mine: { label: '我的', pages: [{ id: 'mine', label: '我的' }] },
   };
 
   const PAGE_MODULE = {
     overview: 'itinerary', itinerary: 'itinerary',
-    places: 'guide', wishlist: 'guide', map: 'guide',
+    'guide-plan': 'guide', places: 'guide', wishlist: 'guide', map: 'guide',
     bookings: 'ledger',
-    mine: 'mine', checklist: 'mine', photos: 'mine', profile: 'mine', journal: 'mine', 'journal-editor': 'mine', archive: 'mine', settings: 'mine', footprints: 'mine',
+    mine: 'mine', checklist: 'mine', photos: 'mine', profile: 'mine', journal: 'mine', 'journal-editor': 'mine', archive: 'mine', 'archive-trip': 'mine', settings: 'mine', footprints: 'mine',
   };
 
   const PAGE_TITLES = {
-    overview: '行程', itinerary: '每日行程', places: '收藏攻略', wishlist: '心愿单', map: '地图',
+    overview: '行程', itinerary: '每日行程', 'guide-plan': '生成路线', places: '收藏攻略', wishlist: '心愿单', map: '地图',
     bookings: '记账', mine: '我的', checklist: '清单', photos: '照片', profile: '个人信息', journal: '旅行日志',
-    'journal-editor': '写旅行日志', archive: '旅行档案', settings: '设置', footprints: '我的足迹',
+    'journal-editor': '写旅行日志', archive: '旅行档案', 'archive-trip': '旅行登机牌', settings: '设置', footprints: '我的足迹',
   };
 
   // ---------------- 小工具 ----------------
@@ -120,6 +120,8 @@ window.Render = (() => {
   }
 
   // 越界兜底：成员数与头像数理论上已由 normalize 对齐，防御外部数据
+  const ledgerPhotoIndex = Symbol('ledgerPhotoIndex');
+
   function avatarOf(meta, i) {
     const av = (meta && meta.avatars) || [];
     return av[i] || '🙂';
@@ -127,7 +129,16 @@ window.Render = (() => {
 
   // <option> 与隐藏输入域里放不了图，那两处继续用 avatarOf 取字符
   function avatarImg(meta, i) {
+    if (i >= 0 && meta?.[ledgerPhotoIndex] === i) return '<span class="member-avatar-photo" aria-hidden="true"></span>';
     return emo(avatarOf(meta, i));
+  }
+
+  function ledgerAvatarMeta(trip) {
+    const user = window.AuthUI?.user;
+    if (!trip.id || !user?.id || !accountAvatarUrl(user)) return trip.meta;
+    const member = Store.getRoster(trip.id).find(person => person.kind === 'formal' && person.userId === user.id);
+    const index = (trip.meta.members || []).indexOf(member?.name);
+    return index < 0 ? trip.meta : { ...trip.meta, [ledgerPhotoIndex]: index };
   }
 
   function colorOf(meta, i) {
@@ -323,8 +334,13 @@ window.Render = (() => {
   function renderModuleNav(moduleId, active) {
     const module = MODULES[moduleId];
     if (!module || module.pages.length < 2) return '';
-    return `<nav class="module-subnav" aria-label="${esc(module.label)}模块">
-      ${module.pages.map(page => `<button type="button" class="module-subnav-item ${page.id === active ? 'active' : ''}" data-action="nav" data-tab="${page.id}">${esc(page.label)}</button>`).join('')}
+    const itinerary = moduleId === 'itinerary';
+    return `<nav class="module-subnav ${moduleId}-subnav" aria-label="${esc(module.label)}模块">
+      ${itinerary ? `<span class="itinerary-subnav-slider${active === 'itinerary' ? ' is-daily' : ''}" aria-hidden="true"></span>` : ''}
+      ${module.pages.map(page => {
+        const selected = page.id === active;
+        return `<button type="button" class="module-subnav-item${selected ? ' active' : ''}" data-action="nav" data-tab="${page.id}"${selected ? ' aria-current="page"' : ''}>${esc(page.label)}</button>`;
+      }).join('')}
     </nav>`;
   }
 
@@ -353,16 +369,18 @@ window.Render = (() => {
   function renderPage(state, tab, opts) {
     opts = opts || {};
     switch (tab) {
-      case 'itinerary': return renderItinerary(state, opts.itineraryMode);
+      case 'itinerary': return renderItinerary(state, opts.itineraryDate);
       case 'trips': return renderTrips(opts.showArchived);
+      case 'guide-plan': return renderGuidePlannerPage(state, opts.guidePlan, opts.guideStage);
       case 'places': return renderPlaces(state, opts.placeFilter) + renderGuides(state, opts.guideFilter);
-      case 'bookings': return renderExpenses(state, opts.ledgerFilter, opts.settlementDetailsOpen);
+      case 'bookings': return renderExpenses({ ...state, meta: ledgerAvatarMeta(state) }, opts.ledgerFilter, opts.settlementDetailsOpen);
       case 'map': return renderMap(state, opts.tileSource);
       case 'mine': return renderMine(state);
       case 'profile': return renderMyProfile(state);
       case 'journal': return renderJournal(state);
       case 'journal-editor': return renderJournalEditor(state, opts.journalMemo);
       case 'archive': return renderMyArchive(state);
+      case 'archive-trip': return renderMyArchiveTrip(state, opts.archiveTripId);
       case 'settings': return renderMySettings(state);
       case 'footprints': return renderMyFootprints(state, opts.footprintsSummary);
       case 'checklist': return renderChecklist(state, opts.packingPoolOpen);
@@ -401,6 +419,32 @@ window.Render = (() => {
     </nav>`;
   }
 
+  function accountAvatarUrl(user) {
+    const photo = user?.avatarUrl || '';
+    return /^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo) ? photo : '';
+  }
+
+  function accountAvatar(user, fallback) {
+    const photo = accountAvatarUrl(user);
+    return photo ? `<img class="mine-avatar-photo" src="${esc(photo)}" alt="">` : emo(fallback || '👤');
+  }
+
+  function accountAvatarPicker(user, fallback) {
+    return `<form data-form="account-avatar" class="account-avatar-picker">
+      <div class="account-avatar-pick-row">
+        <span class="mine-avatar" data-avatar-preview>${accountAvatar(user, fallback)}</span>
+        <div>
+          <label class="btn btn-ghost account-avatar-file">
+            选择照片<input type="file" name="photo" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" required>
+          </label>
+          <p class="field-hint">JPG、PNG、WebP · 最大 20 MB</p>
+        </div>
+      </div>
+      <p class="field-hint" data-avatar-status role="status"></p>
+      <div class="form-actions"><button type="submit" class="btn btn-primary" disabled>保存头像</button></div>
+    </form>`;
+  }
+
   function renderMine(s) {
     const person = myPerson();
     const user = AuthUI.user;
@@ -415,7 +459,7 @@ window.Render = (() => {
     </button>`;
     return `<section class="mine-page" aria-label="我的功能入口">
       <button type="button" class="mine-profile-entry" data-action="nav" data-tab="profile" aria-label="查看个人信息">
-        <span class="mine-avatar">${emo(person && person.avatar || '👤')}</span>
+        <span class="mine-avatar">${accountAvatar(user, person?.avatar)}</span>
         <span class="mine-profile-copy"><strong class="mine-name">${esc(name)}</strong><span class="mine-account">${esc(account)}</span></span>
         <span class="mine-chevron">${mineIcon('chevron')}</span>
       </button>
@@ -442,6 +486,10 @@ window.Render = (() => {
     return `${mineDetailNav(s)}<section class="mine-detail" aria-label="个人信息详情">
       <p class="mine-section-label">账号信息</p>
       <dl class="mine-info-list">
+        ${user ? `<div class="mine-info-row"><dt>账号头像</dt><dd class="account-avatar-value">
+          <span class="mine-avatar">${accountAvatar(user, person?.avatar)}</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-action="account-avatar-open">更换头像</button>
+        </dd></div>` : ''}
         ${fact('用户名', user ? user.username : '未登录正式账号')}
         ${fact('昵称', user ? user.displayName || user.username : person && (person.displayName || person.name) || '旅行访客')}
         ${fact('当前身份', user ? '正式账号' : person ? '临时成员' : '只读访客')}
@@ -450,7 +498,7 @@ window.Render = (() => {
       <p class="mine-section-label">本次旅行资料</p>
       <dl class="mine-info-list">
         ${fact('旅行', s.meta.tripName || '未命名旅行')}
-        ${person ? `<div class="mine-info-row"><dt>头像</dt><dd><span class="mine-avatar">${emo(person.avatar || '👤')}</span></dd></div>${fact('旅行昵称', person.displayName || person.name)}` : fact('成员资料', '当前以访客身份查看旅行')}
+        ${person ? `<div class="mine-info-row"><dt>成员头像</dt><dd><span class="mine-avatar">${emo(person.avatar || '👤')}</span></dd></div>${fact('旅行昵称', person.displayName || person.name)}` : fact('成员资料', '当前以访客身份查看旅行')}
       </dl>
       ${person ? '<div class="mine-detail-actions"><button type="button" class="btn btn-ghost" data-action="trip-profile-open">编辑旅行资料</button></div>' : ''}
     </section>`;
@@ -499,7 +547,7 @@ window.Render = (() => {
       <div class="mine-archive-group">${entries.map(({ trip, meta, start, end }) => {
         const cover = trip.photos && trip.photos[0] && trip.photos[0].url;
         const statuses = [trip.id === s.id ? '当前' : '', meta.archived ? '已归档' : ''].filter(Boolean);
-        return `<button type="button" class="mine-archive-row" data-action="trip-open" data-id="${esc(trip.id)}">
+        return `<button type="button" class="mine-archive-row" data-action="archive-trip-open" data-id="${esc(trip.id)}">
           <span class="mine-archive-cover">${cover ? `<img ${photoSourceAttrs(cover)} alt="" loading="lazy" referrerpolicy="no-referrer">` : mineIcon('archive')}</span>
           <span class="mine-archive-main">
             <span class="mine-archive-title">${esc(meta.tripName || '未命名旅行')}${statuses.map(status => `<span class="mine-archive-status">${status}</span>`).join('')}</span>
@@ -510,8 +558,22 @@ window.Render = (() => {
         </button>`;
       }).join('')}</div>`).join('');
     return `${mineDetailNav(s)}<section class="mine-detail" aria-label="旅行档案详情">
-      <p class="mine-archive-summary">共 ${trips.length} 趟旅行 · 点开回看行程、照片和花费</p>
+      <p class="mine-archive-summary">共 ${trips.length} 趟旅行 · 点开查看登机牌</p>
       ${sections || '<div class="mine-empty"><h2>还没有旅行档案</h2><p>创建或加入旅行后，会在这里按年份整理。</p></div>'}
+    </section>`;
+  }
+
+  function renderMyArchiveTrip(s, id) {
+    const trip = Store.listTrips().find(entry => entry.id === id);
+    const back = mineDetailNav(trip || s, 'archive', '返回旅行档案');
+    if (!trip) return `${back}<div class="mine-detail mine-empty"><h2>这趟旅行暂时无法查看</h2></div>`;
+    const roster = Store.getRoster(trip.id);
+    return `${back}<section class="mine-detail" data-boarding-pass aria-labelledby="overviewTripName">
+      ${renderBoardingPass(trip, name => roster.find(person => person.name === name)?.displayName || name)}
+      <div class="mine-detail-actions">
+        <button type="button" class="btn btn-ghost" data-action="boarding-pass-save">保存登机牌</button>
+        <button type="button" class="btn btn-ghost" data-action="trip-open" data-id="${esc(trip.id)}">打开旅行</button>
+      </div>
     </section>`;
   }
 
@@ -881,55 +943,90 @@ window.Render = (() => {
     </section>`;
   }
 
+  function itineraryGroups(s) {
+    const groups = new Map();
+    for (const day of s.itinerary || []) {
+      if (!day) continue;
+      const key = archiveDate(day.date) || 'undated';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(day);
+    }
+    return groups;
+  }
+
   // 首页概览只展示系统当前日期的安排，日期取浏览器本地时间。
-  function renderTodayItinerary(s) {
-    const date = today();
-    const days = (s.itinerary || []).filter(item => item && item.date === date);
-    const day = days[0];
-    const items = days.flatMap(item => orderDayItems(item));
-    const next = (s.itinerary || [])
-      .filter(item => item && item.date && item.date > date)
-      .sort((a, b) => a.date.localeCompare(b.date))[0];
+  function renderTodayItinerary(s, date) {
+    const groups = itineraryGroups(s);
+    const items = (groups.get(date) || []).flatMap(day => day.items || [])
+      .sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
     if (!items.length) {
+      const next = [...groups.keys()].filter(key => key !== 'undated' && key > date).sort()[0];
       return `<div class="today-empty">
-        <strong>${day ? '今天还没有安排' : '今天没有行程'}</strong>
-        <span>${next ? `下一安排：${esc(fmtDate(next.date))} ${esc(weekday(next.date))}` : '去「行程」板块添加今天的安排'}</span>
+        <strong>今天还没有安排</strong>
+        ${next ? `<span>下一安排 · ${esc(fmtDate(next))} ${esc(weekday(next))}</span>` : ''}
       </div>`;
     }
     return `<ol class="today-list">${items.map(item => `
       <li class="today-item">
-        <time>${esc(item.time || '待定')}</time>
-        <div class="today-item-main">
-          <strong>${esc(item.location || item.title || '未命名安排')}</strong>
-          ${item.location && item.title && item.title !== item.location ? `<span>${esc(item.title)}</span>` : ''}
-        </div>
+        ${item.time ? `<time class="today-item-time">${esc(item.time)}</time>` : '<span class="today-item-time is-untimed">待定</span>'}
+        <span class="today-item-marker" aria-hidden="true"></span>
+        <strong class="today-item-place">${esc(item.location || item.title || '未命名安排')}</strong>
       </li>`).join('')}</ol>`;
+  }
+
+  function renderBoardingPass(s, memberName = name => dispName(s.meta.members || [], name)) {
+    const m = s.meta || {};
+    const dates = tripDates({ itinerary: (s.itinerary || []).filter(day => archiveDate(day?.date)) });
+    const start = archiveDate(m.startDate) || dates.start;
+    const end = archiveDate(m.endDate) || dates.end;
+    const dateText = !end || start.slice(0, 4) === end.slice(0, 4) ? shortDate : value => value;
+    const cycle = start
+      ? `${dateText(start)}${end && end !== start ? ` – ${dateText(end)}` : ''}`
+      : '尚未安排';
+    const destination = m.destination || tripStops(s)[0] || '尚未填写';
+    const members = (m.members || []).map(memberName).map(esc).join('、') || '尚未添加';
+    const tripNumber = String(s.id || '').replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase();
+    return `<div class="overview-ticket">
+        <div class="overview-ticket-main">
+          <h2 id="overviewTripName">${esc(m.tripName || '未命名旅行')}</h2>
+          <span class="overview-ticket-postmark" aria-hidden="true">
+            <span class="overview-ticket-seal"><span class="overview-ticket-plane"></span>ITHACA</span>
+          </span>
+          <dl class="overview-ticket-destination"><dt>目的地</dt><dd>${esc(destination)}</dd></dl>
+        </div>
+        <dl class="overview-ticket-stub">
+          <div><dt>旅行周期</dt><dd>${esc(cycle)}</dd></div>
+          <div><dt>旅行成员</dt><dd>${members}</dd></div>
+          <div class="overview-ticket-number"><dt>旅行编号</dt><dd>${tripNumber || '—'}</dd></div>
+        </dl>
+      </div>`;
+  }
+
+  function renderActionMenu(label, actions) {
+    return `<details class="action-menu">
+      <summary class="action-menu-trigger" aria-label="${esc(label)}"><span aria-hidden="true">···</span></summary>
+      <div class="action-menu-items">${actions}</div>
+    </details>`;
   }
 
   function renderOverviewContext(s, editMeta) {
     const m = s.meta;
-    const dates = tripDates(s);
-    const cycle = dates.start
-      ? `${fmtDate(dates.start)}${dates.end && dates.end !== dates.start ? ` – ${fmtDate(dates.end)}` : ''}`
-      : '尚未安排';
-    const members = (m.members || []).map(name => esc(dispName(m.members || [], name))).join('、') || '尚未添加';
-    const facts = `<div class="overview-context-facts">
-      <div><span>目的地</span><strong>${esc(m.destination || tripStops(s)[0] || '尚未填写')}</strong></div>
-      <div><span>旅行周期</span><strong>${esc(cycle)}</strong></div>
-      <div><span>旅行成员</span><strong>${members}</strong></div>
-    </div>`;
-    const form = `<form class="grid-form overview-context-form" data-form="meta">
-      <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
-      <label>目的地<input name="destination" value="${esc(m.destination || '')}" placeholder="如：京都·大阪 或 Paris" autocomplete="off"></label>
-      <label class="full">途径地点<span class="field-hint">城市或站点级概括，留空则自动取自行程条目的地点</span>${stopsEditor(m.stops)}</label>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button><button type="button" class="btn btn-ghost" data-action="meta-cancel">取消</button></div>
-    </form>`;
-    return `<aside class="overview-context">
-      <div class="overview-context-head"><span>本次旅行</span>${editMeta
-        ? ''
-        : '<button class="btn btn-ghost btn-sm" data-action="meta-edit">✎ 编辑</button>'}</div>
-      ${editMeta ? form : facts}
-    </aside>`;
+    return `<section class="overview-context" aria-labelledby="overviewTripName">
+      <header class="overview-context-head">
+        <p class="overview-context-label">本次旅行</p>
+        ${AuthUI.user ? renderActionMenu('本次旅行更多操作', `
+            ${editMeta ? '' : '<button type="button" class="itinerary-action" data-action="meta-edit">编辑</button>'}
+            <button type="button" class="itinerary-action" data-action="theme-open" title="更换页面背景色">背景</button>
+            ${Store.canManageTrip() ? '<button type="button" class="itinerary-action" data-action="share-open">分享</button>' : ''}`) : ''}
+      </header>
+      ${renderBoardingPass(s)}
+      ${editMeta ? `<form class="grid-form overview-context-form" data-form="meta">
+        <label>旅行名称<input name="tripName" value="${esc(m.tripName)}"></label>
+        <label>目的地<input name="destination" value="${esc(m.destination || '')}" placeholder="如：京都·大阪 或 Paris" autocomplete="off"></label>
+        <label class="full">途径地点<span class="field-hint">城市或站点级概括，留空则自动取自行程条目的地点</span>${stopsEditor(m.stops)}</label>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">保存</button><button type="button" class="btn btn-ghost" data-action="meta-cancel">取消</button></div>
+      </form>` : ''}
+    </section>`;
   }
 
   function renderOverviewExpenses(s, exp) {
@@ -966,7 +1063,7 @@ window.Render = (() => {
       transferContent = `<div class="overview-net"><strong>成员结算</strong><span>登录后会显示“我需转给谁 / 谁需转给我”。</span></div><div class="overview-member-balances">${rows || '<p class="empty small">还没有成员</p>'}</div>`;
     }
     return `<section class="overview-block overview-block-expenses">
-      <div class="overview-block-title"><h2>${emo('💸')} 花费</h2><span class="overview-head-actions"><label class="currency-pick">币种<select data-action="currency-change">${currencyOpts}</select></label><button class="btn btn-ghost btn-sm" data-action="nav" data-tab="bookings">查看记账</button></span></div>
+      <div class="overview-block-title"><h2>花费</h2><span class="overview-head-actions"><select class="overview-currency" aria-label="币种" data-action="currency-change">${currencyOpts}</select><button type="button" class="itinerary-action" data-action="nav" data-tab="bookings">查看记账 <span aria-hidden="true">›</span></button></span></div>
       <div class="card overview-expenses">
         <div class="overview-total"><strong>${money(exp.total, currency)}</strong><span>总花费 · 已记录 ${count} 笔</span></div>
         <div class="overview-expense-layout">
@@ -978,25 +1075,20 @@ window.Render = (() => {
   }
 
   function renderOverview(s, editMeta) {
-    const m = s.meta;
+    const date = today();
     const exp = summarizeExpenses(s);
 
     return `
       ${renderModuleNav('itinerary', 'overview')}
-      <div class="overview-top">
-        <div class="overview-title-wrap"><h1 class="trip-title"><span class="tape" aria-hidden="true"></span>${esc(m.tripName || '未命名旅行')}<img class="emo" src="vendor/fluent-emoji/2b50.png" alt=""></h1>
-      ${AuthUI.user ? `<div class="overview-tools">
-        <button class="btn btn-ghost btn-sm" data-action="theme-open" title="更换页面背景色"><span class="theme-dot"></span> 背景</button>
-        ${Store.canManageTrip() ? '<button class="btn btn-ghost btn-sm" data-action="share-open"><img class="emo" src="vendor/fluent-emoji/1f517.png" alt=""> 分享</button>' : ''}
-      </div>` : ''}</div>
-        ${renderOverviewContext(s, editMeta)}
-      </div>
+      ${renderOverviewContext(s, editMeta)}
       <div class="dash-grid">
-        <section class="overview-block overview-block-today">
-          <div class="overview-block-title"><h2>${emo('🧳')} 今日行程</h2><span class="overview-head-actions"><button class="btn btn-ghost btn-sm" data-action="nav" data-tab="itinerary">全部行程</button></span></div>
+        <section class="overview-block overview-block-today" aria-labelledby="overviewTodayTitle">
+          <div class="overview-block-title">
+            <div class="overview-today-heading"><h2 id="overviewTodayTitle">今日行程</h2><time class="today-date" datetime="${esc(date)}">${esc(fmtDate(date))} · ${esc(weekday(date))}</time></div>
+            <span class="overview-head-actions"><button type="button" class="itinerary-action" data-action="nav" data-tab="itinerary">全部行程 <span aria-hidden="true">›</span></button></span>
+          </div>
           <div class="card overview-today">
-          <div class="today-date"><strong>${esc(fmtDate(today()))}</strong><span>${esc(weekday(today()))}</span></div>
-          ${renderTodayItinerary(s)}
+            ${renderTodayItinerary(s, date)}
           </div>
         </section>
         ${renderOverviewExpenses(s, exp)}
@@ -1004,61 +1096,56 @@ window.Render = (() => {
   }
 
   // ---------------- 行程 ----------------
-  function renderItinerary(s, mode) {
-    const isDetail = mode === 'detail';
+  function renderItinerary(s, selectedDate) {
     const subnav = renderModuleNav('itinerary', 'itinerary');
-    const days = [...s.itinerary].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const estTotal = s.itinerary.reduce((a, d) => a + (d.items || []).reduce((x, i) => x + (Number(i.amount) || 0), 0), 0);
-    const head = `<div class="list-head">
-      <span>共 ${days.length} 天 · 预估 ${money(estTotal, s.meta.currency)}</span>
-      <div class="head-actions">
-        <button class="btn btn-ghost btn-sm" data-action="itinerary-toggle-mode">${isDetail ? '简洁模式' : '详细模式'}</button>
-        <button class="btn btn-primary" data-action="itinerary-add-day">＋ 新建一天</button>
-      </div>
-    </div>`;
-
-    if (!days.length) {
-      return subnav + `<div class="card">${head}<div class="empty">
-        <p>还没有行程安排</p><p class="empty-hint">先新建一天，再把想去的地方排进去 ${emo('✨')}</p>
-      </div></div>`;
+    const groups = itineraryGroups(s);
+    const addDay = '<button type="button" class="itinerary-action" data-action="itinerary-add-day">＋ 新建一天</button>';
+    if (!groups.size) {
+      return subnav + `<section class="itinerary-day-panel"><div class="itinerary-day-head"><h2>每日行程</h2>${addDay}</div><p class="itinerary-day-empty">还没有行程安排</p></section>`;
     }
-    if (isDetail) {
-      return subnav + head + `<div class="timeline">${days.map((d, i) => renderDay(s, d, i)).join('')}</div>`;
-    }
-    return subnav + head + `<div class="timeline">${days.map((d, i) => renderDaySimple(s, d, i)).join('')}</div>`;
-  }
 
-  function renderDaySimple(s, d, idx) {
-    const items = orderDayItems(d);
-    const dayTotal = items.reduce((x, i) => x + (Number(i.amount) || 0), 0);
-    const date = d.date || '';
-    const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
-      ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
-    const stops = items.map(i => i.location).filter(Boolean);
-    const firstStop = stops[0], lastStop = stops[stops.length - 1];
-    const stopTxt = firstStop
-      ? (firstStop === lastStop ? firstStop : `${firstStop} → ${lastStop}`)
-      : '';
-    const firstTitles = items.slice(0, 3).map(i => esc(i.title)).join(' · ');
-    return `<div class="tl-day">
-      <div class="tl-marker"><span class="tl-dot">${dayNo}</span></div>
-      <div class="tl-body">
-        <button class="tl-summary" data-action="day-detail" data-day="${esc(d.id)}">
-          <div class="tl-head">
-            <span class="tl-dayno">DAY ${dayNo}</span>
-            <span class="tl-date">${esc(shortDate(date))}</span>
-            <span class="tl-weekday">${esc(weekday(date))}</span>
-            <div class="tl-meta">
-              ${items.length ? `${items.length} 项` : ''}
-              ${dayTotal ? ` · ${money(dayTotal, s.meta.currency)}` : ''}
-              <span class="chevron">›</span>
-            </div>
-          </div>
-          ${stopTxt ? `<div class="tl-stops">${emo('📍')} ${esc(stopTxt)}</div>` : ''}
-          <div class="tl-titles">${items.length ? firstTitles + (items.length > 3 ? ' …' : '') : '暂无安排'}</div>
-        </button>
+    const date = today();
+    const dates = [...groups.keys()].filter(key => key !== 'undated').sort();
+    if (dates.length && date >= dates[0] && date <= dates[dates.length - 1] && !groups.has(date)) {
+      groups.set(date, []);
+      dates.push(date);
+      dates.sort();
+    }
+    if (groups.has('undated')) dates.push('undated');
+    const active = groups.has(selectedDate) ? selectedDate
+      : groups.has(date) ? date
+      : dates.find(key => key !== 'undated' && key > date) || dates.filter(key => key !== 'undated').at(-1) || 'undated';
+    const days = groups.get(active);
+    const total = days.reduce((sum, day) => sum + (day.items || []).length, 0);
+    const arranged = days.flatMap(orderDayItems);
+    const report = arranged.some(item => item.guideRoute) ? renderGuideDayReport(GuidePlanner.savedDaySummary(arranged)) : '';
+    const dated = active !== 'undated';
+    const addItem = day => `<button type="button" class="btn btn-primary btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 添加安排</button>`;
+    const createDay = `<button type="button" class="btn btn-primary btn-sm" data-action="itinerary-add-day" data-date="${esc(active)}">新增当天行程</button>`;
+    return `${subnav}
+      <div class="itinerary-date-controls">
+        <div class="itinerary-date-rail" id="itineraryDates" role="group" aria-label="选择行程日期">
+          ${dates.map(key => `<button type="button" class="itinerary-date-button${key === active ? ' is-active' : ''}"
+            data-action="itinerary-select-date" data-date="${esc(key)}" aria-pressed="${key === active}">
+            <span>${key === 'undated' ? '未定日期' : esc(shortDate(key))}</span>
+            <small>${key === date ? '今天' : key === 'undated' ? '' : esc(weekday(key))}</small>
+          </button>`).join('')}
+        </div>
+        ${addDay}
       </div>
-    </div>`;
+      <section class="itinerary-day-panel" aria-label="选中日期的行程">
+        <header class="itinerary-day-head">
+          <div><h2>${dated ? esc(fmtDate(active)) : '未定日期'}</h2><p>${dated ? esc(weekday(active)) + ' · ' : ''}${total} 项安排</p></div>
+          ${days.length ? addItem(days[0]) : createDay}
+        </header>
+        ${report}
+        ${days.map((day, index) => `<div class="itinerary-day-record">
+          ${index ? `<div class="itinerary-extra-day">${addItem(day)}</div>` : ''}
+          ${renderDayItems(s, day)}
+          <button type="button" class="itinerary-action itinerary-day-delete" data-action="itinerary-del-day" data-day="${esc(day.id)}">删除这一天</button>
+        </div>`).join('')}
+        ${days.length ? '' : '<p class="itinerary-day-empty">这天还没有安排</p>'}
+      </section>`;
   }
 
   // 弹窗里的条目：点向下箭头直接展开详细信息
@@ -1079,6 +1166,8 @@ window.Render = (() => {
     const sd = i.startDate || dayDate;
     const ed = i.endDate || i.startDate || dayDate;
     const crossDay = !!(sd && ed && sd !== ed);
+    const children = Array.isArray(i.guideRoute?.children) ? i.guideRoute.children.filter(child => child?.name) : [];
+    const travelSteps = renderGuideTravelSteps(i.guideRoute?.steps);
     const row = (label, val) => val ? `<div class="dt-row"><span class="dt-k">${label}</span><span class="dt-v">${val}</span></div>` : '';
     const startTxt = `${fmtMD(sd)} ${i.time || ''}`.trim() || '—';
     const endTxt = i.endTime ? `${fmtMD(ed)} ${i.endTime}`.trim() : '';
@@ -1092,16 +1181,21 @@ window.Render = (() => {
     ].filter(Boolean).join('');
     return `<li class="dt-item" data-item="${esc(i.id)}">
       <button type="button" class="dt-grip" aria-label="拖动排序">⠿</button>
-      <div class="dt-time">${esc(i.time || '—')}${i.endTime ? `<small>–${crossDay ? esc(shortDate(ed)) + ' ' : ''}${esc(i.endTime)}</small>` : ''}</div>
-      <button type="button" class="dt-main" data-action="dt-item-toggle">
-        <span class="dt-title">${esc(i.title || '（未命名）')}</span>
+      <div class="dt-time">${esc(i.time || '待定')}${i.endTime ? `<small>–${crossDay ? esc(shortDate(ed)) + ' ' : ''}${esc(i.endTime)}</small>` : ''}</div>
+      <button type="button" class="dt-main" data-action="dt-item-toggle" aria-expanded="false">
+        <span class="dt-copy"><span class="dt-title">${esc(i.title || '（未命名）')}</span>${i.location && i.location !== i.title ? `<small>${esc(i.location)}</small>` : ''}</span>
         <span class="badge" data-cat="${esc(cat)}">${esc(cat)}</span>
         <span class="dt-arrow">▾</span>
       </button>
-      <button class="icon-btn danger dt-del" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
       <div class="dt-detail" hidden>
-        <button class="icon-btn dt-edit" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
         <div class="dt-rows">${rows}</div>
+        ${children.length ? `<div class="itinerary-guide-children">
+          <strong>小景点</strong><ol>${children.map(child => `<li><strong>${esc(child.name)}</strong>${child.note ? `<small>${esc(child.note)}</small>` : ''}</li>`).join('')}</ol>
+        </div>` : ''}
+        ${travelSteps ? `<div class="itinerary-guide-children"><strong>交通路线</strong>${travelSteps}</div>` : ''}
+        ${renderActionMenu('行程安排更多操作', `
+          <button type="button" class="itinerary-action" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">编辑</button>
+          <button type="button" class="itinerary-action danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}">删除</button>`)}
       </div>
     </li>`;
   }
@@ -1126,16 +1220,20 @@ window.Render = (() => {
   function dayDetail(s, dayId) {
     const day = s.itinerary.find(d => d.id === dayId);
     if (!day) return '<p class="empty small">找不到这一天</p>';
-    const items = orderDayItems(day);
     return `<div class="detail">
       <div class="detail-head">
         <h3>${fmtDate(day.date)} ${weekday(day.date)}</h3>
         <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(day.id)}">＋ 安排</button>
       </div>
-      ${items.length
-        ? `<ul class="dt-list" data-day="${esc(day.id)}">${items.map(i => dayDetailItem(s, day.id, i)).join('')}</ul>`
-        : '<p class="empty small">这天还没有安排</p>'}
+      ${renderDayItems(s, day)}
     </div>`;
+  }
+
+  function renderDayItems(s, day) {
+    const items = orderDayItems(day);
+    return items.length
+      ? `<ul class="dt-list" data-day="${esc(day.id)}">${items.map(item => dayDetailItem(s, day.id, item)).join('')}</ul>`
+      : '<p class="itinerary-day-empty">这天还没有安排</p>';
   }
 
   // 简化日期：2026-09-29 → 9/29，时间轴大标题用
@@ -1143,75 +1241,6 @@ window.Render = (() => {
     if (!d) return '';
     const p = d.split('-').map(Number);
     return p.length < 3 ? d : `${p[1]}/${p[2]}`;
-  }
-
-  function renderDay(s, d, idx) {
-    const items = orderDayItems(d);
-    const dayTotal = items.reduce((x, i) => x + (Number(i.amount) || 0), 0);
-    const date = d.date || '';
-    const dayNo = (s.meta.startDate && date && diffDays(s.meta.startDate, date) >= 0)
-      ? diffDays(s.meta.startDate, date) + 1 : idx + 1;
-    const stops = items.map(i => i.location).filter(Boolean);
-    const firstStop = stops[0], lastStop = stops[stops.length - 1];
-    const stopTxt = firstStop
-      ? (firstStop === lastStop ? firstStop : `${firstStop} → ${lastStop}`)
-      : '';
-
-    return `<div class="tl-day">
-      <div class="tl-marker"><span class="tl-dot">${dayNo}</span></div>
-      <div class="tl-body">
-        <div class="tl-head">
-          <span class="tl-dayno">DAY ${dayNo}</span>
-          <span class="tl-date">${esc(shortDate(date))}</span>
-          <span class="tl-weekday">${esc(weekday(date))}</span>
-          <div class="tl-meta">
-            ${items.length ? `${items.length} 项` : ''}
-            ${dayTotal ? ` · ${money(dayTotal, s.meta.currency)}` : ''}
-          </div>
-          <div class="tl-actions">
-            <button class="btn btn-ghost btn-sm" data-action="itinerary-add-item" data-day="${esc(d.id)}">＋ 安排</button>
-            <button class="icon-btn danger" data-action="itinerary-del-day" data-day="${esc(d.id)}" title="删除这一天">✕</button>
-          </div>
-        </div>
-        ${stopTxt ? `<div class="tl-stops">${emo('📍')} ${esc(stopTxt)}${stops.length > 2 ? ` 等 ${stops.length} 地` : ''}</div>` : ''}
-        ${items.length
-          ? `<ul class="tl-items">${items.map(i => renderItiItem(s, d.id, i)).join('')}</ul>`
-          : '<p class="tl-empty">这天还没有安排</p>'}
-      </div>
-    </div>`;
-  }
-
-  function renderItiItem(s, dayId, i) {
-    const t = i.time || '';
-    const cat = i.category || '其他';
-    const spec = ITEM_FIELD_SPEC[cat] || ITEM_FIELD_SPEC['其他'];
-    const cur = s.meta.currency;
-    const row = (label, val) => val ? `<div class="dt-row"><span class="dt-k">${label}</span><span class="dt-v">${val}</span></div>` : '';
-    const rows = [
-      i.location && row(spec.location || '地点', esc(i.location)),
-      i.refNo && row(spec.refNo || '编号', esc(i.refNo)),
-      i.amount ? row(spec.cost, `${money(i.amount, cur)}${i.payer ? ` · ${esc(i.payer)} 付` : ''}`) : '',
-      i.note && row('备注', esc(i.note)),
-    ].filter(Boolean).join('');
-    return `<li class="tl-item ${i.amount ? 'has-value' : ''}">
-      <div class="tl-time">${esc(t || '—')}${i.endTime ? `<small>${esc(i.endTime)}</small>` : ''}</div>
-      <div class="tl-card">
-        <button type="button" class="tl-main tl-toggle" data-action="iti-item-toggle">
-          <span class="tl-title">${esc(i.title || '（未命名）')}</span>
-          <span class="tl-more">▾</span>
-        </button>
-        <div class="tl-detail" hidden>
-          <div class="dt-rows">${rows || '<div class="dt-row"><span class="dt-v">还没填详细信息</span></div>'}</div>
-          <div class="tl-ops">
-            <button class="icon-btn" data-action="itinerary-edit-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="编辑">✎</button>
-            <button class="icon-btn danger" data-action="itinerary-del-item" data-day="${esc(dayId)}" data-item="${esc(i.id)}" title="删除">✕</button>
-          </div>
-        </div>
-        <div class="tl-side">
-          <span class="badge" data-cat="${esc(cat)}">${esc(cat)}</span>
-        </div>
-      </div>
-    </li>`;
   }
 
   // ---------------- 记账 ----------------
@@ -1431,7 +1460,8 @@ window.Render = (() => {
   function expenseDetail(s, id) {
     const expense = (s.expenses || []).find(entry => entry.id === id);
     if (!expense) return '<p class="empty small">找不到这笔记账</p>';
-    const members = (s.meta && s.meta.members) || [];
+    const meta = ledgerAvatarMeta(s);
+    const members = (meta && meta.members) || [];
     const participants = expenseParticipants(expense, members);
     const linkedItem = expense.itemId && (s.itinerary || []).flatMap(day => day.items || [])
       .find(item => item.id === expense.itemId);
@@ -1464,8 +1494,8 @@ window.Render = (() => {
     ].filter(Boolean).map(([label, value]) => `<div class="expense-detail-fact"><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join('') : '';
     const facts = [
       when ? `<div class="expense-detail-fact"><dt>时间</dt><dd>${esc(when)}</dd></div>` : '',
-      expense.payer ? `<div class="expense-detail-fact"><dt>付款人</dt><dd>${memberChip(s.meta, expense.payer)}</dd></div>` : '',
-      participants.length ? `<div class="expense-detail-fact expense-detail-fact-wide"><dt>参与分摊</dt><dd class="expense-detail-people">${participants.map(name => memberChip(s.meta, name)).join('')}</dd></div>` : '',
+      expense.payer ? `<div class="expense-detail-fact"><dt>付款人</dt><dd>${memberChip(meta, expense.payer)}</dd></div>` : '',
+      participants.length ? `<div class="expense-detail-fact expense-detail-fact-wide"><dt>参与分摊</dt><dd class="expense-detail-people">${participants.map(name => memberChip(meta, name)).join('')}</dd></div>` : '',
       expense.refNo && !(receipt && receipt.refNo) ? `<div class="expense-detail-fact"><dt>车次 / 航班号</dt><dd>${esc(expense.refNo)}</dd></div>` : '',
     ].filter(Boolean).join('');
     return `<article class="expense-detail">
@@ -1631,9 +1661,9 @@ window.Render = (() => {
   }
 
   // ---------------- 表单（弹窗用） ----------------
-  function formDay() {
+  function formDay(date) {
     return `<form data-form="day">
-      <label>日期<input type="date" name="date" required value="${today()}"></label>
+      <label>日期<input type="date" name="date" required value="${archiveDate(date) || today()}"></label>
       <div class="form-actions"><button class="btn btn-primary" type="submit">创建这一天</button></div>
     </form>`;
   }
@@ -1713,6 +1743,7 @@ window.Render = (() => {
 
   function formExpense(members, item, options = {}) {
     const cats = Store.CONST.expenseCategories;
+    const meta = ledgerAvatarMeta(Store.getState());
     const v = item || {};
     const curCat = item ? (v.category || '其他') : '';
     const receipt = v.receipt && typeof v.receipt === 'object' ? v.receipt : {};
@@ -1743,11 +1774,11 @@ window.Render = (() => {
       <label>名称<input name="title" required placeholder="如：晚饭 · 烤肉" value="${esc(v.title || '')}"></label>
       <div class="form-row">
         <label>花费<input type="number" name="amount" min="0" step="0.01" required placeholder="0" inputmode="decimal" value="${esc(v.amount == null ? (options.receipt ? 0 : '') : v.amount)}"></label>
-        <label>谁付的${memberPicker(members, item ? v.payer : undefined, Store.getState().meta, 'payer')}</label>
+        <label>谁付的${memberPicker(members, item ? v.payer : undefined, meta, 'payer')}</label>
       </div>
       <label>分类<select name="category" id="expCat">${cats.map(c => `<option ${(item && c === curCat) || (!item && options.receipt && c === '其他') ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <div id="expFields">${item ? expFieldsHtml(curCat, v) : ''}</div>
-      <label>涉及谁<span class="field-hint">在这几个人之间平摊</span>${memberMultiPicker(members, item ? v.participants : undefined, Store.getState().meta, 'participants')}</label>
+      <label>涉及谁<span class="field-hint">在这几个人之间平摊</span>${memberMultiPicker(members, item ? v.participants : undefined, meta, 'participants')}</label>
       <section class="expense-receipt">
         <label class="expense-receipt-toggle"><input type="checkbox" name="receiptEnabled" value="1" ${hasReceipt ? 'checked' : ''}><span>票据信息</span></label>
         <div class="expense-receipt-fields">
@@ -2095,7 +2126,10 @@ window.Render = (() => {
 
     const head = `<div class="list-head">
       <span>共 ${guides.length} 篇收藏</span>
-      <button class="btn btn-primary" data-action="guide-add">＋ 收藏笔记</button>
+      <div class="head-actions">
+        <button type="button" class="btn btn-ghost" data-action="guide-import-open">导入攻略</button>
+        <button class="btn btn-primary" data-action="guide-add">＋ 收藏笔记</button>
+      </div>
     </div>`;
 
     const chips = ['全部', ...Store.CONST.guideTags].map(t =>
@@ -2168,6 +2202,236 @@ window.Render = (() => {
       <input type="hidden" name="tags" value="${esc(picked.join(','))}">
       <label>备注<textarea name="note" rows="2" placeholder="哪几点值得去、要提前订什么">${esc(v.note || '')}</textarea></label>
       <div class="form-actions"><button class="btn btn-primary" type="submit">${item ? '保存' : '收藏'}</button></div>
+    </form>`;
+  }
+
+  function renderGuidePlannerPage(trip, plan, stage = 'input') {
+    const inner = stage === 'draft' ? formGuideDraft(plan)
+      : `<header class="guide-book-title">
+          <h2 id="guideBookTitle" tabindex="-1">路线手册</h2>
+          <p>填上想去的地方和想吃的美食，按天安排路线。</p>
+        </header>
+        ${stage === 'readonly' ? '<p>你没有这趟旅行的编辑权限。</p>' : formGuidePlanner(trip, plan?.inputs)}`;
+    return renderModuleNav('guide', 'guide-plan') + `<article class="guide-book" id="guidePlannerPage"
+      data-trip-id="${esc(trip.id)}" data-stage="${stage}" aria-labelledby="guideBookTitle">${inner}</article>`;
+  }
+
+  function formGuidePlanner(trip, inputs = {}) {
+    const dates = GuidePlanner.defaultDates(trip, today());
+    const choices = GuidePlanner.savedChoices(trip);
+    const picked = new Set(inputs.chosen || []);
+    return `<form data-form="guide-planner" class="guide-form">
+      <label class="guide-field">目的地<input name="destination" required maxlength="80" value="${esc(inputs.destination ?? trip.meta.destination)}" placeholder="如：香港、澳门"></label>
+      <div class="guide-dates">
+        <label class="guide-field">出发日期<input type="date" name="start" required value="${esc(inputs.start ?? dates.start)}"></label>
+        <label class="guide-field">结束日期<input type="date" name="end" required value="${esc(inputs.end ?? dates.end)}"></label>
+      </div>
+      <label class="guide-field">想去哪、想吃什么<textarea name="stops" rows="4" maxlength="750" placeholder="想去旺角、中环、香港中文大学，想吃早茶、烧鹅">${esc(inputs.text || '')}</textarea></label>
+      ${choices.length ? `<details class="guide-saved"${picked.size ? ' open' : ''}>
+        <summary>从收藏地点和心愿单选</summary>
+        <div class="guide-options">${choices.map(choice => `<label><input type="checkbox" name="chosen" value="${esc(choice.id)}" ${picked.has(choice.id) ? 'checked' : ''}><span>${esc(choice.name)} <small>${esc(choice.label)}</small></span></label>`).join('')}</div>
+      </details>` : ''}
+      <label class="guide-ai-option" data-guide-ai-option hidden>
+        <input type="checkbox" name="guideAi" disabled${inputs.useAi ? ' checked' : ''}>
+        <span>使用 AI 补充游览建议<small>本次目的地、站点名称与已知看点会发给配置的模型。</small></span>
+      </label>
+      <p class="field-hint" data-guide-status role="status"></p>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">生成路线手册</button></div>
+    </form>`;
+  }
+
+  function guideStopLink([label, url]) {
+    return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`;
+  }
+
+  function guideMinutes(minutes) {
+    const hours = Math.floor(minutes / 60);
+    return hours ? `${hours} 小时${minutes % 60 ? ` ${minutes % 60} 分` : ''}` : `${minutes} 分钟`;
+  }
+
+  function guideBudget(cost) {
+    if (!cost) return '';
+    return `${cost.currency} ${cost.min === cost.max ? cost.min : `${cost.min}–${cost.max}`}`;
+  }
+
+  function renderGuideDayReport(summary) {
+    const budgets = [...summary.budget.values()];
+    const amounts = budgets.some(cost => cost.max > 0) ? budgets.filter(cost => cost.max > 0) : budgets;
+    const known = amounts.some(cost => cost.max > 0) || amounts.length && !summary.unpriced;
+    const cost = known ? amounts.map(guideBudget).join(' ＋ ') : '待核实';
+    const time = summary.visit + summary.meals + summary.travel;
+    return `<section class="route-day-report" aria-label="当天小报">
+      <div class="route-report-main">
+        <header><h4>当天小报</h4><span>${summary.stops.length} 站${time ? ` · 约 ${guideMinutes(time)}` : ''}</span></header>
+        ${summary.stops.length ? `<ol class="route-report-stops" aria-label="当天站点">${summary.stops.map(name => `<li>${esc(name)}</li>`).join('')}</ol>` : ''}
+        <p class="route-report-modes">${summary.modes.size ? `交通 · ${esc([...summary.modes].join('、'))}` : '当天暂无站间交通'}</p>
+        <small class="route-report-note">用时含游览、用餐和站间交通。票价为估算。${summary.untimed ? ` ${summary.untimed} 项时长待填。` : ''}</small>
+        ${summary.conflicts ? `<p class="route-report-gap">${summary.conflicts} 段交通的间隔不足，可调整相邻站点的时间。</p>` : ''}
+      </div>
+      <dl class="route-report-metrics">
+        <div><dt>游览与用餐</dt><dd>${guideMinutes(summary.visit + summary.meals)}</dd></div>
+        <div><dt>在路上</dt><dd>${summary.travel ? guideMinutes(summary.travel) : '—'}</dd></div>
+        <div><dt>人均预算</dt><dd>${esc(cost)}${known && summary.unpriced ? '<small>另有未估项</small>' : ''}</dd></div>
+      </dl>
+    </section>`;
+  }
+
+  function renderGuideTravelSteps(steps) {
+    const list = Array.isArray(steps) ? steps.filter(step => step?.title) : [];
+    return list.length ? `<ol class="guide-travel-steps">${list.map(step =>
+      `<li><strong>${esc(step.title)}</strong><span>${esc(step.note)}</span></li>`).join('')}</ol>` : '';
+  }
+
+  function renderGuideTransport(row, leg, destination) {
+    if (row.needsRestaurant) leg = null;
+    const access = leg ? null : GuidePlanner.firstStopAccess(row);
+    const endpoint = stop => {
+      const point = stop.entrance?.point || (stop.visit?.arrival ? null : stop.point);
+      return point ? `${point.lat},${point.lng}` : [GuidePlanner.arrivalName(stop), stop.address || destination].filter(Boolean).join(' ');
+    };
+    const origin = leg ? `&origin=${encodeURIComponent(endpoint(leg.from))}` : '';
+    const travelmode = leg?.mapMode || access?.mapMode;
+    const maps = travelmode === 'walking' || travelmode === 'transit'
+      ? `https://www.google.com/maps/dir/?api=1${origin}&destination=${encodeURIComponent(endpoint(row))}&travelmode=${travelmode}` : '';
+    const cost = leg && (leg.free ? '免费' : guideBudget(leg.budget) || '票价待核实');
+    return `<aside class="guide-transport" aria-label="前往这一站的交通">
+      <h4>交通方式</h4>
+      ${leg ? `<p class="guide-transport-mode">${esc(leg.mode)}</p>
+        <p class="guide-transport-meta">约 ${guideMinutes(leg.minutes)} · ${esc(cost)}</p>
+        <p class="guide-transport-from">从 ${esc(leg.from.name)} 出发</p>${renderGuideTravelSteps(leg.steps)}
+        ${leg.detail ? `<p class="guide-transport-meta">${esc(leg.detail)}</p>` : ''}`
+        : `<p class="guide-transport-mode">${esc(access.mode)}${access.station ? ` · ${esc(access.station)}` : ''}</p>
+          <p class="guide-transport-from">${esc(access.note)}</p>`}
+      ${maps ? `<div class="guide-transport-links">${guideStopLink([travelmode === 'transit' ? '公共交通导航' : '步行导航', maps])}</div>` : ''}
+      ${leg?.conflict ? '<small class="route-report-gap">与前一站的间隔不足</small>' : ''}
+    </aside>`;
+  }
+
+  function renderGuideChildren(row) {
+    const children = GuidePlanner.childrenFor(row);
+    return `<section class="guide-child-stops" aria-label="${esc(row.name)}的小景点">
+      ${children.length ? `<ol class="guide-child-list">${children.map((child, index) => `<li data-guide-child="${index}">
+        <button type="button" class="guide-child-grip" aria-label="排序：${esc(child.name)}" aria-keyshortcuts="ArrowUp ArrowDown"
+          title="拖动或按方向键排序"><b>${index + 1}.</b><strong>${esc(child.name)}</strong></button>
+        ${renderActionMenu(`${child.name}的操作`, `
+          <button type="button" class="itinerary-action" data-action="guide-stop-detail" data-kind="child">编辑</button>
+          <button type="button" class="itinerary-action danger" data-action="guide-child-remove">删除</button>`)}
+        ${child.note ? `<p class="guide-child-note">${esc(child.note)}</p>` : ''}
+      </li>`).join('')}</ol>` : ''}
+      <button type="button" class="itinerary-action" data-action="guide-stop-detail" data-kind="child">＋ 添加小景点</button>
+    </section>`;
+  }
+
+  function renderGuideStop(row, leg, next, destination) {
+    const arrivalPoint = row.entrance?.point || row.point;
+    const link = arrivalPoint
+      ? `https://www.openstreetmap.org/?mlat=${arrivalPoint.lat}&mlon=${arrivalPoint.lng}#map=17/${arrivalPoint.lat}/${arrivalPoint.lng}`
+      : `https://www.openstreetmap.org/search?query=${encodeURIComponent([row.name, row.address || destination].filter(Boolean).join(' '))}`;
+    const meal = row.category === '餐饮';
+    const onward = next ? `接下一站「${next.name}」，先核对步行或乘车方式，给路上留出时间。` :
+      '如果这是当天最后一站，可以从出口就近返程。';
+    const steps = row.dining?.tips || (meal ? [
+      ['选店', row.point ? '先核对定位对应的门店、营业时段和是否需要排队。' :
+        row.dining ? '已在游览区域附近找到这家店。去之前看一下菜单、当日营业时间和是否需要预约。' :
+          '先通过店家的菜单和联系方式确认菜品，再把用餐时间与附近行程接在一起。'],
+      ['用餐后出发', onward],
+    ] : [
+      ['到达后', '核对开放区域，按自己的时间停留。'],
+    ]);
+    const sources = [row.dining?.source, row.visit?.source, row.visit?.routeSource].filter(Boolean);
+    const location = row.address && row.address !== row.name ? row.address : '';
+    return `<li class="guide-draft-row" data-guide-stop="${esc(row.id)}">
+      <div class="guide-stop-head">
+        <label class="guide-stop-title"><input type="checkbox" name="include"${row.needsRestaurant ? ' disabled' : (row.selected ?? !!row.date) ? ' checked' : ''} aria-label="加入${esc(row.name)}">
+          <strong>${esc(row.name)}</strong></label>
+        <span class="guide-stop-when">${row.time ? `<time datetime="${esc(row.time)}">${esc(row.time)}</time>` : '时间待定'}</span>
+        ${renderActionMenu(`${row.name}的操作`, `
+          <button type="button" class="itinerary-action" data-action="guide-stop-detail" data-kind="schedule">编辑日期和时间</button>
+          ${meal ? `<button type="button" class="itinerary-action" data-action="guide-stop-detail" data-kind="restaurant">${row.needsRestaurant ? '填写餐厅' : '更换餐厅'}</button>` : ''}`)}
+      </div>
+      <p class="guide-stop-meta">${esc(row.category || '景点')}${row.mealQuery ? ` · 想吃 ${esc(row.mealQuery)}` : ''} · 约 ${GuidePlanner.durationFor(row)} 分钟${location ? ` · ${esc(location)}` : ''}</p>
+      <div class="guide-stop-branches">
+        ${row.category === '景点' ? renderGuideChildren(row) : `<div class="guide-visit-branch">
+          <h4>${meal ? '用餐' : '到访'}</h4>
+          ${row.needsRestaurant ? '<p class="guide-stop-meta">暂未找到能匹配的具体餐厅。确认店名后就可以加入行程。</p>' :
+            `<ol class="guide-visit-steps">${steps.map(([title, description]) => `<li><strong>${esc(title)}</strong><p>${esc(description)}</p></li>`).join('')}</ol>`}
+        </div>`}
+        ${renderGuideTransport(row, leg, destination)}
+      </div>
+      ${row.aiNote ? `<p class="guide-ai-tip"><strong>AI 建议 · 待核实</strong><span>${esc(row.aiNote)}</span></p>` : ''}
+      <div class="guide-stop-tools">
+        ${guideStopLink([row.entrance ? '入口定位' : arrivalPoint ? '查看地图' : '地图定位', link])}
+        ${sources.map(guideStopLink).join('')}
+      </div>
+    </li>`;
+  }
+
+  function formGuideDraft({ rows, inputs: { destination, start, end }, aiNotice, options, variantId }) {
+    const days = GuidePlanner.draftDays(rows, variantId);
+    const range = start === end ? fmtDate(start) : `${fmtDate(start)} — ${fmtDate(end)}`;
+    return `<header class="guide-book-title">
+      <p class="guide-book-kicker">旅行路线手册</p>
+      <h2 id="guideBookTitle" tabindex="-1">${esc(destination)}</h2>
+      <p>${esc(range)} · ${rows.length} 站</p>
+    </header>
+    <form data-form="guide-draft" class="guide-form">
+      ${options?.length > 1 ? `<div class="guide-variants">
+        <div class="guide-variant-options" role="group" aria-label="选择攻略方案">${options.map(option => `<button type="button"
+          class="guide-variant" data-action="guide-variant" data-variant="${esc(option.id)}" aria-pressed="${option.id === variantId}">${esc(option.label)}</button>`).join('')}</div>
+        <p class="guide-book-help">${esc(options.find(option => option.id === variantId)?.description)}</p>
+      </div>` : ''}
+      <p class="guide-book-help">勾选要加入每日行程的站点。</p>
+      ${aiNotice ? `<p class="guide-book-help" role="status">${esc(aiNotice)}</p>` : ''}
+      <details class="guide-sort">
+        <summary>调整当天顺序</summary>
+        <p class="guide-book-help">按住排序把手拖动，也可以点上移或下移。排序保留各站的时间。</p>
+        ${days.map(({ date, stops }) => `<h3>${date ? esc(fmtDate(date)) : '待安排'}</h3>
+          <ul class="guide-sort-list">${stops.map((row, index, day) => `<li data-guide-sort-id="${esc(row.id)}">
+            <span class="guide-sort-grip" aria-hidden="true">⠿</span><span class="guide-sort-name">${esc(row.name)}</span>
+            <small>${esc(row.time || '待定')}</small>
+            <button type="button" data-action="guide-stop-move" data-direction="-1"${index === 0 ? ' data-empty="true"' : ''} aria-label="上移${esc(row.name)}">↑</button>
+            <button type="button" data-action="guide-stop-move" data-direction="1"${index === day.length - 1 ? ' data-empty="true"' : ''} aria-label="下移${esc(row.name)}">↓</button>
+          </li>`).join('')}</ul>`).join('')}
+      </details>
+      <p class="guide-book-help" data-guide-edit-status role="status" hidden></p>
+      <div class="guide-book-days">${days.map(({ date, stops, legs, summary }) => {
+        return `<section class="guide-book-day">
+          <h3>${date ? `<time datetime="${esc(date)}">${esc(fmtDate(date))}</time> <small>${esc(weekday(date))}</small>` : '待安排'}</h3>
+          ${date ? renderGuideDayReport(summary) : ''}
+          <ul class="guide-draft-list">${stops.map((row, i) => renderGuideStop(row, legs[i], date ? stops[i + 1] : null, destination)).join('')}</ul>
+        </section>`;
+      }).join('')}</div>
+      <p class="guide-book-help">行程时间和费用为规划估算，开放时间以当地当天公告为准。地图数据 © OpenStreetMap contributors。</p>
+      <p class="field-hint" data-guide-status role="status"></p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" data-action="guide-planner-back">调整条件</button>
+        <button type="submit" class="btn btn-primary">加入每日行程</button>
+      </div>
+    </form>`;
+  }
+
+  function formGuideStopDetail(row, kind, child) {
+    const isChild = kind === 'child';
+    const fields = kind === 'schedule' ? `<div class="guide-dates">
+      <label class="guide-field">日期<input type="date" name="date" value="${esc(row.date)}" required></label>
+      <label class="guide-field">开始时间<input type="time" name="time" value="${esc(row.time)}" required></label>
+    </div>` : `
+      <label>${isChild ? '小景点名称' : '餐厅名称'}<input name="name" maxlength="100" required value="${esc(isChild ? child?.name : row.needsRestaurant ? '' : row.name)}" placeholder="${isChild ? '例如：西洋菜南街' : '输入具体店名'}"></label>
+      <label>${isChild ? '游览备注' : '地址'} <textarea name="note" maxlength="220" rows="3" placeholder="${isChild ? '例如：在女人街之前顺路走一段，看看旺角街景' : '填写分店所在街道或地址'}">${esc(isChild ? child?.note : row.address)}</textarea></label>`;
+    const submit = kind === 'schedule' || child ? '保存' : isChild ? '添加到这一站' : '使用这家餐厅';
+    return `<form data-form="guide-stop-detail" class="guide-form">
+      ${fields}
+      <p class="field-hint" data-guide-status role="status"></p>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">${submit}</button></div>
+    </form>`;
+  }
+
+  function formGuideImport() {
+    return `<form data-form="guide-import" class="guide-form">
+      <label>小红书链接或分享文字<textarea name="links" rows="5" required maxlength="12000" placeholder="粘贴分享文字，支持一次粘贴多条"></textarea></label>
+      <p class="field-hint">导入到本次旅行的收藏笔记，保留原文链接。相同链接会跳过。</p>
+      <p class="field-hint" data-guide-status role="status"></p>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">导入到收藏</button></div>
     </form>`;
   }
 
@@ -2608,7 +2872,7 @@ ${esc(memo.text || '')}</textarea>
     formDay, formItem, itemFields: itemFieldsHtml, formExpense, expenseDetail, expFields: expFieldsHtml, formChecklist, formWish, formPhoto, photoBatchDates, formPlace,
     formTemplateManage, formTemplateEdit, formSaveTemplate,
     renderPlaces, placeDetail, dayDetail, identityPicker, tripProfileEditor,
-    formGuide,
+    formGuide, formGuideImport, formGuideStopDetail, orderDayItems,
     extractUrl, extractTitle,
     tripPicker,
     renderTripBoard,
@@ -2619,6 +2883,7 @@ ${esc(memo.text || '')}</textarea>
     renderCalendar,
     renderTripsManager,
     renderMemos,
+    accountAvatarPicker, accountAvatarUrl,
     formMemo,
   };
 })();

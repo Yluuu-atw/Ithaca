@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { createAuthStore } = require('./auth-store');
+const { createAuthStore, AVATAR_WEBP_LIMIT } = require('./auth-store');
 
 const configuredDays = Number(process.env.ITHACA_SESSION_DAYS || 30);
 const SESSION_DAYS = Number.isInteger(configuredDays) && configuredDays >= 1 && configuredDays <= 90 ? configuredDays : 30;
@@ -59,6 +59,7 @@ async function verifyPassword(password, record) {
 
 function publicUser(user) {
   return { id: user.id, username: user.username, displayName: user.displayName,
+    ...(user.avatarWebp ? { avatarUrl: `data:image/webp;base64,${user.avatarWebp}` } : {}),
     passkeys: user.passkeys.map(({ id, label, createdAt }) => ({ id, label, createdAt })) };
 }
 
@@ -89,16 +90,24 @@ function createAuth(file) {
     return publicUser(user);
   }
 
-  async function updateDisplayName(userId, value) {
-    const name = normalizeDisplayName(value);
-    let updated;
-    await store.mutate(state => {
+  function updateUser(userId, update) {
+    return store.mutate(state => {
       const user = state.users.find(candidate => candidate.id === userId);
       if (!user) throw new Error('用户不存在');
-      user.displayName = name || user.username;
-      updated = publicUser(user);
+      update(user);
+      return publicUser(user);
     });
-    return updated;
+  }
+
+  async function updateDisplayName(userId, value) {
+    const name = normalizeDisplayName(value);
+    return updateUser(userId, user => { user.displayName = name || user.username; });
+  }
+
+  async function updateAvatar(userId, photo) {
+    const avatarWebp = photo.toString('base64');
+    if (!avatarWebp || avatarWebp.length > AVATAR_WEBP_LIMIT) throw new Error('头像图片太大，请换一张试试');
+    return updateUser(userId, user => { user.avatarWebp = avatarWebp; });
   }
 
   async function createSession(userId) {
@@ -126,7 +135,7 @@ function createAuth(file) {
     await store.mutate(state => { state.sessions = state.sessions.filter(entry => entry.hash !== digest(token)); });
   }
 
-  return { store, register, login, updateDisplayName, createSession, resolve, logout };
+  return { store, register, login, updateDisplayName, updateAvatar, createSession, resolve, logout };
 }
 
 module.exports = { createAuth, digest, publicUser, usernameKey, passwordRecord, verifyPassword, SESSION_DAYS };

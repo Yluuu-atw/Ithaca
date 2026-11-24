@@ -9,6 +9,69 @@ const { project, updateDocument, AccessDeniedError } = require('../data/document
 const { syncTripRoster, unusedAppearance } = require('../data/people');
 const { ownedDoc, addFormalMember } = require('./fixtures');
 
+function itineraryRenderer() {
+  class LocalDate extends Date {
+    constructor(...args) {
+      super(...(args.length ? args : [2026, 10, 23, 13, 0]));
+    }
+  }
+  const context = {
+    window: {}, Date: LocalDate, Theme: { DARK_BG: '#222' }, AuthUI: { user: null },
+    Store: { getIdentity: () => null, getRoster: () => [], CONST: { currencySymbol: { CNY: '¥' } } },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/render.js'), 'utf8'), context);
+  return context.window.Render;
+}
+
+test('daily itinerary lands on today and renders only the chosen date without dropping same-day records', () => {
+  const render = itineraryRenderer();
+  const trip = { id: 'trip', meta: { currency: 'CNY' }, itinerary: [
+    { id: 'old', date: '2026-11-22', items: [{ id: 'previous', title: '昨日景点' }] },
+    { id: 'today', date: '2026-11-23', items: [{ id: 'one', title: '今天安排' }] },
+    { id: 'duplicate', date: '2026-11-23', items: [{ id: 'two', title: '同一天的另一条记录' }] },
+    { id: 'later', date: '2026-11-25', items: [{ id: 'next', title: '之后的安排' }] },
+  ] };
+  const html = render.renderPage(trip, 'itinerary');
+  assert.match(html, /data-date="2026-11-23" aria-pressed="true"/);
+  assert.match(html, /今天安排/);
+  assert.match(html, /同一天的另一条记录/);
+  assert.doesNotMatch(html, /昨日景点|之后的安排/);
+  const selected = render.renderPage(trip, 'itinerary', { itineraryDate: '2026-11-25' });
+  assert.match(selected, /data-date="2026-11-25" aria-pressed="true"/);
+  assert.match(selected, /之后的安排/);
+  assert.doesNotMatch(selected, /今天安排/);
+  trip.itinerary = trip.itinerary.filter(day => day.date !== '2026-11-23');
+  const noPlans = render.renderPage(trip, 'itinerary');
+  assert.match(noPlans, /data-date="2026-11-23" aria-pressed="true"/);
+  assert.match(noPlans, /data-date="2026-11-23">新增当天行程/);
+});
+
+test('overview displays trip facts and orders only today’s stops by time', () => {
+  const render = itineraryRenderer();
+  const trip = {
+    id: 'trip_mi3s6a7k_k8jd14',
+    meta: { tripName: '港澳旅行', destination: '香港、澳门', startDate: '2026-11-21', endDate: '2026-11-30', members: ['Alice', 'Bob'], currency: 'CNY' },
+    expenses: [],
+    itinerary: [
+      { date: '2026-11-23', items: [
+        { title: '下午散步', time: '15:00', location: '中环' },
+        { title: '山顶' },
+      ] },
+      { date: '2026-11-23', items: [{ title: '旺角', time: '09:00' }] },
+      { date: '2026-11-24', items: [{ title: '翌日专属' }] },
+    ],
+  };
+  const html = render.renderPage(trip, 'overview');
+  assert.match(html, /id="overviewTripName">港澳旅行/);
+  assert.match(html, /<dt>目的地<\/dt><dd>香港、澳门<\/dd>/);
+  assert.match(html, /<dt>旅行周期<\/dt><dd>11\/21 – 11\/30<\/dd>/);
+  assert.match(html, /<dt>旅行成员<\/dt><dd>Alice、Bob<\/dd>/);
+  assert.match(html, /<dt>旅行编号<\/dt><dd>K8JD14<\/dd>/);
+  assert.doesNotMatch(html, /data-action="boarding-pass-save"/);
+  assert.match(html, /<ol class="today-list">[\s\S]*09:00[\s\S]*旺角[\s\S]*15:00[\s\S]*中环[\s\S]*待定[\s\S]*山顶[\s\S]*<\/ol>/);
+  assert.doesNotMatch(html, /下午散步|翌日专属/);
+});
+
 function itineraryHelpers(canEditRecord = () => true, options = {}) {
   const source = fs.readFileSync(path.join(__dirname, '../public/js/app.js'), 'utf8')
     .replace('return { init };', 'return { saveItineraryItem, moveItemToDate, syncExpenseFromItem, syncItemFromExpense, removeExpenseRecord, locateItineraryOnSave };')

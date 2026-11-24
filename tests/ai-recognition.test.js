@@ -8,6 +8,8 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const sharp = require('sharp');
 const { extractImageDraft, normalizeDraft, RecognitionError } = require('../data/ai-recognition');
+const { aiProviders } = require('../data/ai-provider');
+const { writeGuideNotes } = require('../data/ai-guide');
 const { defaultTrip } = require('../data/schema');
 
 async function sampleImage() {
@@ -93,6 +95,75 @@ test('canceling recognition aborts the upstream model request', async () => {
   assert.equal(upstreamAborted, true);
 });
 
+test('model settings keep text and vision independent and preserve the existing Ark setup', () => {
+  const env = {
+    ITHACA_AI_TEXT_BASE_URL: 'https://api.deepseek.com/',
+    ITHACA_AI_TEXT_MODEL: 'deepseek-flash',
+    ITHACA_AI_TEXT_API_KEY: 'test-text-key',
+    ARK_API_KEY: 'test-ark-key',
+  };
+  const { text, vision } = aiProviders(env);
+  assert.equal(text.endpoint, 'https://api.deepseek.com/chat/completions');
+  assert.equal(text.type, 'deepseek');
+  assert.equal(text.apiKey, 'test-text-key');
+  assert.equal(vision.type, 'ark');
+  assert.equal(vision.model, 'doubao-seed-2-0-lite-260215');
+  assert.equal(aiProviders({ ...env, ITHACA_AI_TEXT_API_KEY: '' }).text, null);
+  assert.equal(aiProviders({ ...env, ITHACA_AI_TEXT_BASE_URL: 'http://remote.example' }).text, null);
+  const custom = aiProviders({
+    ...env, ITHACA_AI_VISION_BASE_URL: 'http://127.0.0.1:11434/v1',
+    ITHACA_AI_VISION_MODEL: 'fake-vision',
+  });
+  assert.equal(custom.vision.endpoint, 'http://127.0.0.1:11434/v1/chat/completions');
+  assert.equal(custom.vision.apiKey, undefined);
+  assert.equal(aiProviders({ ...env, ITHACA_AI_VISION_MODEL: 'needs-an-endpoint' }).vision, null);
+});
+
+test('text models receive selected route context and can only add notes to existing stops', async () => {
+  const { text: provider } = aiProviders({
+    ITHACA_AI_TEXT_BASE_URL: 'https://api.deepseek.com', ITHACA_AI_TEXT_MODEL: 'deepseek-flash', ITHACA_AI_TEXT_API_KEY: 'test',
+  });
+  const notes = await writeGuideNotes({
+    provider, destination: '香港', stops: [
+      { name: '旺角', known: ['女人街', '金鱼街'], time: '09:00', privateNote: 'this must not leave the app' },
+    ],
+    fetchImpl: async (url, options) => {
+      assert.equal(url, 'https://api.deepseek.com/chat/completions');
+      assert.equal(options.redirect, 'error');
+      assert.equal(options.headers.Authorization, 'Bearer test');
+      const payload = JSON.parse(options.body);
+      assert.deepEqual(payload.thinking, { type: 'disabled' });
+      assert.deepEqual(payload.response_format, { type: 'json_object' });
+      assert.deepEqual(JSON.parse(payload.messages[1].content), {
+        destination: '香港', stops: [{ index: 0, name: '旺角', category: '景点', known: ['女人街', '金鱼街'] }],
+      });
+      return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ notes: [
+        { index: 0, note: '逛完女人街再往金鱼街走。', time: '23:00' }, { index: 1, note: 'Invented stop' },
+      ] }) } }] }) };
+    },
+  });
+  assert.deepEqual(notes, [{ index: 0, note: '逛完女人街再往金鱼街走。' }]);
+});
+
+test('a configured vision model receives a standard image message and can return fenced JSON', async () => {
+  const { vision: provider } = aiProviders({
+    ITHACA_AI_VISION_BASE_URL: 'http://localhost:11434/v1/chat/completions', ITHACA_AI_VISION_MODEL: 'test-vision',
+  });
+  const fields = await extractImageDraft({
+    kind: 'expense', bytes: await sampleImage(), contentType: 'image/png', provider,
+    fetchImpl: async (url, options) => {
+      const payload = JSON.parse(options.body);
+      assert.equal(url, 'http://localhost:11434/v1/chat/completions');
+      assert.equal(payload.model, 'test-vision');
+      assert.equal(payload.response_format, undefined);
+      assert.equal(options.headers.Authorization, undefined);
+      assert.match(payload.messages[0].content[1].image_url.url, /^data:image\/jpeg;base64,/);
+      return { ok: true, json: async () => ({ choices: [{ message: { content: '```json\n{"amount":"25"}\n```' } }] }) };
+    },
+  });
+  assert.deepEqual(fields, { amount: 25 });
+});
+
 async function freePort() {
   const server = net.createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -118,7 +189,8 @@ test('recognition route checks login, CSRF and trip edit rights before processin
   const origin = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ['server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, ARK_API_KEY: '', HOST: '127.0.0.1', PORT: String(port), ITHACA_DATA_DIR: dir, ITHACA_ORIGIN: origin },
+    env: { ...process.env, ARK_API_KEY: '', ITHACA_AI_TEXT_BASE_URL: '', ITHACA_AI_VISION_BASE_URL: '',
+      HOST: '127.0.0.1', PORT: String(port), ITHACA_DATA_DIR: dir, ITHACA_ORIGIN: origin },
     stdio: 'ignore',
   });
   try {
@@ -148,6 +220,13 @@ test('recognition route checks login, CSRF and trip edit rights before processin
     assert.equal((await fetch(endpoint, { method: 'POST', headers: { ...headers, Origin: 'https://other.example' }, body: bytes })).status, 403);
     assert.equal((await fetch(endpoint, { method: 'POST', headers, body: bytes })).status, 503);
     assert.equal((await fetch(`${origin}/api/ai/extract?kind=unknown&tripId=${tripId}`, { method: 'POST', headers, body: bytes })).status, 400);
+    const guideEndpoint = `${origin}/api/ai/guide`;
+    const guideHeaders = { ...headers, 'Content-Type': 'application/json' };
+    const guideBody = JSON.stringify({ tripId, destination: '香港', stops: [{ name: '旺角' }] });
+    assert.deepEqual(await (await fetch(guideEndpoint, { headers: { Cookie: ownerCookie } })).json(), { available: false });
+    assert.equal((await fetch(guideEndpoint, { method: 'POST', headers: { ...guideHeaders, Cookie: '' }, body: guideBody })).status, 401);
+    assert.equal((await fetch(guideEndpoint, { method: 'POST', headers: { ...guideHeaders, 'X-CSRF-Token': '' }, body: guideBody })).status, 403);
+    assert.equal((await fetch(guideEndpoint, { method: 'POST', headers: guideHeaders, body: guideBody })).status, 503);
     const placeEndpoint = `${origin}/api/places/search`;
     const placeBody = JSON.stringify({ tripId, query: 'x' });
     assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: placeBody })).status, 401);
@@ -161,6 +240,7 @@ test('recognition route checks login, CSRF and trip edit rights before processin
     const visitorCookie = visitor.headers.get('set-cookie').split(';')[0];
     const visitorCsrf = (await visitor.json()).csrf;
     assert.equal((await fetch(endpoint, { method: 'POST', headers: { ...headers, Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: bytes })).status, 403);
+    assert.equal((await fetch(guideEndpoint, { method: 'POST', headers: { ...guideHeaders, Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: guideBody })).status, 403);
     assert.equal((await fetch(placeEndpoint, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: visitorCookie, 'X-CSRF-Token': visitorCsrf }, body: JSON.stringify({ tripId, query: 'Cafe' }) })).status, 403);
     const after = await (await fetch(`${origin}/api/data`, { headers: { Cookie: ownerCookie } })).json();
     assert.equal(after.trips[0].expenses.length, 0);

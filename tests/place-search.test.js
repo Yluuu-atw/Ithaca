@@ -57,3 +57,45 @@ test('place search rejects invalid queries and coordinates', async () => {
   } });
   assert.deepEqual(await chinese.search('旺角'), []);
 });
+
+test('dining lookup searches nearby named restaurants by exact cuisine tag and caches the result', async () => {
+  let calls = 0;
+  const search = createPlaceSearch({ fetchImpl: async url => {
+    calls++;
+    if (url.hostname === 'photon.komoot.io') {
+      assert.equal(url.searchParams.get('q'), 'indian');
+      assert.equal(url.searchParams.getAll('osm_tag')[0], 'amenity:restaurant');
+      assert.equal(url.searchParams.get('bbox').split(',').length, 4);
+      return { ok: true, json: async () => ({ features: [point('Unrelated Cafe', [114.15, 22.28], { osm_key: 'amenity', osm_value: 'restaurant' })] }) };
+    }
+    assert.equal(url.hostname, 'overpass-api.de');
+    assert.match(url.searchParams.get('data'), /around:4500,22\.28,114\.15/);
+    assert.match(url.searchParams.get('data'), /\["cuisine"~"\(\^\|;\) \*indian \*\(;\|\$\)",i\]/);
+    return { ok: true, json: async () => ({ elements: [
+      { lat: 22.29, lon: 114.15, tags: { name: 'Farther' } },
+      { center: { lat: 22.281, lon: 114.15 }, tags: { name: 'Nearby', 'addr:street': 'Main Street' } },
+      { lat: 22.28, lon: 114.15, tags: {} },
+    ] }) };
+  } });
+  const near = { lat: 22.28, lng: 114.15 };
+  await assert.rejects(search.searchDining('印度菜', near, 'indian";out;'), error => error.status === 400);
+  const restaurants = await search.searchDining('印度菜', near, 'indian');
+  assert.deepEqual(restaurants.map(place => place.name), ['Nearby', 'Farther']);
+  assert.equal(restaurants[0].dining, true);
+  assert.equal(restaurants[0].address, 'Main Street');
+  await search.searchDining('印度菜', near, 'indian');
+  assert.equal(calls, 2);
+});
+
+test('a named roast goose restaurant can match simplified or traditional characters', async () => {
+  const search = createPlaceSearch({ fetchImpl: async url => {
+    assert.equal(url.hostname, 'photon.komoot.io');
+    assert.equal(url.searchParams.get('q'), '燒鵝');
+    return { ok: true, json: async () => ({ features: [
+      point('地方燒鵝', [114.15, 22.28], { osm_key: 'amenity', osm_value: 'restaurant' }),
+      point('不相关餐厅', [114.15, 22.28], { osm_key: 'amenity', osm_value: 'restaurant' }),
+      point('燒鵝街', [114.15, 22.28], { osm_key: 'highway' }),
+    ] }) };
+  } });
+  assert.deepEqual((await search.searchDining('烧鹅', { lat: 22.28, lng: 114.15 })).map(row => row.name), ['地方燒鵝']);
+});

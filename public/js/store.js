@@ -392,12 +392,28 @@ window.Store = (() => {
     const res = await fetch('/api/places/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-      body: JSON.stringify({ query, tripId: options.tripId || currentTripId(), near: options.near }),
+      body: JSON.stringify({ query, tripId: options.tripId || currentTripId(), near: options.near, dining: options.dining, cuisine: options.cuisine }),
       signal: options.signal,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || '地点查询失败');
     return data.results || [];
+  }
+
+  async function guideAiAvailable() {
+    const res = await fetch('/api/ai/guide');
+    return res.ok && (await res.json()).available === true;
+  }
+
+  async function guideAiNotes({ tripId, destination, stops, signal }) {
+    const res = await fetch('/api/ai/guide', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      body: JSON.stringify({ tripId, destination, stops }),
+      signal,
+    });
+    if (!res.ok) throw new Error('AI 攻略暂不可用');
+    return (await res.json()).notes || [];
   }
 
   function previewLink(url) {
@@ -410,7 +426,7 @@ window.Store = (() => {
 
   return {
     CONST, deepClone, uid, load, mutate, mutateDoc, connect, subscribe, setStatusHandler, setCsrf, getCsrf, getTemplates,
-    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getGroupSettlement, getPersonId, canEditRecord, uploadPhoto, uploadImage, imageRecognitionAvailable, recognizeImage, searchPlaces, previewLink,
+    getState, getWelcomeTheme, listMemos, getIdentity, getRoster, getAppearanceChoices, getMySettlement, getGroupSettlement, getPersonId, canEditRecord, uploadPhoto, uploadImage, imageRecognitionAvailable, recognizeImage, searchPlaces, guideAiAvailable, guideAiNotes, previewLink,
     listTrips, getActiveTripId, setActiveTrip, createTrip, deleteTrip, setTripArchived,
     getRole, canEditTrip, canManageTrip,
     getBoardOpen, setBoardOpen,

@@ -7,7 +7,8 @@
  */
 
 window.App = (() => {
-  const current = { view: 'welcome', tab: 'overview', itineraryMode: 'simple', ledgerFilter: 'all', settlementDetailsOpen: false, settlementDetailsTripId: '', placeFilter: { category: '全部', keyword: '' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
+  const current = { view: 'welcome', tab: 'overview', itinerarySelection: null, ledgerFilter: 'all', settlementDetailsOpen: false, settlementDetailsTripId: '', placeFilter: { category: '全部', keyword: '' }, guideFilter: { tag: '全部', keyword: '' }, showArchived: false, editMeta: false, calY: new Date().getFullYear(), calM: new Date().getMonth(), editTrips: false };
+  const guidePlans = new Map();
   let dockKick = null;
   let welcomeSceneSource = '';
   let welcomeSceneSrc = '';
@@ -16,11 +17,11 @@ window.App = (() => {
   let footprintsDayTimer = null;
   let footprintsDayStamp = '';
   const viewActions = new Set([
-    'board-toggle',
-    'cal-day', 'cal-next', 'cal-prev', 'day-detail', 'dt-item-toggle',
+    'archive-trip-open', 'board-toggle', 'boarding-pass-save',
+    'cal-day', 'cal-next', 'cal-prev', 'dt-item-toggle',
     'expense-detail', 'export', 'footprints-city', 'footprints-place', 'footprints-place-result',
     'footprints-pick', 'footprints-cancel-pick', 'footprints-fit',
-    'guide-filter', 'item-back', 'iti-item-toggle', 'itinerary-toggle-mode', 'ledger-filter', 'settlement-details-toggle',
+    'guide-filter', 'item-back', 'itinerary-select-date', 'ledger-filter', 'settlement-details-toggle',
     'map-fit', 'modal-close', 'nav', 'packing-type', 'photo-day-open', 'photo-open', 'photo-open-url', 'place-detail', 'place-filter',
     'switch-identity', 'switch-trip', 'tile-source', 'trip-goto-list', 'trip-open',
     'trip-pick', 'trip-toggle-archived', 'welcome-calendar', 'welcome-enter',
@@ -69,6 +70,7 @@ window.App = (() => {
     if (action === 'settle-confirm') return Store.getIdentity() != null;
     if (viewActions.has(action) || action === 'account-open' || action === 'account-logout') return true;
     if (action.startsWith('passkey-')) return !!AuthUI.user;
+    if (action === 'account-avatar-open') return !!AuthUI.user;
     if (action === 'share-open' || action.startsWith('share-')) return Store.canManageTrip(el.dataset.id || undefined);
     if (action === 'trip-del-confirm' || action === 'trip-del-ok' || action === 'trip-delete') {
       return Store.canManageTrip(el.dataset.id);
@@ -90,6 +92,9 @@ window.App = (() => {
       const allowed = actionAllowed(el.dataset.action, el);
       el.classList.toggle('permission-hidden', !allowed);
       if ('disabled' in el) el.disabled = !allowed || el.dataset.empty === 'true';
+    });
+    root.querySelectorAll('.action-menu').forEach(menu => {
+      menu.hidden = !menu.querySelector('[data-action]:not(.permission-hidden)');
     });
   }
 
@@ -220,6 +225,69 @@ window.App = (() => {
       ${keys || '<p class="access-hint">尚未添加通行密钥。</p>'}
       <div class="form-actions"><button class="btn btn-primary" data-action="passkey-add">添加通行密钥</button>
       <button class="btn btn-ghost" data-action="account-logout">退出登录</button></div>`);
+  }
+
+  function previewAccountAvatar(input) {
+    const form = input.form;
+    const preview = form.querySelector('[data-avatar-preview]');
+    const status = form.querySelector('[data-avatar-status]');
+    const submit = form.querySelector('[type="submit"]');
+    form._avatarOriginal ??= preview.innerHTML;
+    if (form._avatarPreviewUrl) URL.revokeObjectURL(form._avatarPreviewUrl);
+    form._avatarPreviewUrl = '';
+    preview.innerHTML = form._avatarOriginal;
+    submit.disabled = true;
+    status.textContent = '';
+
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      input.value = '';
+      status.textContent = '头像照片不能超过 20 MB。';
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    form._avatarPreviewUrl = url;
+    const image = document.createElement('img');
+    image.className = 'mine-avatar-photo';
+    image.alt = '头像预览';
+    image.addEventListener('load', () => {
+      if (!form.isConnected || form._avatarPreviewUrl !== url) return;
+      preview.replaceChildren(image);
+      submit.disabled = false;
+      status.textContent = file.name;
+    }, { once: true });
+    image.addEventListener('error', () => {
+      if (!form.isConnected || form._avatarPreviewUrl !== url) return;
+      URL.revokeObjectURL(url);
+      form._avatarPreviewUrl = '';
+      input.value = '';
+      status.textContent = '无法预览这张照片，请选择 JPG、PNG 或 WebP 图片。';
+    }, { once: true });
+    image.src = url;
+  }
+
+  async function saveAccountAvatar(form, photo) {
+    const input = form.elements.photo;
+    const button = form.querySelector('[type="submit"]');
+    if (form._saving || button.disabled || !photo?.size) return;
+    const status = form.querySelector('[data-avatar-status]');
+    form._saving = true;
+    button.disabled = input.disabled = true;
+    status.textContent = '正在保存头像…';
+    try {
+      await AuthUI.updateAvatar(photo);
+    } catch (error) {
+      status.textContent = error.message || '头像保存失败，请重试。';
+      return;
+    } finally {
+      form._saving = false;
+      button.disabled = input.disabled = false;
+    }
+    closeModal(true);
+    render();
+    toast('头像已保存', 'success');
   }
 
   async function openTripProfile() {
@@ -663,6 +731,8 @@ window.App = (() => {
     clearFootprintsView();
     document.body.dataset.accessRole = Store.getRole() || 'viewer';
     document.body.dataset.currentTab = current.tab;
+    const avatar = Render.accountAvatarUrl(AuthUI.user);
+    document.body.style.setProperty('--account-avatar-image', avatar ? `url("${avatar}")` : 'none');
     applyTheme(Store.getWelcomeTheme());
     // 背景插画跟着当前旅行的目的地走；getState 返回的就是当前这趟
     const doodleImg = document.querySelector('#doodleBg img');
@@ -690,6 +760,19 @@ window.App = (() => {
       return;
     }
 
+    const guidePlan = guidePlans.get(data.id);
+    const guideStage = canPlanGuide(data.id) ? (guidePlan?.rows ? 'draft' : 'input') : 'readonly';
+    const guidePage = $('#guidePlannerPage');
+    if (guidePage) {
+      const samePage = current.tab === 'guide-plan' && guidePage.dataset.tripId === data.id;
+      if (samePage && guidePage.dataset.stage === guideStage) {
+        applyPermissions();
+        return;
+      }
+      if (!samePage && canPlanGuide(guidePage.dataset.tripId)) rememberGuidePage(guidePage);
+      guidePage.querySelector('form')?._guideLookup?.abort();
+    }
+
     // 地图页特殊处理：不整块重绘，避免 Leaflet 容器被销毁（瓦片错乱的根因）
     if (current.tab === 'map') {
       if (map && $('#map')) { refreshMap(data); applyPermissions(); return; }
@@ -704,19 +787,39 @@ window.App = (() => {
     const focusedSearch = document.activeElement && (document.activeElement.id === 'placeSearch' || document.activeElement.id === 'guideSearch')
       ? document.activeElement.id : null;
     const footprintsSummary = current.tab === 'footprints' ? Footprints.summarize(Store.listTrips()) : null;
+    const dateRailScroll = $('#itineraryDates')?.scrollLeft || 0;
     $('#content').innerHTML = Render.renderPage(data, current.tab, {
+      archiveTripId: current.archiveTripId,
       footprintsSummary,
       journalMemo: current.journalMemo,
       photoDay: activePhotoDay(data),
       packingPoolOpen: current.packingPoolOpen,
-      itineraryMode: current.itineraryMode,
+      itineraryDate: current.itinerarySelection?.tripId === data.id ? current.itinerarySelection.date : null,
       ledgerFilter: current.ledgerFilter,
       settlementDetailsOpen: current.settlementDetailsOpen && current.settlementDetailsTripId === data.id,
       placeFilter: current.placeFilter,
       guideFilter: current.guideFilter,
+      guidePlan, guideStage,
       showArchived: current.showArchived,
       editMeta: current.editMeta,
     });
+    const guideAiOption = $('#guidePlannerPage [data-guide-ai-option]');
+    if (guideAiOption) {
+      Store.guideAiAvailable().then(available => {
+        if (!available || !guideAiOption.isConnected) return;
+        guideAiOption.querySelector('input').disabled = false;
+        guideAiOption.hidden = false;
+      }).catch(() => {});
+    }
+    const dateRail = $('#itineraryDates');
+    const activeDate = dateRail?.querySelector('.is-active');
+    if (activeDate) {
+      dateRail.scrollLeft = dateRailScroll;
+      if (activeDate.offsetLeft < dateRail.scrollLeft) dateRail.scrollLeft = activeDate.offsetLeft;
+      else if (activeDate.offsetLeft + activeDate.offsetWidth > dateRail.scrollLeft + dateRail.clientWidth) {
+        dateRail.scrollLeft = activeDate.offsetLeft + activeDate.offsetWidth - dateRail.clientWidth;
+      }
+    }
     // 搜索框重绘后恢复焦点，保证连续输入
     if (focusedSearch && current.tab === 'places') {
       const el = document.getElementById(focusedSearch);
@@ -730,7 +833,7 @@ window.App = (() => {
     return current.photoAlbum?.tripId === trip.id ? current.photoAlbum.key : null;
   }
 
-  function navigateTo(tab, photoAlbum = null) {
+  function navigateTo(tab, { photoAlbum = null, archiveTripId = '' } = {}) {
     if (current.tab === 'journal-editor' && tab !== 'journal-editor') {
       const editor = $('#journalEditor');
       if (editor?._saving) return;
@@ -738,10 +841,22 @@ window.App = (() => {
         && !confirm('旅行日志尚未保存。要放弃修改并返回吗？')) return;
       current.journalMemo = null;
     }
+    const switchingItinerary = current.view === 'app' && (
+      current.tab === 'overview' && tab === 'itinerary' || current.tab === 'itinerary' && tab === 'overview');
+    const oldSlider = switchingItinerary && $('.itinerary-subnav-slider');
+    const sliderStart = oldSlider && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? getComputedStyle(oldSlider).transform : null;
     current.tab = tab;
     current.photoAlbum = photoAlbum;
+    current.archiveTripId = archiveTripId;
     // 首页、底栏和二级入口统一切页，详情不继承上一个页面的滚动位置。
     if (current.view === 'welcome') setView('app'); else render();
+    if (sliderStart) {
+      const slider = $('.itinerary-subnav-slider');
+      if (slider?.animate) slider.animate(
+        [{ transform: sliderStart }, { transform: getComputedStyle(slider).transform }],
+        { duration: 240, easing: 'cubic-bezier(.22, .75, .28, 1)' });
+    }
     $('#content').scrollTop = 0;
     window.scrollTo(0, 0);
     $('#pageTitle').setAttribute('tabindex', '-1');
@@ -783,8 +898,10 @@ window.App = (() => {
 
   function releaseEntryFiles(form) {
     for (const entry of (form && form._entryFiles) || []) URL.revokeObjectURL(entry.preview);
+    if (form?._avatarPreviewUrl) URL.revokeObjectURL(form._avatarPreviewUrl);
     if (form && form._locationMap) form._locationMap.remove();
     if (form && form._locationSearchController) form._locationSearchController.abort();
+    form?._guideLookup?.abort();
   }
 
   function configureImageEntry(form) {
@@ -1289,6 +1406,8 @@ window.App = (() => {
   function onClick(e) {
     if (e.target === modal()) { closeModal(); return; }
     const el = e.target.closest('[data-action]');
+    const menu = $('.action-menu[open]');
+    if (menu && (el || !menu.contains(e.target))) menu.open = false;
     if (!el) return;
     const action = el.dataset.action;
     if (!actionAllowed(action, el)) { e.preventDefault(); toast('没有修改这条内容的权限', 'error'); return; }
@@ -1312,6 +1431,11 @@ window.App = (() => {
         break;
       }
       case 'account-open': accountModal(); break;
+      case 'account-avatar-open': {
+        const person = Store.getRoster()[Store.getIdentity()];
+        openModal('更换头像', Render.accountAvatarPicker(AuthUI.user, person?.avatar));
+        break;
+      }
       case 'account-logout':
         AuthUI.logout().catch(error => toast(error.message, 'error'));
         break;
@@ -1477,6 +1601,7 @@ window.App = (() => {
       }
 
       case 'nav':
+        if (el.dataset.tab === 'itinerary') current.itinerarySelection = null;
         navigateTo(el.dataset.tab);
         break;
 
@@ -1519,6 +1644,16 @@ window.App = (() => {
       case 'export':
         exportData();
         break;
+      case 'boarding-pass-save': {
+        const ticket = el.closest('[data-boarding-pass]')?.querySelector('.overview-ticket');
+        if (!ticket || el.disabled) break;
+        el.disabled = true;
+        TicketImage.save(ticket)
+          .then(() => toast('已下载登机牌图片', 'success'))
+          .catch(() => toast('登机牌图片保存失败，请重试', 'error'))
+          .finally(() => { el.disabled = false; });
+        break;
+      }
       case 'voucher-open':
         if (!modal().hidden && !closeModal()) return;
         Vouchers.open({
@@ -1534,7 +1669,7 @@ window.App = (() => {
         break;
 
       case 'itinerary-add-day':
-        openModal('新建一天', Render.formDay());
+        openModal('新建一天', Render.formDay(el.dataset.date));
         break;
 
       case 'itinerary-add-item':
@@ -1547,15 +1682,7 @@ window.App = (() => {
         if (detail) {
           detail.hidden = !detail.hidden;
           el.closest('.dt-item').classList.toggle('is-open', !detail.hidden);
-        }
-        break;
-      }
-
-      case 'iti-item-toggle': {
-        const detail = el.parentElement.querySelector('.tl-detail');
-        if (detail) {
-          detail.hidden = !detail.hidden;
-          el.closest('.tl-item').classList.toggle('is-open', !detail.hidden);
+          el.setAttribute('aria-expanded', String(!detail.hidden));
         }
         break;
       }
@@ -1674,6 +1801,11 @@ window.App = (() => {
         }).catch(error => toast(error.message, 'error'));
         break;
 
+      case 'archive-trip-open':
+        if (Store.listTrips().some(trip => trip.id === el.dataset.id)) {
+          navigateTo('archive-trip', { archiveTripId: el.dataset.id });
+        }
+        break;
       case 'trip-open':
         Store.setActiveTrip(el.dataset.id);
         // 从管理旅行弹窗点进来要先关弹窗；开启页下点边栏卡片则直接进该旅行
@@ -1937,7 +2069,7 @@ window.App = (() => {
       case 'photo-day-open': {
         const trip = Store.getState();
         if (PhotoAlbum.albums(trip).some(album => album.key === el.dataset.date)) {
-          navigateTo('photos', { tripId: trip.id, key: el.dataset.date });
+          navigateTo('photos', { photoAlbum: { tripId: trip.id, key: el.dataset.date } });
         }
         break;
       }
@@ -2000,13 +2132,10 @@ window.App = (() => {
         doMutate(d => { d.photos = (d.photos || []).filter(x => x.id !== el.dataset.id); }, '已删除');
         break;
 
-      case 'itinerary-toggle-mode':
-        current.itineraryMode = current.itineraryMode === 'detail' ? 'simple' : 'detail';
+      case 'itinerary-select-date':
+        current.itinerarySelection = { tripId: Store.getActiveTripId(), date: el.dataset.date };
         render();
-        break;
-
-      case 'day-detail':
-        openModal('行程详情', Render.dayDetail(Store.getState(), el.dataset.day));
+        $('#itineraryDates .is-active')?.focus({ preventScroll: true });
         break;
 
       case 'place-add':
@@ -2032,6 +2161,65 @@ window.App = (() => {
         current.placeFilter.category = el.dataset.cat;
         render();
         break;
+
+      case 'guide-planner-back': {
+        const tripId = el.closest('#guidePlannerPage').dataset.tripId;
+        const plan = guidePlans.get(tripId);
+        renderGuidePlan(tripId, { inputs: plan.inputs });
+        break;
+      }
+      case 'guide-stop-move': {
+        const item = el.closest('[data-guide-sort-id]');
+        const direction = Number(el.dataset.direction);
+        const target = direction < 0 ? item.previousElementSibling : item.nextElementSibling;
+        if (target) moveGuideStop(item.dataset.guideSortId, target.dataset.guideSortId, direction > 0);
+        break;
+      }
+      case 'guide-variant': {
+        const page = el.closest('#guidePlannerPage');
+        const form = page.querySelector('[data-form="guide-draft"]');
+        const tripId = page.dataset.tripId;
+        const plan = guidePlans.get(tripId);
+        const chosen = plan.options.find(option => option.id === el.dataset.variant);
+        if (!chosen || chosen.id === plan.variantId || form._saving) break;
+        const options = plan.options.map(option => option.id === plan.variantId
+          ? { ...option, rows: readGuideRows(form, plan) } : option);
+        renderGuidePlan(tripId, { ...plan, options, variantId: chosen.id, rows: chosen.rows });
+        break;
+      }
+      case 'guide-stop-detail': {
+        if (el.closest('form')._saving) break;
+        const page = el.closest('#guidePlannerPage');
+        const id = el.closest('[data-guide-stop]').dataset.guideStop;
+        const tripId = page.dataset.tripId;
+        const row = guidePlans.get(tripId)?.rows.find(stop => stop.id === id);
+        if (!row) break;
+        const kind = el.dataset.kind;
+        const item = el.closest('[data-guide-child]');
+        const childIndex = item ? Number(item.dataset.guideChild) : null;
+        const child = item ? GuidePlanner.childrenFor(row)[childIndex] : null;
+        if (item && !child) break;
+        const title = kind === 'schedule' ? `编辑「${row.name}」的时间`
+          : kind === 'restaurant' ? `为「${row.mealQuery || row.name}」选择餐厅`
+          : child ? `编辑「${child.name}」` : `给「${row.name}」添加小景点`;
+        openModal(title, Render.formGuideStopDetail(row, kind, child));
+        const form = modalBody().querySelector('[data-form="guide-stop-detail"]');
+        if (form) form._guideDetail = { tripId, id, kind, childIndex };
+        break;
+      }
+      case 'guide-child-remove': {
+        const { guideStop: id } = el.closest('[data-guide-stop]').dataset;
+        const index = Number(el.closest('[data-guide-child]').dataset.guideChild);
+        refreshGuideDraft(rows => rows.map(row => row.id === id
+          ? { ...row, children: GuidePlanner.childrenFor(row).filter((_, i) => i !== index) } : row), id, '已删除小景点', false, index);
+        break;
+      }
+      case 'guide-import-open': {
+        openModal('导入攻略', Render.formGuideImport());
+        const form = modalBody().querySelector('[data-form="guide-import"]');
+        if (form) form._guideTripId = Store.getActiveTripId();
+        break;
+      }
 
       case 'guide-add':
         openModal('收藏笔记', Render.formGuide());
@@ -2179,6 +2367,309 @@ window.App = (() => {
     }
   }
 
+  function canPlanGuide(tripId) {
+    return Store.canEditTrip(tripId) && Store.getRole(tripId) !== 'temporary';
+  }
+
+  function readGuideInputs(fd) {
+    return {
+      destination: String(fd.get('destination') || '').trim(),
+      start: fd.get('start'), end: fd.get('end'),
+      text: String(fd.get('stops') || ''), chosen: fd.getAll('chosen'),
+      useAi: fd.has('guideAi'),
+    };
+  }
+
+  function readGuideRows(form, plan) {
+    const rows = new Map([...form.querySelectorAll('[data-guide-stop]')].map(row => [row.dataset.guideStop, row]));
+    return plan.rows.map(stop => {
+      const row = rows.get(stop.id);
+      return {
+        ...stop,
+        selected: row.querySelector('[name="include"]').checked,
+      };
+    });
+  }
+
+  function rememberGuidePage(page) {
+    const tripId = page.dataset.tripId;
+    const plan = guidePlans.get(tripId);
+    const form = page.querySelector('form');
+    if (page.dataset.stage === 'draft' && plan?.rows) {
+      guidePlans.set(tripId, { ...plan, rows: readGuideRows(form, plan) });
+    } else if (page.dataset.stage === 'input') {
+      guidePlans.set(tripId, { inputs: readGuideInputs(new FormData(form)) });
+    }
+  }
+
+  function renderGuidePlan(tripId, plan) {
+    guidePlans.set(tripId, plan);
+    const page = $('#guidePlannerPage');
+    if (page?.dataset.tripId === tripId) page.dataset.stage = '';
+    render();
+    $('#content').scrollTop = 0;
+    window.scrollTo(0, 0);
+    $('#guideBookTitle')?.focus({ preventScroll: true });
+  }
+
+  function refreshGuideDraft(update, id, message, sorting = false, childIndex = null) {
+    const page = $('#guidePlannerPage');
+    if (current.tab !== 'guide-plan' || !page || !canPlanGuide(page.dataset.tripId)) return;
+    const form = page.querySelector('[data-form="guide-draft"]');
+    if (!form || form._saving) return;
+    const tripId = page.dataset.tripId;
+    const plan = guidePlans.get(tripId);
+    const sortOpen = form.querySelector('.guide-sort').open;
+    const active = document.activeElement;
+    const sourceDirection = active?.dataset.direction;
+    const rows = update(readGuideRows(form, plan));
+    guidePlans.set(tripId, { ...plan, rows });
+    page.dataset.stage = '';
+    render();
+    const updated = $('#guidePlannerPage');
+    updated.querySelector('.guide-sort').open = sortOpen;
+    const status = updated.querySelector('[data-guide-edit-status]');
+    status.hidden = false;
+    status.textContent = message;
+    const stop = [...updated.querySelectorAll(sorting ? '[data-guide-sort-id]' : '[data-guide-stop]')]
+      .find(element => (sorting ? element.dataset.guideSortId : element.dataset.guideStop) === id);
+    if (!stop) return;
+    const item = childIndex === null ? stop : stop.querySelector(`[data-guide-child="${childIndex}"]`) || stop;
+    const focus = sorting
+      ? [...item.querySelectorAll('button:not(:disabled)')].find(button => button.dataset.direction === sourceDirection) || item.querySelector('button:not(:disabled)')
+      : (active?.classList.contains('guide-child-grip') && item.querySelector('.guide-child-grip')) || item.querySelector('.action-menu-trigger');
+    if (focus) focus.focus({ preventScroll: true });
+    item.scrollIntoView({ block: 'nearest' });
+  }
+
+  function moveGuideStop(id, targetId, after) {
+    refreshGuideDraft(rows => GuidePlanner.moveDraftStop(rows, id, targetId, after), id, '已调整当天顺序', true);
+  }
+
+  function moveGuideChild(id, from, to) {
+    refreshGuideDraft(rows => rows.map(row => row.id === id
+      ? { ...row, children: GuidePlanner.moveChild(GuidePlanner.childrenFor(row), from, to) } : row),
+    id, '已调整小景点顺序', false, to);
+  }
+
+  function submitGuideStopDetail(form, fd, trip) {
+    const { id, kind, childIndex } = form._guideDetail;
+    const page = $('#guidePlannerPage');
+    if (current.tab !== 'guide-plan' || page?.dataset.tripId !== trip.id) throw new Error('请返回路线手册再试');
+    const row = guidePlans.get(trip.id)?.rows.find(stop => stop.id === id);
+    if (!row) throw new Error('这站已不在路线手册中');
+    if (kind === 'schedule') {
+      const date = fd.get('date');
+      const time = fd.get('time');
+      if (!Footprints.isValidDate(date) || !time) throw new Error('请填写日期和开始时间');
+      closeModal(true);
+      refreshGuideDraft(rows => rows.map(stop => stop.id === id ? { ...stop, date, time } : stop), id, '已更新时间');
+      return;
+    }
+    const name = String(fd.get('name') || '').trim();
+    const note = String(fd.get('note') || '').trim();
+    if (!name) throw new Error(kind === 'child' ? '请填写小景点名称' : '请填写餐厅名称');
+    let fields, message;
+    if (kind === 'child') {
+      const children = GuidePlanner.childrenFor(row).slice();
+      if (children.some((child, index) => index !== childIndex && child.name === name)) throw new Error('这站已经有这个小景点');
+      if (childIndex === null) {
+        if (children.length >= 8) throw new Error('每站最多添加 8 个小景点');
+        children.push({ name, note });
+        message = '已添加小景点';
+      } else {
+        const child = children[childIndex];
+        if (!child) throw new Error('这个小景点已不在路线手册中');
+        children[childIndex] = child.name === name ? { ...child, note } : { name, note };
+        message = '小景点已更新';
+      }
+      fields = { children };
+    } else if (name === row.name && !row.needsRestaurant) {
+      fields = { address: note };
+    } else {
+      fields = { name, address: note, point: null, routePoint: null, verified: '', dining: null, needsRestaurant: false, selected: !!row.date };
+    }
+    closeModal(true);
+    refreshGuideDraft(rows => rows.map(stop => stop.id === id ? { ...stop, ...fields } : stop), id,
+      message || '已更新餐厅', false, childIndex);
+  }
+
+  async function generateGuideDraft(form, fd, trip) {
+    const inputs = readGuideInputs(fd);
+    if (!inputs.destination) throw new Error('请填写目的地');
+    const dates = GuidePlanner.dateRange(inputs.start, inputs.end);
+    const chosen = GuidePlanner.savedChoices(trip).filter(choice => inputs.chosen.includes(choice.id));
+    const stops = GuidePlanner.collectStops(inputs.text, chosen);
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 12500);
+    const submit = form.querySelector('[type="submit"]');
+    const status = form.querySelector('[data-guide-status]');
+    form._guideLookup = controller;
+    submit.disabled = true;
+    try {
+      const resolved = await GuidePlanner.resolveStops(stops, trip, inputs.destination, Store.searchPlaces,
+        (index, total) => { status.textContent = `正在核对地点 ${index}/${total}…`; }, controller.signal);
+      if (!form.isConnected || current.view !== 'app') return;
+      const latestTrip = Store.listTrips().find(entry => entry.id === trip.id);
+      if (!latestTrip || !canPlanGuide(trip.id)) throw new Error('这趟旅行当前无法编辑');
+      const stopsWithRoutes = resolved.map(stop => ({ ...stop, visit: GuidePlanner.visitGuide(stop, inputs.destination) }));
+      const preview = GuidePlanner.makeDraft(stopsWithRoutes, latestTrip, dates);
+      status.textContent = '正在为用餐偏好匹配沿途餐厅…';
+      const withRestaurants = await GuidePlanner.resolveMeals(preview, latestTrip, inputs.destination, Store.searchPlaces, controller.signal);
+      if (!form.isConnected || current.view !== 'app' || !canPlanGuide(trip.id)) return;
+      status.textContent = '正在匹配景点入口…';
+      const withEntrances = await GuidePlanner.resolveEntrances(withRestaurants, trip.id, Store.searchPlaces, controller.signal);
+      if (!form.isConnected || current.view !== 'app' || !canPlanGuide(trip.id)) return;
+      const stopsForPlans = withEntrances.map(stop => ({ ...stop, id: Store.uid('itm') }));
+      let aiNotice = '';
+      const eligible = stopsForPlans.filter(row => !row.needsRestaurant);
+      if (inputs.useAi && eligible.length) {
+        status.textContent = '基础路线已排好，正在用 AI 补充游览建议…';
+        const aiLookup = new AbortController();
+        form._guideLookup = aiLookup;
+        try {
+          const notes = await Store.guideAiNotes({
+            tripId: trip.id,
+            destination: inputs.destination,
+            stops: eligible.map(row => ({
+              name: row.name,
+              category: row.category,
+              known: [row.entrance?.name, ...(row.visit?.steps || row.dining?.tips || []).map(([title]) => title)].filter(Boolean),
+            })),
+            signal: aiLookup.signal,
+          });
+          for (const { index, note } of notes) {
+            if (eligible[index] && typeof note === 'string') eligible[index].aiNote = note;
+          }
+        } catch (_) {
+          aiNotice = 'AI 暂未返回建议，基础路线已生成。';
+        }
+      }
+      if (!form.isConnected || current.view !== 'app' || !canPlanGuide(trip.id)) return;
+      const options = GuidePlanner.routeOptions(stopsForPlans, latestTrip, dates);
+      renderGuidePlan(trip.id, { inputs, rows: options[0].rows, variantId: options[0].id, options, aiNotice });
+    } finally {
+      clearTimeout(deadline);
+      form._guideLookup = null;
+      submit.disabled = false;
+    }
+  }
+
+  async function saveGuideDraft(form, trip) {
+    const plan = guidePlans.get(trip.id);
+    const selected = readGuideRows(form, plan).filter(row => row.selected);
+    if (!selected.length) throw new Error('请勾选要加入行程的地点');
+    let count = 0, transferCount = 0, transferReview = 0, firstDate = '';
+    await Store.mutate(draft => {
+      const rows = GuidePlanner.prepareCommit(draft, selected);
+      count = rows.length;
+      transferCount = 0;
+      transferReview = 0;
+      firstDate = rows.map(row => row.date).sort()[0] || '';
+      const transfers = GuidePlanner.preparedTransfers(draft, rows, plan.variantId);
+      const addedByDay = new Map();
+      for (const row of rows) {
+        let day = draft.itinerary.find(entry => entry.date === row.date);
+        if (!day) {
+          day = { id: Store.uid('day'), date: row.date, items: [] };
+          draft.itinerary.push(day);
+        }
+        const category = Object.hasOwn(Store.CONST.itemToExpenseCategory, row.category || '') ? row.category : '景点';
+        const children = GuidePlanner.childrenFor(row);
+        const travel = transfers.get(row.id);
+        const access = travel ? null : GuidePlanner.firstStopAccess(row);
+        if (!addedByDay.has(day)) addedByDay.set(day, []);
+        if (travel?.bookable) {
+          const transferId = Store.uid('itm');
+          saveItineraryItem(draft, day.id, null, {
+            id: transferId, startDate: row.date, endDate: row.date, time: travel.time, endTime: row.time,
+            title: `${travel.mode} · ${travel.from.name} → ${row.name}`, location: '', category: '交通',
+            note: [`${travel.mode}，预留约 ${travel.minutes} 分钟`, travel.detail].filter(Boolean).join(' · '),
+            amount: 0, payer: '', participants: [],
+            guideRoute: { mode: travel.mode, budget: travel.budget, partial: travel.partial, free: travel.free, steps: travel.steps },
+          });
+          addedByDay.get(day).push(transferId);
+          transferCount += 1;
+        } else if (travel) {
+          transferReview += 1;
+        }
+        const note = [row.address && row.address !== row.name ? row.address : '',
+          row.entrance ? `游览入口：${row.entrance.name}` : '',
+          travel && !travel.bookable ? `从「${travel.from.name}」过来，建议预留 ${travel.minutes} 分钟（${travel.mode}），请核对时段。` : '',
+          '开放时间与预约待核实'].filter(Boolean).join(' · ');
+        saveItineraryItem(draft, day.id, null, {
+          id: row.id, startDate: row.date, endDate: row.date, time: row.time, endTime: row.endTime,
+          title: row.name, location: row.name, category, note, amount: 0, payer: '', participants: [],
+          lat: row.point?.lat ?? null, lng: row.point?.lng ?? null,
+          locationMap: row.point ? row.verified === 'osm' ? { source: 'osm' } : null : { mode: 'pending' },
+          guideRoute: { children, budget: GuidePlanner.stopBudget(row), partial: !!travel && !travel.bookable,
+            steps: access ? [{ title: access.mode + (access.station ? ` · ${access.station}` : ''), note: access.note }]
+              : travel && !travel.bookable ? travel.steps : undefined },
+        });
+        addedByDay.get(day).push(row.id);
+      }
+      for (const [day, newIds] of addedByDay) {
+        const newSet = new Set(newIds);
+        const displayed = Render.orderDayItems(day).map(item => item.id);
+        const currentOrder = displayed.filter(id => newSet.has(id));
+        if (currentOrder.every((id, i) => id === newIds[i])) continue;
+        let index = 0;
+        day.order = displayed.map(id => newSet.has(id) ? newIds[index++] : id);
+      }
+    }, trip.id);
+    const result = count ? `已加入 ${count} 站${transferCount ? `和 ${transferCount} 段交通` : ''}` : '勾选的地点已在行程里';
+    toast(transferReview ? `${result}，另有 ${transferReview} 段交通需调整时段` : result, transferReview ? 'info' : 'success');
+    if (firstDate && Store.getActiveTripId() === trip.id && form.isConnected) {
+      current.itinerarySelection = { tripId: trip.id, date: firstDate };
+      navigateTo('itinerary');
+    } else if (form.isConnected) {
+      form.querySelector('[data-guide-status]').textContent = count ? `已加入 ${count} 项安排` : '勾选的地点已在行程里';
+    }
+  }
+
+  async function importGuideLinks(fd, trip) {
+    const entries = GuidePlanner.parseSharedLinks(fd.get('links')).map(entry => ({ id: Store.uid('gde'), ...entry, tags: [], note: '' }));
+    let count = 0;
+    await Store.mutate(draft => {
+      const guides = draft.guides || (draft.guides = []);
+      const existing = new Set(guides.map(guide => GuidePlanner.linkKey(guide.link)));
+      const fresh = entries.filter(entry => !existing.has(GuidePlanner.linkKey(entry.link)));
+      guides.push(...fresh);
+      count = fresh.length;
+    }, trip.id);
+    closeModal(true);
+    toast(count ? `已导入 ${count} 条攻略${entries.length > count ? '，已跳过重复链接' : ''}` : '这些链接已在收藏里', 'success');
+  }
+
+  async function submitGuideForm(form, fd, kind) {
+    if (form._saving || form._guideLookup) return;
+    const status = form.querySelector('[data-guide-status]');
+    const tripId = form.closest('#guidePlannerPage')?.dataset.tripId || form._guideTripId || form._guideDetail?.tripId;
+    const trip = Store.listTrips().find(entry => entry.id === tripId);
+    if (!trip || !canPlanGuide(trip.id)) { status.textContent = '这趟旅行当前无法编辑'; return; }
+    const submit = form.querySelector('[type="submit"]');
+    try {
+      if (kind === 'guide-planner') {
+        await generateGuideDraft(form, fd, trip);
+        return;
+      }
+      if (kind === 'guide-stop-detail') {
+        submitGuideStopDetail(form, fd, trip);
+        return;
+      }
+      form._saving = true;
+      submit.disabled = true;
+      status.textContent = '正在保存…';
+      if (kind === 'guide-draft') await saveGuideDraft(form, trip);
+      else await importGuideLinks(fd, trip);
+    } catch (error) {
+      status.textContent = error.message || '操作失败，请重试';
+    } finally {
+      form._saving = false;
+      submit.disabled = false;
+    }
+  }
+
   // ---------------- 表单提交委托 ----------------
   async function onSubmit(e) {
     const form = e.target.closest('form[data-form]');
@@ -2186,6 +2677,14 @@ window.App = (() => {
     e.preventDefault();
     const kind = form.dataset.form;
     const fd = new FormData(form);
+    if (form.classList.contains('guide-form')) {
+      await submitGuideForm(form, fd, kind);
+      return;
+    }
+    if (kind === 'account-avatar') {
+      await saveAccountAvatar(form, fd.get('photo'));
+      return;
+    }
     if (kind === 'account-profile') {
       try {
         await AuthUI.updateDisplayName(String(fd.get('displayName') || ''));
@@ -2299,7 +2798,11 @@ window.App = (() => {
       });
       form._saving = false;
       submit.disabled = false;
-      if (saved) openModal('行程详情', Render.dayDetail(Store.getState(), dayId));
+      if (saved && current.tab === 'itinerary') {
+        current.itinerarySelection = { tripId: Store.getActiveTripId(), date };
+        closeModal(true);
+        render();
+      } else if (saved) openModal('行程详情', Render.dayDetail(Store.getState(), dayId));
       return;
     }
 
@@ -2375,6 +2878,13 @@ window.App = (() => {
         return;
       }
       closeModal();
+      if (current.tab === 'itinerary') {
+        const target = Store.getState().itinerary.find(day => day.id === targetDayId);
+        if (target) {
+          current.itinerarySelection = { tripId: Store.getActiveTripId(), date: target.date || 'undated' };
+          render();
+        }
+      }
       return;
     }
 
@@ -2635,6 +3145,10 @@ window.App = (() => {
 
   // ---------------- 变更委托（勾选/下拉） ----------------
   function onChange(e) {
+    if (e.target.matches('form[data-form="account-avatar"] input[type="file"]')) {
+      previewAccountAvatar(e.target);
+      return;
+    }
     if (e.target.matches('input[name="imageFiles"]')) {
       onEntryImagesSelected(e.target);
       return;
@@ -3103,11 +3617,11 @@ window.App = (() => {
       const have = new Set((day.items || []).map(i => i.id));
       // 只留还存在的条目，删掉的要从 order 里摘出去，否则会留下悬空 id
       day.order = orderIds.filter(id => have.has(id));
-    }, '顺序已调整').then(() => {
+    }, '顺序已调整').then(saved => {
       if (!modal().hidden) {
         modalBody().innerHTML = Render.dayDetail(Store.getState(), dayId);
         applyPermissions(modal());
-      }
+      } else if (!saved) render();
     });
   }
 
@@ -3115,28 +3629,32 @@ window.App = (() => {
     let drag = null;
 
     document.addEventListener('pointerdown', (e) => {
-      if (!Store.canEditTrip() || Store.getRole() === 'temporary') return;
-      const grip = e.target.closest && e.target.closest('.dt-grip');
+      if (drag || e.button !== 0 || !Store.canEditTrip() || Store.getRole() === 'temporary') return;
+      const grip = e.target.closest && e.target.closest('.dt-grip, .guide-sort-grip, .guide-child-grip');
       if (!grip) return;
-      const li = grip.closest('.dt-item');
-      const list = li && li.closest('.dt-list');
+      const child = grip.classList.contains('guide-child-grip');
+      const guide = child || grip.classList.contains('guide-sort-grip');
+      const itemSelector = child ? '[data-guide-child]' : guide ? '[data-guide-sort-id]' : '.dt-item';
+      const li = grip.closest(itemSelector);
+      const list = li?.parentElement;
       if (!li || !list) return;
+      if (guide && list.closest('form')._saving) return;
       e.preventDefault();
       try { grip.setPointerCapture(e.pointerId); } catch (_) {}
       li.classList.add('is-dragging');
-      drag = { list, li, pid: e.pointerId, moved: false };
+      drag = { list, li, guide, child, itemSelector, pid: e.pointerId, moved: false, originalNext: li.nextElementSibling };
     });
 
     document.addEventListener('pointermove', (e) => {
-      if (!drag || e.pointerId !== drag.pid) return;
-      drag.moved = true;
-      const items = [...drag.list.querySelectorAll('.dt-item')];
+      if (!drag || e.pointerId !== drag.pid || !drag.li.isConnected) return;
+      const items = [...drag.list.querySelectorAll(drag.itemSelector)];
       for (const other of items) {
         if (other === drag.li) continue;
         const r = other.getBoundingClientRect();
         if (e.clientY >= r.top && e.clientY <= r.bottom) {
           const before = (e.clientY - r.top) < r.height / 2;
           drag.list.insertBefore(drag.li, before ? other : other.nextSibling);
+          drag.moved = true;
           break;
         }
       }
@@ -3144,15 +3662,29 @@ window.App = (() => {
 
     const finish = (e) => {
       if (!drag || e.pointerId !== drag.pid) return;
-      const { list, li, moved } = drag;
+      const { list, li, moved, guide, child, originalNext } = drag;
       drag = null;
       li.classList.remove('is-dragging');
-      if (!moved) return;
+      if (!moved || !li.isConnected) return;
+      if (guide) {
+        if (e.type === 'pointercancel') list.insertBefore(li, originalNext);
+        else if (li.nextElementSibling !== originalNext) {
+          if (child) {
+            const id = list.closest('[data-guide-stop]').dataset.guideStop;
+            moveGuideChild(id, Number(li.dataset.guideChild), [...list.children].indexOf(li));
+          } else {
+            const next = li.nextElementSibling;
+            const target = next || li.previousElementSibling;
+            moveGuideStop(li.dataset.guideSortId, target.dataset.guideSortId, !next);
+          }
+        }
+        return;
+      }
       if (e.type === 'pointercancel') {
         if (!modal().hidden) {
           modalBody().innerHTML = Render.dayDetail(Store.getState(), list.dataset.day);
           applyPermissions(modal());
-        }
+        } else render();
         return;
       }
       commitDayOrder(list.dataset.day, [...list.querySelectorAll('.dt-item')].map(x => x.dataset.item));
@@ -3200,7 +3732,20 @@ window.App = (() => {
       }
     });
     document.addEventListener('keydown', (e) => {
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.target.matches('.guide-child-grip')) {
+        e.preventDefault();
+        const item = e.target.closest('[data-guide-child]');
+        const next = e.key === 'ArrowDown' ? item.nextElementSibling : item.previousElementSibling;
+        if (next) moveGuideChild(item.closest('[data-guide-stop]').dataset.guideStop, Number(item.dataset.guideChild), Number(next.dataset.guideChild));
+        return;
+      }
       if (e.key === 'Escape') {
+        const menu = $('.action-menu[open]');
+        if (menu) {
+          menu.open = false;
+          menu.querySelector('summary').focus();
+          return;
+        }
         if (!document.querySelector('.nearby-location-dialog[open]')) closeModal();
         return;
       }

@@ -46,7 +46,7 @@ test('the fourth primary tab opens My and stays selected on every personal detai
   const { render } = setup();
   assert.deepEqual(Array.from(render.TABS, tab => tab.id), ['overview', 'places', 'bookings', 'mine']);
   assert.equal(render.tabTitle('mine'), '我的');
-  for (const page of ['mine', 'checklist', 'photos', 'profile', 'journal', 'archive', 'settings', 'footprints']) {
+  for (const page of ['mine', 'checklist', 'photos', 'profile', 'journal', 'archive', 'archive-trip', 'settings', 'footprints']) {
     assert.equal(render.isPrimaryTabActive('mine', page), true);
     assert.equal(render.isPrimaryTabActive('overview', page), false);
     assert.equal(render.isPrimaryTabActive('places', page), false);
@@ -93,6 +93,22 @@ test('each detail page has a route back to My and retains its actual feature con
   assert.match(render.renderPage(state, 'photos'), /data-action="photo-add"/);
   assert.match(render.renderPage(state, 'profile'), /data-action="trip-profile-open"/);
   assert.match(render.renderPage(state, 'journal'), /data-action="memo-new"/);
+});
+
+test('the account photo is displayed privately in My and has its own editor', () => {
+  const { render, state, user } = setup();
+  const fallback = render.renderPage(state, 'mine');
+  assert.doesNotMatch(fallback, /mine-avatar-photo/);
+  user.avatarUrl = 'data:image/webp;base64,UklGRg==';
+  for (const tab of ['mine', 'profile']) {
+    assert.match(render.renderPage(state, tab), /class="mine-avatar-photo" src="data:image\/webp;base64,/);
+  }
+  assert.match(render.renderPage(state, 'profile'), /data-action="account-avatar-open"/);
+  assert.match(render.accountAvatarPicker(user), /type="file" name="photo".*image\/jpeg/);
+  user.avatarUrl = 'https://example.test/user.png';
+  assert.doesNotMatch(render.renderPage(state, 'mine'), /https:\/\/example\.test/);
+  const guest = setup({ user: null });
+  assert.doesNotMatch(guest.render.renderPage(guest.state, 'profile'), /data-action="account-avatar-open"/);
 });
 
 test('photo albums show every travel day before opening the selected photo grid', () => {
@@ -185,7 +201,7 @@ test('archives group every accessible trip by valid travel dates without changin
   store.listTrips = () => trips;
   const before = JSON.stringify(trips);
   const html = render.renderPage(state, 'archive');
-  const ids = Array.from(html.matchAll(/data-action="trip-open" data-id="([^"]+)"/g), match => match[1]);
+  const ids = Array.from(html.matchAll(/data-action="archive-trip-open" data-id="([^"]+)"/g), match => match[1]);
   assert.deepEqual(ids, ['future', 'current-trip', 'fallback', 'previous', 'undated']);
   assert.match(html, /2026 年/);
   assert.match(html, /2025 年/);
@@ -207,13 +223,33 @@ test('archives handle no trips and escape trip identifiers and destination text'
   store.listTrips = () => [];
   const empty = render.renderPage(state, 'archive');
   assert.match(empty, /还没有旅行档案/);
-  assert.doesNotMatch(empty, /data-action="trip-open"/);
+  assert.doesNotMatch(empty, /data-action="archive-trip-open"/);
   store.listTrips = () => [{ id: 'trip" onclick="BAD', meta: { tripName: '<script>NAME</script>', destination: '<b>PLACE</b>' } }];
   const html = render.renderPage(state, 'archive');
   assert.match(html, /data-id="trip&quot; onclick=&quot;BAD"/);
   assert.match(html, /&lt;script&gt;NAME&lt;\/script&gt;/);
   assert.match(html, /&lt;b&gt;PLACE&lt;\/b&gt;/);
   assert.doesNotMatch(html, /<script>|<b>PLACE|" onclick="BAD/);
+});
+
+test('an archive trip shows its own boarding pass and leaves the active trip alone', () => {
+  const { render, state, store } = setup();
+  const trip = { id: 'trip_other_p7bb40', meta: { tripName: '海边旅行', destination: '厦门', members: ['bob'] } };
+  store.listTrips = () => [state, trip];
+  store.getRoster = id => id === trip.id ? [{ name: 'bob', displayName: '小波' }] : [];
+  const html = render.renderPage(state, 'archive-trip', { archiveTripId: trip.id });
+  assert.match(html, /data-tab="archive"[^>]*>.*返回旅行档案/);
+  assert.match(html, /class="overview-ticket"/);
+  assert.match(html, /<dt>目的地<\/dt><dd>厦门<\/dd>/);
+  assert.match(html, /<dt>旅行成员<\/dt><dd>小波<\/dd>/);
+  assert.match(html, /<dt>旅行编号<\/dt><dd>P7BB40<\/dd>/);
+  assert.match(html, /data-action="boarding-pass-save"/);
+  assert.match(html, /data-action="trip-open" data-id="trip_other_p7bb40"/);
+  assert.doesNotMatch(html, /山间旅行/);
+  assert.equal(store.getActiveTripId(), state.id);
+  const unavailable = render.renderPage(state, 'archive-trip', { archiveTripId: 'missing' });
+  assert.match(unavailable, /这趟旅行暂时无法查看/);
+  assert.doesNotMatch(unavailable, /data-action="boarding-pass-save"/);
 });
 
 test('settings reuse supported actions and state the export scope for accounts and guests', () => {

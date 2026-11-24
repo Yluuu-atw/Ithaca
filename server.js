@@ -16,6 +16,9 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+try { process.loadEnvFile(path.join(__dirname, '.env')); }
+catch (error) { if (error.code !== 'ENOENT') throw error; }
+
 const os = require('os');
 const crypto = require('crypto');
 const sharp = require('sharp');
@@ -27,11 +30,13 @@ const { createSharing } = require('./data/sharing');
 const { AccessDeniedError, project, updateDocument } = require('./data/document-policy');
 const { formalPerson, assignAuthors, syncTripRoster } = require('./data/people');
 const { extractImageDraft, RecognitionError, MAX_IMAGE_BYTES } = require('./data/ai-recognition');
+const { aiProviders, AIProviderError } = require('./data/ai-provider');
+const { writeGuideNotes } = require('./data/ai-guide');
 const { createPlaceSearch, PlaceSearchError } = require('./data/place-search');
 const { createVoucherService } = require('./data/vouchers');
 const { renderVoucher } = require('./data/voucher-renderer');
 const { MAX_IMAGE_BYTES: MAX_VOUCHER_IMAGE_BYTES } = require('./data/voucher-image-check');
-
+const models = aiProviders();
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = process.env.ITHACA_DATA_DIR ? path.resolve(process.env.ITHACA_DATA_DIR) : path.join(__dirname, 'data');
@@ -40,6 +45,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const THUMB_DIR = path.join(DATA_DIR, 'thumbs');
 const AUTH_PATH = path.join(DATA_DIR, 'auth.json');
+const MAX_AVATAR_UPLOAD_BYTES = 20 * 1024 * 1024;
 const ORIGIN = process.env.ITHACA_ORIGIN || `http://localhost:${PORT}`;
 const COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_sid' : 'ithaca_sid';
 const SHARE_COOKIE_NAME = ORIGIN.startsWith('https://') ? '__Host-ithaca_share' : 'ithaca_share';
@@ -444,13 +450,22 @@ async function handleAuth(req, res, pathname) {
     const session = auth.resolve(cookieValue(req, COOKIE_NAME));
     return session ? sendJSON(res, 200, session) : sendJSON(res, 401, { error: '请先登录' });
   }
-  if (pathname === '/api/auth/profile') {
-    if (req.method !== 'PATCH') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+  const avatarUpload = pathname === '/api/auth/avatar';
+  if (avatarUpload || pathname === '/api/auth/profile') {
+    if (req.method !== (avatarUpload ? 'POST' : 'PATCH')) return sendJSON(res, 405, { error: 'Method Not Allowed' });
     if (!sameOrigin(req)) return sendJSON(res, 403, { error: '请求来源无效' });
     const session = auth.resolve(cookieValue(req, COOKIE_NAME));
     if (!session) return sendJSON(res, 401, { error: '请先登录' });
     if (req.headers['x-csrf-token'] !== session.csrf) return sendJSON(res, 403, { error: '安全令牌无效' });
     try {
+      if (avatarUpload) {
+        if (Number(req.headers['content-length']) > MAX_AVATAR_UPLOAD_BYTES) {
+          return sendJSON(res, 413, { error: '头像照片不能超过 20 MB' });
+        }
+        const photo = await accountAvatarImage(await readBody(req, MAX_AVATAR_UPLOAD_BYTES));
+        const user = await auth.updateAvatar(session.user.id, photo);
+        return sendJSON(res, 200, { user });
+      }
       const body = await readJSON(req);
       const user = await auth.updateDisplayName(session.user.id, body.displayName);
       broadcast();
@@ -665,6 +680,17 @@ async function readJSON(req) {
   return JSON.parse((await readBody(req)).toString('utf8'));
 }
 
+async function accountAvatarImage(bytes) {
+  try {
+    const photo = sharp(bytes, { limitInputPixels: 80_000_000 });
+    const { format } = await photo.metadata();
+    if (!['jpeg', 'png', 'webp'].includes(format)) throw new Error('Unsupported avatar format');
+    return await photo.autoOrient().resize(192, 192, { fit: 'cover' }).webp({ quality: 82 }).toBuffer();
+  } catch (_) {
+    throw new Error('无法读取这张照片，请选择清晰的 JPG、PNG 或 WebP 图片');
+  }
+}
+
 function photoUid() {
   return crypto.randomBytes(16).toString('hex');
 }
@@ -855,7 +881,9 @@ async function handleApi(req, res, pathname, principal) {
     try {
       const body = await readJSON(req);
       if (!body.tripId || !canEdit(db, principal, body.tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
-      const results = await placeSearch.search(body.query, body.near);
+      const results = body.dining === true
+        ? await placeSearch.searchDining(body.query, body.near, body.cuisine)
+        : await placeSearch.search(body.query, body.near);
       return sendJSON(res, 200, { results, attribution: '© OpenStreetMap contributors' });
     } catch (error) {
       return sendJSON(res, error instanceof PlaceSearchError ? error.status : 400, { error: error instanceof PlaceSearchError ? error.message : '地点查询失败' });
@@ -863,7 +891,33 @@ async function handleApi(req, res, pathname, principal) {
   }
   if (pathname === '/api/ai/status') {
     if (req.method !== 'GET') return sendJSON(res, 405, { error: 'Method Not Allowed' });
-    return sendJSON(res, 200, { available: !!process.env.ARK_API_KEY });
+    return sendJSON(res, 200, { available: !!models.vision });
+  }
+  if (pathname === '/api/ai/guide') {
+    if (req.method === 'GET') return sendJSON(res, 200, { available: !!principal.userId && !!models.text });
+    if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
+    if (!principal.userId) return sendJSON(res, 403, { error: '没有编辑权限' });
+    const controller = new AbortController();
+    const onClose = () => { if (!res.writableEnded) controller.abort(); };
+    res.once('close', onClose);
+    try {
+      const body = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8'));
+      if (!body?.tripId || !canEdit(db, principal, body.tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
+      if (!models.text) return sendJSON(res, 503, { error: 'AI 攻略尚未配置' });
+      if (limited(req, `guide-ai:${principal.userId}`, 8, 15 * 60 * 1000)
+        || limited(req, 'guide-ai:all', 24, 15 * 60 * 1000)) return sendJSON(res, 429, { error: 'AI 攻略查询过于频繁，请稍后再试' });
+      const notes = await writeGuideNotes({ provider: models.text, destination: body.destination, stops: body.stops, signal: controller.signal });
+      const currentPrincipal = resolvePrincipal(req.headers.cookie || '');
+      if (!currentPrincipal) return sendJSON(res, 401, { error: '请先登录' });
+      if (!canEdit(db, currentPrincipal, body.tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
+      return sendJSON(res, 200, { notes });
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      if (error instanceof AIProviderError) return sendJSON(res, error.status, { error: error.message });
+      return sendJSON(res, 400, { error: '请提供有效的攻略内容' });
+    } finally {
+      res.removeListener('close', onClose);
+    }
   }
   if (pathname === '/api/ai/extract') {
     if (req.method !== 'POST') return sendJSON(res, 405, { error: 'Method Not Allowed' });
@@ -872,7 +926,7 @@ async function handleApi(req, res, pathname, principal) {
     const tripId = params.get('tripId');
     if (kind !== 'booking' && kind !== 'expense') return sendJSON(res, 400, { error: '不支持的识别类型' });
     if (!tripId || !canEdit(db, principal, tripId)) return sendJSON(res, 403, { error: '没有编辑权限' });
-    if (!process.env.ARK_API_KEY) return sendJSON(res, 503, { error: '图片识别暂不可用' });
+    if (!models.vision) return sendJSON(res, 503, { error: '图片识别暂不可用' });
     const identity = principal.userId || `${principal.tempTripId}:${principal.tempPersonId}`;
     if (limited(req, `ai:${identity}`, 12, 15 * 60 * 1000)
       || limited(req, 'ai:all', 30, 15 * 60 * 1000)) return sendJSON(res, 429, { error: '识别次数过多，请稍后再试' });
@@ -884,7 +938,7 @@ async function handleApi(req, res, pathname, principal) {
       const bytes = await readBody(req, MAX_IMAGE_BYTES);
       const fields = await extractImageDraft({
         kind, bytes, contentType: (req.headers['content-type'] || '').split(';')[0].trim(),
-        apiKey: process.env.ARK_API_KEY, model: process.env.ARK_MODEL_ID || undefined,
+        provider: models.vision,
         signal: controller.signal,
       });
       const currentPrincipal = resolvePrincipal(req.headers.cookie || '');
